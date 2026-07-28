@@ -13,7 +13,7 @@ Houghton, and Centurion.
 ## Team
 | Member | Role |
 |---|---|
-| Kim (Khensani) | DB schema, EF Core, Entra ID auth, Graph/Outlook sync |
+| Khensani | DB schema, EF Core, Entra ID auth, Graph/Outlook sync |
 | Tino | Booking CRUD, conflict detection, search/filter |
 | Denzel | RBAC, admin/user mgmt, audit trail, reporting |
 | Khumo | Website UI (React + Fluent UI) |
