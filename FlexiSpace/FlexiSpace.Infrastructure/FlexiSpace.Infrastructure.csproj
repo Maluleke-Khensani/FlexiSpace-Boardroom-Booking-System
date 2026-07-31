@@ -22,4 +22,8 @@
     <PackageReference Include="Microsoft.Identity.Web" Version="4.13.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\FlexiSpace.Core\FlexiSpace.Core.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -32,8 +32,12 @@ namespace FlexiSpace.Core.Entities
 
         public required Location Location { get; set; }
 
+        public ICollection<Booking> ApprovedBookings { get; set; } = new List<Booking>();
 
+        public ICollection<Notification> Notifications { get; set; }
+    = new List<Notification>();
 
-
+        public ICollection<AuditLog> AuditLogs { get; set; }
+    = new List<AuditLog>();
     }
 }
