@@ -14,13 +14,12 @@ namespace FlexiSpace.API
             //My Application will have an API controller
             builder.Services.AddControllers();
 
+            // Register the database context and configure SQL Server as the database provider.
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseSqlServer(
-            builder.Configuration.GetConnectionString("DefaultConnection")));
-               
+                options.UseSqlServer(
+                    builder.Configuration.GetConnectionString("DefaultConnection")));
 
-            //Swagger to test my API endpoints and generate documentation for my API
-
+            // Register Swagger services to generate API documentation and allow endpoint testing during development.
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
