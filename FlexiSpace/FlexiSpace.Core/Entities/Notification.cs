@@ -24,6 +24,6 @@ namespace FlexiSpace.Core.Entities
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        public DateTime? SentAt { get; set; }
+        public DateTime SentAt { get; set; }
     }
 }
