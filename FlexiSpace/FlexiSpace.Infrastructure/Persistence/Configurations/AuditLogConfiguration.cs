@@ -15,7 +15,8 @@ namespace FlexiSpace.Infrastructure.Persistence.Configurations
 
             // Properties
             builder.Property(a => a.Action)
-                   .IsRequired();
+        .HasConversion<string>()
+        .IsRequired();
 
             builder.Property(a => a.EntityName)
                    .IsRequired()
@@ -28,11 +29,10 @@ namespace FlexiSpace.Infrastructure.Persistence.Configurations
             builder.Property(a => a.Timestamp)
                    .IsRequired();
 
-            builder.Property(a => a.OldValues)
-                   .IsRequired();
+            builder.Property(a => a.OldValues);
 
-            builder.Property(a => a.NewValues)
-                   .IsRequired();
+            builder.Property(a => a.NewValues);
+               
 
             // Relationships
             builder.HasOne(a => a.User)
