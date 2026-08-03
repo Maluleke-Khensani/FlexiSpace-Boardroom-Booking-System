@@ -1,5 +1,7 @@
 ﻿
 
+using FlexiSpace.Core.Enums;
+
 namespace FlexiSpace.Core.Entities
 {
     public class AuditLog
@@ -10,8 +12,7 @@ namespace FlexiSpace.Core.Entities
 
         public required User User { get; set; }
 
-        public required string Action { get; set; }
-
+        public AuditAction Action { get; set; }
         public required string EntityName { get; set; }
 
         public required string EntityId { get; set; }

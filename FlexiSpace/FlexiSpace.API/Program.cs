@@ -1,7 +1,12 @@
 using FlexiSpace.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using FlexiSpace.Core.Services;
+using FlexiSpace.Infrastructure.Services;
+
+
 namespace FlexiSpace.API
 {
+
     public class Program
     {
         public static void Main(string[] args)
@@ -18,6 +23,9 @@ namespace FlexiSpace.API
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlServer(
                     builder.Configuration.GetConnectionString("DefaultConnection")));
+
+            builder.Services.AddScoped<ILocationService, LocationService>();
+
 
             // Register Swagger services to generate API documentation and allow endpoint testing during development.
             builder.Services.AddEndpointsApiExplorer();

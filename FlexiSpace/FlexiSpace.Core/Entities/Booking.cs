@@ -33,13 +33,11 @@ public class Booking
 
     public string? OutlookEventId { get; set; }
 
-    public DateTime CreatedAt { get; set; }
-
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ModifiedAt { get; set; }
 
-   
 
-   
+
 
     // Optional Approval Relationship
     public int? ApprovedById { get; set; }

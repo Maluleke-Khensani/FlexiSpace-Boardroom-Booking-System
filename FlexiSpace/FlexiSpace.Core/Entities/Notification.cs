@@ -23,7 +23,6 @@ namespace FlexiSpace.Core.Entities
         public bool IsRead { get; set; } = false;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-        public DateTime SentAt { get; set; }
+        public DateTime SentAt { get; set; } = DateTime.UtcNow;
     }
 }

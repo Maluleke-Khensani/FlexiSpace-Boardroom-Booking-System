@@ -22,8 +22,7 @@ namespace FlexiSpace.Core.Entities
 
         public int Capacity { get; set; }
 
-        public DateTime CreatedAt { get; set; }
-
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public bool IsActive { get; set; } = true;
 
         public BoardroomStatus Status { get; set; } = BoardroomStatus.Available;
