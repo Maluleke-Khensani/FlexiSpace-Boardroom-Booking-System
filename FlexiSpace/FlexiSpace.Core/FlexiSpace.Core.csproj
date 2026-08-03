@@ -8,10 +8,11 @@
 
   <ItemGroup>
     <Folder Include="Common\" />
-    <Folder Include="DTOs\" />
-    <Folder Include="Interfaces\" />
+    <Folder Include="DTOs\Catering\" />
+    <Folder Include="DTOs\Equipment\" />
+    <Folder Include="DTOs\Notification\" />
+    <Folder Include="DTOs\User\" />
     <Folder Include="Validators\" />
-    <Folder Include="Services\" />
   </ItemGroup>
 
 </Project>

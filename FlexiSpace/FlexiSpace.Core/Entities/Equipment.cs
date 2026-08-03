@@ -14,7 +14,7 @@ namespace FlexiSpace.Core.Entities
 
         //To describe the specification of the equipment
         public required string Description { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public bool IsActive { get; set; } = true;
 

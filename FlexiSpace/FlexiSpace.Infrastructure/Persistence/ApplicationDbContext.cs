@@ -1,5 +1,9 @@
-﻿using FlexiSpace.Core.Entities;
+﻿using System;
+using System.Threading;
+using System.Threading.Tasks;
+using FlexiSpace.Core.Entities;
 using Microsoft.EntityFrameworkCore;
+
 
 
 namespace FlexiSpace.Infrastructure.Persistence
@@ -41,6 +45,35 @@ namespace FlexiSpace.Infrastructure.Persistence
             base.OnModelCreating(modelBuilder);
 
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
+        }
+
+        public override int SaveChanges()
+        {
+            ApplyBookingTimestamps();
+            return base.SaveChanges();
+        }
+
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            ApplyBookingTimestamps();
+            return await base.SaveChangesAsync(cancellationToken);
+        }
+
+        private void ApplyBookingTimestamps()
+        {
+            var entries = ChangeTracker.Entries<Booking>();
+
+            foreach (var entry in entries)
+            {
+                if (entry.State == EntityState.Added)
+                {
+                    entry.Entity.CreatedAt = DateTime.UtcNow;
+                }
+                else if (entry.State == EntityState.Modified)
+                {
+                    entry.Entity.ModifiedAt = DateTime.UtcNow;
+                }
+            }
         }
     }
 }

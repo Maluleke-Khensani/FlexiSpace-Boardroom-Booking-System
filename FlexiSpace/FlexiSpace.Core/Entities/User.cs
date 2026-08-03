@@ -19,8 +19,7 @@ namespace FlexiSpace.Core.Entities
 
         //IsActive property is used to indicate whether the user is currently active or not. It can be useful for managing user accounts, such as deactivating users who are no longer part of the organization or temporarily suspending access.
         public bool IsActive { get; set; } = true;
-        public DateTime CreatedAt { get; set; }
-
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public UserRole Role{ get; set; }
 
 
