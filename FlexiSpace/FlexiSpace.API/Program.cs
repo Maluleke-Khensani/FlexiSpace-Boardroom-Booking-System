@@ -25,6 +25,8 @@ namespace FlexiSpace.API
                     builder.Configuration.GetConnectionString("DefaultConnection")));
 
             builder.Services.AddScoped<ILocationService, LocationService>();
+            builder.Services.AddScoped<IBoardroomService, BoardroomService>();
+            builder.Services.AddScoped<IEquipmentService, EquipmentService>();
 
 
             // Register Swagger services to generate API documentation and allow endpoint testing during development.

@@ -9,7 +9,6 @@
   <ItemGroup>
     <Folder Include="Common\" />
     <Folder Include="DTOs\Catering\" />
-    <Folder Include="DTOs\Equipment\" />
     <Folder Include="DTOs\Notification\" />
     <Folder Include="DTOs\User\" />
     <Folder Include="Validators\" />
