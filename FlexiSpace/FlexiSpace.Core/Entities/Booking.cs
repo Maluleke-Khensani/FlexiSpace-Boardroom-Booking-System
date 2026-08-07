@@ -9,12 +9,12 @@ public class Booking
 
     // Boardroom Relationship
     public int BoardroomId { get; set; }
-    public required Boardroom Boardroom { get; set; }
+    public Boardroom? Boardroom { get; set; }
     
 
     // Booker Relationship
     public int UserId { get; set; }
-    public required User User { get; set; }
+    public User? User { get; set; }
 
 
     public DateOnly BookingDate { get; set; }

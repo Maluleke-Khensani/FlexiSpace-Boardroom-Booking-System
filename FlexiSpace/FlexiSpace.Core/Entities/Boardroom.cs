@@ -12,7 +12,7 @@ namespace FlexiSpace.Core.Entities
 
         //relationship: Many boardrooms can belong to one location, so we use a navigation property to represent this relationship
         //Location Location in simple terms means that each boardroom is associated with a specific location, and this property allows us to access the details of that location directly from the boardroom entity.
-        public required Location Location { get; set; }
+        public Location? Location { get; set; }
 
 
         //One Boardroom can have many bookings, so we use a collection to represent this relationship
