@@ -39,12 +39,9 @@ namespace FlexiSpace.API
             builder.Services.AddScoped<ILocationService, LocationService>();
             builder.Services.AddScoped<IBoardroomService, BoardroomService>();
             builder.Services.AddScoped<IEquipmentService, EquipmentService>();
-            builder.Services.AddScoped<IUserService, UserService>();
-            builder.Services.AddScoped<IBookingService, BookingService>();
-            builder.Services.AddScoped<ICateringService, CateringService>();
 
-            // Register Swagger services to generate API documentation
-            // and allow endpoint testing during development.
+
+            // Register Swagger services to generate API documentation and allow endpoint testing during development.
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 

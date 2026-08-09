@@ -32,21 +32,7 @@ namespace FlexiSpace.Infrastructure.Services
 
             return equipment;
         }
-        public async Task<bool> UpdateEquipmentStatusAsync(int id, bool isActive)
-        {
-            var equipment = await _context.Equipments.FindAsync(id);
 
-            if (equipment == null)
-            {
-                return false;
-            }
-
-            equipment.IsActive = isActive;
-
-            await _context.SaveChangesAsync();
-
-            return true;
-        }
         public async Task<bool> UpdateEquipmentAsync(int id, Equipment equipment)
         {
             var existingEquipment = await _context.Equipments.FindAsync(id);
@@ -58,7 +44,6 @@ namespace FlexiSpace.Infrastructure.Services
 
             existingEquipment.Name = equipment.Name;
             existingEquipment.Description = equipment.Description;
-            existingEquipment.IsActive = equipment.IsActive;
 
             await _context.SaveChangesAsync();
 

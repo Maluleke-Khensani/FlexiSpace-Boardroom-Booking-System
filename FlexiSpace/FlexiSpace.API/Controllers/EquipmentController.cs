@@ -59,46 +59,26 @@ namespace FlexiSpace.API.Controllers
                 MapToResponseDto(createdEquipment));
         }
 
-
-        [HttpPatch("{id}/status")]
-        public async Task<IActionResult> UpdateEquipmentStatus(int id,EquipmentStatusDto dto)
-        {
-            // Ask the service to update the equipment status
-            var updated = await _equipmentService.UpdateEquipmentStatusAsync(id, dto.IsActive);
-
-            // Return 404 if the equipment wasn't found
-            if (!updated)
-            {
-                return NotFound();
-            }
-
-            // Return 204 when the update succeeds
-            return NoContent();
-        }
         // Updates an existing equipment record.
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateEquipment(int id, EquipmentUpdateDto dto)
         {
-            // Convert the Update DTO into an Equipment entity
             var equipment = new Equipment
             {
                 Name = dto.Name,
-                Description = dto.Description,
-                IsActive = dto.IsActive
+                Description = dto.Description
             };
 
-            // Ask the service to update the equipment
             var updated = await _equipmentService.UpdateEquipmentAsync(id, equipment);
 
-            // Return 404 if the equipment doesn't exist
             if (!updated)
             {
                 return NotFound();
             }
 
-            // Return HTTP 204 (No Content)
             return NoContent();
         }
+
         // Deletes equipment from the system.
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteEquipment(int id)
@@ -124,8 +104,5 @@ namespace FlexiSpace.API.Controllers
                 IsActive = equipment.IsActive
             };
         }
-
-
     }
 }
-
