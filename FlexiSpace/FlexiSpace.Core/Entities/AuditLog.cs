@@ -10,7 +10,7 @@ namespace FlexiSpace.Core.Entities
 
         public int UserId { get; set; }
 
-        public required User User { get; set; }
+        public User? User { get; set; }
 
         public AuditAction Action { get; set; }
         public required string EntityName { get; set; }

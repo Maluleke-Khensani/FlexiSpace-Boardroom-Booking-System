@@ -23,13 +23,14 @@ namespace FlexiSpace.Core.Entities
         public UserRole Role{ get; set; }
 
 
-        //One User can have many bookings, so we use a collection to represent this relationship
-        public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
-
+        
         //Many Users --> One Location, so we use a navigation property to represent this relationship
         public int LocationId { get; set; }
 
-        public required Location Location { get; set; }
+        public  Location? Location { get; set; }
+
+        //One User can have many bookings, so we use a collection to represent this relationship
+        public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
         public ICollection<Booking> ApprovedBookings { get; set; } = new List<Booking>();
 

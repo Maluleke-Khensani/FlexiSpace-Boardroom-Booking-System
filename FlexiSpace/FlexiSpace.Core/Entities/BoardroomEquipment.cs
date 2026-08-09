@@ -14,11 +14,11 @@ namespace FlexiSpace.Core.Entities
     {
         public int BoardroomId { get; set; }
 
-        public required Boardroom Boardroom { get; set; }
+        public Boardroom? Boardroom { get; set; }
 
         public int EquipmentId { get; set; }
 
-        public required Equipment Equipment { get; set; }
+        public Equipment? Equipment { get; set; }
 
         public int Quantity { get; set; } = 1;
     }
