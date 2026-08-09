@@ -9,9 +9,9 @@ namespace FlexiSpace.Core.Entities
     public class BookingCatering
     {
         public int BookingId { get; set; }
-        public required Booking Booking { get; set; } 
+        public Booking? Booking { get; set; } 
         public int CateringId { get; set; }
-        public required Catering Catering { get; set; }
+        public Catering? Catering { get; set; }
 
         public int Quantity { get; set; } = 1;
 

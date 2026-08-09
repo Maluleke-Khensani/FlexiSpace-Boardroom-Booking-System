@@ -1,4 +1,5 @@
 ﻿using FlexiSpace.Core.DTOs.Boardroom;
+using FlexiSpace.Core.DTOs.Equipment;
 using FlexiSpace.Core.Entities;
 using FlexiSpace.Core.Services;
 using Microsoft.AspNetCore.Mvc;
