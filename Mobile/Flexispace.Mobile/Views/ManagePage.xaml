@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Flexispace.Mobile.ViewModels"
+             xmlns:models="clr-namespace:Flexispace.Mobile.Models"
+             x:Class="Flexispace.Mobile.Views.ManagePage"
+             x:DataType="vm:ManageViewModel"
+             Title="Manage"
+             BackgroundColor="{StaticResource BrandIvory}">
+
+    <RefreshView Command="{Binding AppearingCommand}" IsRefreshing="{Binding IsBusy}">
+        <ScrollView>
+            <VerticalStackLayout Padding="20" Spacing="16" MaximumWidthRequest="720" HorizontalOptions="Center">
+                <Label Text="{Binding Title}" Style="{StaticResource SectionTitle}" FontSize="24" />
+                <Label Text="{Binding Subtitle}" Style="{StaticResource MutedLabel}" />
+                <Label Text="{Binding Message}"
+                       TextColor="{StaticResource BrandGoldDeep}"
+                       IsVisible="{Binding Message, Converter={StaticResource StringNotEmptyConverter}}" />
+
+                <VerticalStackLayout IsVisible="{Binding HasAccess}" Spacing="16">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Pending approvals" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" VerticalOptions="Center" />
+                        <Border Grid.Column="1" Style="{StaticResource StatusPillBorder}" BackgroundColor="{StaticResource BrandGold}">
+                            <Label Text="{Binding PendingBookings.Count}" Style="{StaticResource StatusPillText}" />
+                        </Border>
+                    </Grid>
+                    <CollectionView ItemsSource="{Binding PendingBookings}" HeightRequest="180"
+                                    EmptyView="No bookings awaiting approval.">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:Booking">
+                                <Border Style="{StaticResource ElevatedCard}" Margin="0,0,0,8">
+                                    <Grid ColumnDefinitions="4,*">
+                                        <BoxView Grid.Column="0" Color="{StaticResource BrandGold}" />
+                                        <Grid Grid.Column="1" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6" Padding="14,10">
+                                            <VerticalStackLayout>
+                                                <Label Text="{Binding RoomName}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" />
+                                                <Label Text="{Binding LocationName}" TextColor="{StaticResource BrandMuted}" FontSize="12" />
+                                                <Label Text="{Binding Start, StringFormat='{0:g}'}" TextColor="{StaticResource BrandMuted}" FontSize="12" />
+                                                <Label Text="{Binding BookerName}" TextColor="{StaticResource BrandMuted}" FontSize="12" />
+                                            </VerticalStackLayout>
+                                            <Button Grid.Column="1" Text="Details"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ManageViewModel}}, Path=OpenBookingCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    Style="{StaticResource GhostButton}" Padding="10,6" FontSize="11" MinimumHeightRequest="36" />
+                                            <Button Grid.Column="2" Text="Approve"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ManageViewModel}}, Path=ApproveCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    Style="{StaticResource GoldButton}" Padding="10,6" FontSize="11" MinimumHeightRequest="36" />
+                                            <Button Grid.Column="3" Text="Decline"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ManageViewModel}}, Path=DeclineCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    Style="{StaticResource GhostButton}" Padding="10,6" FontSize="11" MinimumHeightRequest="36" />
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                    <Label Text="Bookings in scope" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" />
+                    <CollectionView ItemsSource="{Binding LocationBookings}" HeightRequest="200">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:Booking">
+                                <Border Style="{StaticResource ElevatedCard}" Margin="0,0,0,8">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ManageViewModel}}, Path=OpenBookingCommand}"
+                                            CommandParameter="{Binding .}" />
+                                    </Border.GestureRecognizers>
+                                    <Grid ColumnDefinitions="4,*">
+                                        <BoxView Grid.Column="0" Color="{Binding Status, Converter={StaticResource StatusAccentConverter}}" />
+                                        <Grid Grid.Column="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Padding="14,10">
+                                            <VerticalStackLayout>
+                                                <Label Text="{Binding RoomName}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" />
+                                                <Label Text="{Binding LocationName}" TextColor="{StaticResource BrandMuted}" FontSize="12" />
+                                                <Label Text="{Binding Start, StringFormat='{0:g}'}" TextColor="{StaticResource BrandMuted}" FontSize="12" />
+                                            </VerticalStackLayout>
+                                            <Border Grid.Column="1" Style="{StaticResource StatusPillBorder}" VerticalOptions="Center" BackgroundColor="{Binding Status, Converter={StaticResource StatusAccentConverter}}">
+                                                <Label Text="{Binding Status}" Style="{StaticResource StatusPillText}" />
+                                            </Border>
+                                            <Button Grid.Column="2" Text="Details"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ManageViewModel}}, Path=OpenBookingCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    Style="{StaticResource GhostButton}" Padding="10,6" FontSize="11" MinimumHeightRequest="36" />
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                    <Label Text="Room and user administration, plus usage reports, live on the Flexispace website's admin dashboard — mobile stays focused on approvals so you can act fast, on the go."
+                           Style="{StaticResource MutedLabel}" FontSize="11" IsVisible="{Binding IsAdministrator}" Margin="0,4,0,0" />
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+    </RefreshView>
+</ContentPage>

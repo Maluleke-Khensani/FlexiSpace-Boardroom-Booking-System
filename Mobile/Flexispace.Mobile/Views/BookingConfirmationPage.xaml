@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Flexispace.Mobile.ViewModels"
+             x:Class="Flexispace.Mobile.Views.BookingConfirmationPage"
+             x:DataType="vm:BookingConfirmationViewModel"
+             Title="Confirmed"
+             BackgroundColor="{StaticResource BrandIvory}"
+             Shell.NavBarIsVisible="False">
+
+    <VerticalStackLayout Padding="28" Spacing="16" VerticalOptions="Center" MaximumWidthRequest="480" HorizontalOptions="Center">
+        <Label Text="AWAITING APPROVAL" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" CharacterSpacing="3"
+               HorizontalTextAlignment="Center" IsVisible="{Binding IsPending}" />
+        <Label Text="BOOKED" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" CharacterSpacing="3"
+               HorizontalTextAlignment="Center" IsVisible="{Binding IsPending, Converter={StaticResource InvertedBoolConverter}}" />
+
+        <Label Text="Your request has been sent for approval." Style="{StaticResource SectionTitle}"
+               HorizontalTextAlignment="Center" FontSize="28" IsVisible="{Binding IsPending}" />
+        <Label Text="Your boardroom is ready." Style="{StaticResource SectionTitle}"
+               HorizontalTextAlignment="Center" FontSize="28" IsVisible="{Binding IsPending, Converter={StaticResource InvertedBoolConverter}}" />
+
+        <Border Style="{StaticResource CardBorder}">
+            <VerticalStackLayout Spacing="8">
+                <Label Text="{Binding Booking.RoomName}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="18" HorizontalTextAlignment="Center" />
+                <Label Text="{Binding Booking.LocationName}" TextColor="{StaticResource BrandMuted}" HorizontalTextAlignment="Center" />
+                <Label Text="{Binding Booking.Start, StringFormat='{0:f}'}" TextColor="{StaticResource BrandGoldSoft}" HorizontalTextAlignment="Center" />
+                <Label Text="{Binding Booking.Status, StringFormat='Status · {0}'}" TextColor="{StaticResource BrandGoldDeep}" HorizontalTextAlignment="Center" FontAttributes="Bold" />
+            </VerticalStackLayout>
+        </Border>
+
+        <Label Text="A Centre Manager still needs to approve this booking before it's confirmed. An unread item was added to Alerts — tap it to open this booking."
+               Style="{StaticResource MutedLabel}" HorizontalTextAlignment="Center" IsVisible="{Binding IsPending}" />
+        <Label Text="A confirmation was added to Alerts — tap it to open this booking. Outlook sync will be wired when the API is live."
+               Style="{StaticResource MutedLabel}" HorizontalTextAlignment="Center"
+               IsVisible="{Binding IsPending, Converter={StaticResource InvertedBoolConverter}}" />
+
+        <Button Text="Open in Alerts" Command="{Binding ViewAlertsCommand}" Style="{StaticResource GoldButton}" />
+        <Button Text="View my bookings" Command="{Binding ViewBookingsCommand}" Style="{StaticResource GhostButton}" />
+        <Button Text="Back to home" Command="{Binding DoneCommand}" Style="{StaticResource GhostButton}" />
+    </VerticalStackLayout>
+</ContentPage>

@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Flexispace.Mobile.ViewModels"
+             xmlns:models="clr-namespace:Flexispace.Mobile.Models"
+             x:Class="Flexispace.Mobile.Views.BookingPage"
+             x:DataType="vm:BookingViewModel"
+             Title="Book a room"
+             BackgroundColor="{StaticResource BrandIvory}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="14" MaximumWidthRequest="560" HorizontalOptions="Center">
+            <Label Text="MEETING ROOM / BOARDROOM" TextColor="{StaticResource BrandGoldDeep}" FontSize="11" FontAttributes="Bold" CharacterSpacing="1.2" />
+            <Label Text="Make the right impression" Style="{StaticResource SectionTitle}" />
+            <Label Text="Fully equipped rooms with uncapped fibre, backup power, conference calling, tea &amp; coffee, and secure parking ? from R150 per hour." Style="{StaticResource MutedLabel}" />
+            <Label Text="Step {Binding Step}" IsVisible="False" />
+            <Label Text="{Binding Step, StringFormat='Step {0} of 4'}" TextColor="{StaticResource BrandGoldDeep}" FontSize="12" Margin="0,4,0,0" />
+            <Label Text="Client bookings are submitted for Centre Manager approval. Online payment arrives in Phase 2." Style="{StaticResource MutedLabel}" IsVisible="{Binding ShowClientPaymentNote}" />
+            <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource BrandDanger}" IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+
+            <VerticalStackLayout IsVisible="{Binding Step, Converter={StaticResource StepEqualsConverter}, ConverterParameter=1}" Spacing="10">
+                <Label Text="Choose a location" Style="{StaticResource MutedLabel}" />
+                <Label Text="Swipe, mouse wheel, keyboard arrows, or use the chevrons." Style="{StaticResource MutedLabel}" FontSize="12" />
+
+                <Grid x:Name="BookingCarouselHost" HeightRequest="310" Padding="0,6" ColumnDefinitions="52,*,52">
+                    <Grid.GestureRecognizers>
+                        <SwipeGestureRecognizer Direction="Left" Swiped="OnBookingSwipedLeft" />
+                        <SwipeGestureRecognizer Direction="Right" Swiped="OnBookingSwipedRight" />
+                    </Grid.GestureRecognizers>
+
+                    <Button Grid.Column="0" Text="Prev" Clicked="OnBookingPreviousClicked" WidthRequest="42" HeightRequest="42" CornerRadius="21" BackgroundColor="#EEFFFFFF" TextColor="{StaticResource BrandInk}" FontSize="10" FontAttributes="Bold" HorizontalOptions="Center" VerticalOptions="Center" Margin="0,0,0,40" ZIndex="5" />
+                    <Button Grid.Column="2" Text="Next" Clicked="OnBookingNextClicked" WidthRequest="42" HeightRequest="42" CornerRadius="21" BackgroundColor="#EEFFFFFF" TextColor="{StaticResource BrandInk}" FontSize="10" FontAttributes="Bold" HorizontalOptions="Center" VerticalOptions="Center" Margin="0,0,0,40" ZIndex="5" />
+
+                    <Grid Grid.Column="1" HorizontalOptions="Fill" VerticalOptions="Fill">
+                        <Border x:Name="BookingLeftCard" WidthRequest="150" HeightRequest="160" HorizontalOptions="Start" VerticalOptions="Center" Stroke="{StaticResource BrandLine}" StrokeThickness="1" StrokeShape="RoundRectangle 6" BackgroundColor="White" ZIndex="1">
+                            <Grid>
+                                <Image x:Name="BookingLeftImage" Aspect="AspectFill" />
+                                <BoxView Color="#88000000" VerticalOptions="End" HeightRequest="52" />
+                                <VerticalStackLayout VerticalOptions="End" Padding="12" Spacing="1">
+                                    <Label x:Name="BookingLeftTitle" TextColor="White" FontAttributes="Bold" FontSize="13" />
+                                    <Label x:Name="BookingLeftSubtitle" TextColor="{StaticResource BrandGoldSoft}" FontSize="10" LineBreakMode="TailTruncation" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Border>
+
+                        <Border x:Name="BookingCenterCard" WidthRequest="250" HeightRequest="220" HorizontalOptions="Center" VerticalOptions="Center" Stroke="{StaticResource BrandLine}" StrokeThickness="1" StrokeShape="RoundRectangle 6" BackgroundColor="White" ZIndex="3">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnBookingCenterTapped" />
+                            </Border.GestureRecognizers>
+                            <Grid>
+                                <Image x:Name="BookingCenterImage" Aspect="AspectFill" />
+                                <BoxView Color="#99000000" VerticalOptions="End" HeightRequest="78" />
+                                <VerticalStackLayout VerticalOptions="End" Padding="14" Spacing="2">
+                                    <Label x:Name="BookingCenterTitle" TextColor="White" FontAttributes="Bold" FontSize="18" />
+                                    <Label x:Name="BookingCenterSubtitle" TextColor="{StaticResource BrandGoldSoft}" FontSize="11" LineBreakMode="TailTruncation" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Border>
+
+                        <Border x:Name="BookingRightCard" WidthRequest="150" HeightRequest="160" HorizontalOptions="End" VerticalOptions="Center" Stroke="{StaticResource BrandLine}" StrokeThickness="1" StrokeShape="RoundRectangle 6" BackgroundColor="White" ZIndex="1">
+                            <Grid>
+                                <Image x:Name="BookingRightImage" Aspect="AspectFill" />
+                                <BoxView Color="#88000000" VerticalOptions="End" HeightRequest="52" />
+                                <VerticalStackLayout VerticalOptions="End" Padding="12" Spacing="1">
+                                    <Label x:Name="BookingRightTitle" TextColor="White" FontAttributes="Bold" FontSize="13" />
+                                    <Label x:Name="BookingRightSubtitle" TextColor="{StaticResource BrandGoldSoft}" FontSize="10" LineBreakMode="TailTruncation" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+
+                <Button Text="Choose this location" Clicked="OnChooseBookingLocationClicked" Style="{StaticResource GoldButton}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout IsVisible="{Binding Step, Converter={StaticResource StepEqualsConverter}, ConverterParameter=2}" Spacing="10">
+                <Label Text="{Binding SelectedLocation.Name, StringFormat='Rooms at {0}'}" Style="{StaticResource MutedLabel}" />
+                <Button Text="Back" Command="{Binding BackCommand}" Style="{StaticResource GhostButton}" HorizontalOptions="Start" />
+
+                <Grid ColumnDefinitions="*,Auto">
+                    <Label Text="Tap a room's photo or name to pick it — laid out like a directory map." Style="{StaticResource MutedLabel}" FontSize="11" VerticalOptions="Center" />
+                    <HorizontalStackLayout Grid.Column="1" Spacing="6">
+                        <Button x:Name="RoomsMapViewButton" Text="Map" Clicked="OnRoomsMapViewClicked" Style="{StaticResource GhostButton}" Padding="12,6" FontSize="11" MinimumHeightRequest="34" />
+                        <Button x:Name="RoomsListViewButton" Text="List" Clicked="OnRoomsListViewClicked" Style="{StaticResource GhostButton}" Padding="12,6" FontSize="11" MinimumHeightRequest="34" />
+                    </HorizontalStackLayout>
+                </Grid>
+
+                <VerticalStackLayout x:Name="RoomsMapHost" Padding="0,10,0,0" IsVisible="True" />
+
+                <CollectionView x:Name="RoomsListHost" ItemsSource="{Binding Rooms}" HeightRequest="420" IsVisible="False">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:Boardroom">
+                            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,10" Padding="0">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:BookingViewModel}}, Path=SelectRoomCommand}" CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <Grid ColumnDefinitions="110,*" ColumnSpacing="0">
+                                    <Image Source="{Binding ImageKey}" Aspect="AspectFill" HeightRequest="96" />
+                                    <VerticalStackLayout Grid.Column="1" Spacing="4" Padding="12" VerticalOptions="Center">
+                                        <Label Text="{Binding Name}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="16" />
+                                        <Label Text="{Binding Capacity, StringFormat='Capacity {0}'}" TextColor="{StaticResource BrandGoldDeep}" FontSize="12" />
+                                        <Label Text="{Binding Equipment, Converter={StaticResource JoinListConverter}}" TextColor="{StaticResource BrandMuted}" FontSize="12" LineBreakMode="TailTruncation" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </VerticalStackLayout>
+
+            <VerticalStackLayout IsVisible="{Binding Step, Converter={StaticResource StepEqualsConverter}, ConverterParameter=3}" Spacing="12">
+                <Label Text="{Binding SelectedRoom.Name, StringFormat='When - {0}'}" Style="{StaticResource MutedLabel}" />
+                <Button Text="Back" Command="{Binding BackCommand}" Style="{StaticResource GhostButton}" HorizontalOptions="Start" />
+                <Label Text="Date" TextColor="{StaticResource BrandMuted}" FontSize="12" />
+                <DatePicker Date="{Binding SelectedDate}" TextColor="{StaticResource BrandInk}" />
+                <Label Text="Start" TextColor="{StaticResource BrandMuted}" FontSize="12" />
+                <TimePicker Time="{Binding StartTime}" TextColor="{StaticResource BrandInk}" />
+                <Label Text="End" TextColor="{StaticResource BrandMuted}" FontSize="12" />
+                <TimePicker Time="{Binding EndTime}" TextColor="{StaticResource BrandInk}" />
+                <Button Text="Continue" Command="{Binding NextToDetailsCommand}" Style="{StaticResource GoldButton}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout IsVisible="{Binding Step, Converter={StaticResource StepEqualsConverter}, ConverterParameter=4}" Spacing="10">
+                <Label Text="Booking details" Style="{StaticResource MutedLabel}" />
+                <Button Text="Back" Command="{Binding BackCommand}" Style="{StaticResource GhostButton}" HorizontalOptions="Start" />
+                <Entry Text="{Binding Company}" Placeholder="Company" TextColor="{StaticResource BrandInk}" PlaceholderColor="{StaticResource BrandMuted}" BackgroundColor="{StaticResource BrandSurface}" />
+                <Entry Text="{Binding AttendeesText}" Keyboard="Numeric" Placeholder="Attendees" TextColor="{StaticResource BrandInk}" PlaceholderColor="{StaticResource BrandMuted}" BackgroundColor="{StaticResource BrandSurface}" />
+                <Editor Text="{Binding Notes}" Placeholder="Notes" AutoSize="TextChanges" HeightRequest="80" TextColor="{StaticResource BrandInk}" PlaceholderColor="{StaticResource BrandMuted}" BackgroundColor="{StaticResource BrandSurface}" />
+                <Label Text="Equipment" TextColor="{StaticResource BrandGoldDeep}" FontSize="13" Margin="0,8,0,0" />
+                <CollectionView ItemsSource="{Binding EquipmentOptions}" HeightRequest="160">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SelectableOption">
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,4">
+                                <Label Text="{Binding Label}" TextColor="{StaticResource BrandInk}" VerticalOptions="Center" />
+                                <CheckBox Grid.Column="1" IsChecked="{Binding IsSelected}" Color="{StaticResource BrandGold}" />
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+                <Label Text="Catering" TextColor="{StaticResource BrandGoldDeep}" FontSize="13" />
+                <CollectionView ItemsSource="{Binding CateringOptions}" HeightRequest="120">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SelectableOption">
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,4">
+                                <Label Text="{Binding Label}" TextColor="{StaticResource BrandInk}" VerticalOptions="Center" />
+                                <CheckBox Grid.Column="1" IsChecked="{Binding IsSelected}" Color="{StaticResource BrandGold}" />
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+                <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource BrandDanger}" IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+                <Label Text="{Binding SuggestedSlotsText}" TextColor="{StaticResource BrandGoldSoft}" IsVisible="{Binding SuggestedSlotsText, Converter={StaticResource StringNotEmptyConverter}}" />
+                <Button Text="Confirm booking" Command="{Binding SubmitCommand}" Style="{StaticResource GoldButton}" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="{StaticResource BrandGold}" />
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

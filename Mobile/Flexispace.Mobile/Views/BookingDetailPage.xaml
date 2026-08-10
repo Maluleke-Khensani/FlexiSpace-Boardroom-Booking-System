@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Flexispace.Mobile.ViewModels"
+             x:Class="Flexispace.Mobile.Views.BookingDetailPage"
+             x:DataType="vm:BookingDetailViewModel"
+             Title="Booking"
+             BackgroundColor="{StaticResource BrandIvory}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="12" MaximumWidthRequest="480" HorizontalOptions="Center">
+            <Label Text="{Binding Booking.RoomName}" Style="{StaticResource SectionTitle}" />
+            <Label Text="{Binding Booking.LocationName}" Style="{StaticResource MutedLabel}" />
+            <Border Style="{StaticResource CardBorder}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="{Binding Booking.Start, StringFormat='Starts · {0:f}'}" TextColor="{StaticResource BrandInk}" />
+                    <Label Text="{Binding Booking.End, StringFormat='Ends · {0:t}'}" TextColor="{StaticResource BrandInk}" />
+                    <Label Text="{Binding Booking.BookerName, StringFormat='Booked by · {0}'}" TextColor="{StaticResource BrandMuted}" />
+                    <Label Text="{Binding Booking.Company, StringFormat='Company · {0}'}" TextColor="{StaticResource BrandMuted}" />
+                    <Label Text="{Binding Booking.Attendees, StringFormat='Attendees · {0}'}" TextColor="{StaticResource BrandMuted}" />
+                    <Label Text="{Binding Booking.Status, StringFormat='Status · {0}'}" TextColor="{StaticResource BrandGoldDeep}" />
+                    <Label Text="{Binding Booking.OutlookEventId, StringFormat='Outlook · {0}'}" TextColor="{StaticResource BrandMuted}" FontSize="11" />
+                    <Label Text="{Binding Booking.Notes}" TextColor="{StaticResource BrandMuted}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Text="{Binding Message}"
+                   TextColor="{StaticResource BrandGoldDeep}"
+                   IsVisible="{Binding Message, Converter={StaticResource StringNotEmptyConverter}}" />
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10" IsVisible="{Binding CanApprove}">
+                <Button Grid.Column="0" Text="Approve booking"
+                        Command="{Binding ApproveCommand}"
+                        IsVisible="{Binding CanApprove}"
+                        Style="{StaticResource GoldButton}" />
+                <Button Grid.Column="1" Text="Decline booking"
+                        Command="{Binding DeclineCommand}"
+                        IsVisible="{Binding CanDecline}"
+                        Style="{StaticResource GhostButton}" />
+            </Grid>
+
+            <VerticalStackLayout IsVisible="{Binding CanEdit}" Spacing="8">
+                <Label Text="Edit booking (Centre Manager / Admin)" TextColor="{StaticResource BrandGoldDeep}" FontSize="13" />
+                <DatePicker Date="{Binding EditDate}" TextColor="{StaticResource BrandInk}" />
+                <TimePicker Time="{Binding EditStart}" TextColor="{StaticResource BrandInk}" />
+                <TimePicker Time="{Binding EditEnd}" TextColor="{StaticResource BrandInk}" />
+                <Entry Text="{Binding AttendeesText}" Keyboard="Numeric" Placeholder="Attendees"
+                       TextColor="{StaticResource BrandInk}" PlaceholderColor="{StaticResource BrandMuted}"
+                       BackgroundColor="{StaticResource BrandSurface}" />
+                <Editor Text="{Binding Notes}" Placeholder="Notes" AutoSize="TextChanges" HeightRequest="70"
+                        TextColor="{StaticResource BrandInk}" PlaceholderColor="{StaticResource BrandMuted}"
+                        BackgroundColor="{StaticResource BrandSurface}" />
+                <Button Text="Save changes" Command="{Binding SaveEditsCommand}" Style="{StaticResource GhostButton}" />
+            </VerticalStackLayout>
+
+            <Button Text="Cancel booking"
+                    Command="{Binding CancelCommand}"
+                    IsVisible="{Binding CanCancel}"
+                    Style="{StaticResource GhostButton}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Flexispace.Mobile.ViewModels"
+             x:Class="Flexispace.Mobile.Views.LoginPage"
+             x:DataType="vm:LoginViewModel"
+             BackgroundColor="{StaticResource BrandIvory}"
+             Shell.NavBarIsVisible="False"
+             Title="Sign in">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="0" Spacing="0">
+            <Grid BackgroundColor="{StaticResource BrandBlack}" Padding="28,36,28,28">
+                <VerticalStackLayout Spacing="10" MaximumWidthRequest="480" HorizontalOptions="Center">
+                    <Image Source="flexispace_logo.png" HeightRequest="88" Aspect="AspectFit" HorizontalOptions="Center" />
+                    <Label Text="Sign in to Flexispace"
+                           TextColor="{StaticResource BrandIvory}"
+                           FontSize="24"
+                           FontAttributes="Bold"
+                           HorizontalTextAlignment="Center" />
+                    <Label Text="You run your business — we run the rest."
+                           TextColor="{StaticResource BrandGoldSoft}"
+                           HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
+            </Grid>
+
+            <VerticalStackLayout Padding="28" Spacing="14" MaximumWidthRequest="480" HorizontalOptions="Center">
+                <Label Text="Email" Style="{StaticResource EyebrowLabel}" />
+                <Entry Text="{Binding Email}"
+                       Keyboard="Email"
+                       Placeholder="you@company.com"
+                       Style="{StaticResource FieldEntry}" />
+
+                <Label Text="Password" Style="{StaticResource EyebrowLabel}" />
+                <Entry Text="{Binding Password}"
+                       IsPassword="True"
+                       Placeholder="Password"
+                       Style="{StaticResource FieldEntry}" />
+
+                <Label Text="{Binding ErrorMessage}"
+                       TextColor="{StaticResource BrandDanger}"
+                       IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+
+                <Button Text="Sign in"
+                        Command="{Binding LoginCommand}"
+                        Style="{StaticResource GoldButton}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="{StaticResource BrandGold}" />
+
+                <BoxView HeightRequest="1" Color="{StaticResource BrandLine}" Margin="0,12" />
+                <Label Text="Demo accounts · password demo123"
+                       Style="{StaticResource MutedLabel}"
+                       FontSize="12"
+                       HorizontalTextAlignment="Center" />
+
+                <Button Text="Staff · book &amp; cancel own"
+                        Command="{Binding UseDemoCommand}"
+                        CommandParameter="staff@flexispace.net.za"
+                        Style="{StaticResource GhostButton}" />
+                <Button Text="Centre Manager · approve / block / edit"
+                        Command="{Binding UseDemoCommand}"
+                        CommandParameter="rebecca@flexispace.net.za"
+                        Style="{StaticResource GhostButton}" />
+                <Button Text="Admin · rooms, users, reports"
+                        Command="{Binding UseDemoCommand}"
+                        CommandParameter="admin@flexispace.net.za"
+                        Style="{StaticResource GhostButton}" />
+                <Button Text="Client · self-service booking"
+                        Command="{Binding UseDemoCommand}"
+                        CommandParameter="client@example.com"
+                        Style="{StaticResource GhostButton}" />
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

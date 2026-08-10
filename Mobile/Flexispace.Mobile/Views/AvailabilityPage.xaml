@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Flexispace.Mobile.ViewModels"
+             xmlns:models="clr-namespace:Flexispace.Mobile.Models"
+             x:Class="Flexispace.Mobile.Views.AvailabilityPage"
+             x:DataType="vm:AvailabilityViewModel"
+             Title="Live availability"
+             BackgroundColor="{StaticResource BrandIvory}">
+
+    <Grid RowDefinitions="Auto,*" Padding="16">
+        <VerticalStackLayout Spacing="10">
+            <Label Text="Room status across Flexispace" Style="{StaticResource SectionTitle}" FontSize="20" />
+            <Label Text="{Binding AccessMessage}"
+                   TextColor="{StaticResource BrandDanger}"
+                   IsVisible="{Binding AccessMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+            <Label Text="{Binding SelectedLocationName, StringFormat='Filter: {0}'}"
+                   Style="{StaticResource MutedLabel}"
+                   IsVisible="{Binding CanViewAvailability}" />
+            <CollectionView ItemsSource="{Binding Locations}" HeightRequest="44">
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Horizontal" ItemSpacing="8" />
+                </CollectionView.ItemsLayout>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:OfficeLocation">
+                        <Button Text="{Binding Name}"
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AvailabilityViewModel}}, Path=FilterCommand}"
+                                CommandParameter="{Binding .}"
+                                Style="{StaticResource GhostButton}"
+                                FontSize="12"
+                                Padding="12,8"
+                                MinimumHeightRequest="36" />
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding CanViewAvailability}">
+                <Label Text="Tap a room's photo or name to explore it — laid out like a directory map since we don't have real floor plans yet."
+                       Style="{StaticResource MutedLabel}" FontSize="11" VerticalOptions="Center" />
+                <HorizontalStackLayout Grid.Column="1" Spacing="6">
+                    <Button x:Name="MapViewButton" Text="Map" Clicked="OnMapViewClicked" Style="{StaticResource GhostButton}" Padding="12,6" FontSize="11" MinimumHeightRequest="34" />
+                    <Button x:Name="ListViewButton" Text="List" Clicked="OnListViewClicked" Style="{StaticResource GhostButton}" Padding="12,6" FontSize="11" MinimumHeightRequest="34" />
+                </HorizontalStackLayout>
+            </Grid>
+        </VerticalStackLayout>
+
+        <RefreshView Grid.Row="1" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+            <ScrollView>
+                <VerticalStackLayout>
+                    <VerticalStackLayout x:Name="MapHost" Padding="0,16,0,0" IsVisible="True" />
+
+                    <CollectionView x:Name="ListHost" ItemsSource="{Binding Items}" EmptyView="No rooms found for this filter." IsVisible="False">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AvailabilityItem">
+                                <Border Style="{StaticResource CardBorder}" Margin="0,0,0,10" Padding="0">
+                                    <Grid ColumnDefinitions="88,*" ColumnSpacing="0">
+                                        <Image Source="{Binding Room.ImageKey}" Aspect="AspectFill" HeightRequest="88" />
+                                        <Grid Grid.Column="1" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" Padding="12,10">
+                                            <Label Text="{Binding Room.Name}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="16" />
+                                            <Border Grid.Column="1"
+                                                    BackgroundColor="{Binding StatusColor}"
+                                                    StrokeThickness="0"
+                                                    StrokeShape="RoundRectangle 4"
+                                                    Padding="8,4"
+                                                    VerticalOptions="Start">
+                                                <Label Text="{Binding StatusText}" TextColor="White" FontSize="11" FontAttributes="Bold" />
+                                            </Border>
+                                            <Label Grid.Row="1" Text="{Binding LocationName}" TextColor="{StaticResource BrandMuted}" FontSize="13" />
+                                            <Label Grid.Row="2"
+                                                   Text="{Binding Room.Capacity, StringFormat='Seats {0}'}"
+                                                   TextColor="{StaticResource BrandGoldSoft}"
+                                                   FontSize="12"
+                                                   Margin="0,6,0,0" />
+                                            <Button Grid.Row="2" Grid.Column="1"
+                                                    Text="Book"
+                                                    IsVisible="{Binding Source={RelativeSource AncestorType={x:Type vm:AvailabilityViewModel}}, Path=CanBook}"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AvailabilityViewModel}}, Path=BookRoomCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    Style="{StaticResource GoldButton}"
+                                                    Padding="12,6"
+                                                    FontSize="12"
+                                                    MinimumHeightRequest="36"
+                                                    VerticalOptions="End" />
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+    </Grid>
+</ContentPage>
