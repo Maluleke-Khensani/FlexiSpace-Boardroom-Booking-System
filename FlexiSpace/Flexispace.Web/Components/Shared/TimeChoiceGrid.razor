@@ -1,0 +1,31 @@
+@* Grid of selectable time-slot buttons for booking start/end times. *@
+<div class="fs-time-grid">
+    @foreach (var slot in Slots)
+    {
+        var selected = slot == Selected;
+        <button type="button"
+                class="fs-time-btn @(selected ? "fs-time-btn--selected" : "")"
+                @onclick="() => OnSelect.InvokeAsync(slot)">
+            @Format(slot)
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter] public TimeSpan Selected { get; set; }
+    [Parameter] public TimeSpan Start { get; set; } = new(7, 0, 0);
+    [Parameter] public TimeSpan End { get; set; } = new(19, 0, 0);
+    [Parameter] public int StepMinutes { get; set; } = 30;
+    [Parameter] public EventCallback<TimeSpan> OnSelect { get; set; }
+
+    private IEnumerable<TimeSpan> Slots
+    {
+        get
+        {
+            for (var t = Start; t <= End; t = t.Add(TimeSpan.FromMinutes(StepMinutes)))
+                yield return t;
+        }
+    }
+
+    private static string Format(TimeSpan t) => $"{t.Hours:D2}:{t.Minutes:D2}";
+}

@@ -1,0 +1,9 @@
+@namespace Flexispace.Web.Components.Pages
+
+@code {
+    [Parameter] public required string Route { get; set; }
+
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    protected override void OnInitialized() => Navigation.NavigateTo(Route, replace: true);
+}

@@ -1,0 +1,6 @@
+@* Auth guard: redirects unauthenticated users to the login page. *@
+@inject INavigationService Nav
+
+@code {
+    protected override void OnInitialized() => Nav.NavigateTo("/login");
+}
