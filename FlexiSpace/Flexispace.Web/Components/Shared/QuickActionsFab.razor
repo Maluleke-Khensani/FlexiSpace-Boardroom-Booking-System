@@ -1,0 +1,31 @@
+@* Floating action button with shortcuts to book, live view, and alerts. *@
+@if (Visible)
+{
+    <div class="fs-fab">
+        <div class="fs-fab__menu @(Open ? "fs-fab__menu--open" : "")">
+            <a href="/book" class="fs-fab__action" title="Book a room">
+                <NavIcon Name="book" />
+                <span>Book</span>
+            </a>
+            <a href="/notifications" class="fs-fab__action" title="Alerts">
+                <NavIcon Name="alerts" />
+                <span>Alerts</span>
+            </a>
+            <a href="/my-bookings" class="fs-fab__action" title="My bookings">
+                <NavIcon Name="calendar" />
+                <span>Bookings</span>
+            </a>
+        </div>
+        <button type="button" class="fs-fab__trigger @(Open ? "fs-fab__trigger--open" : "")" @onclick="Toggle" aria-label="Quick actions">
+            <span class="fs-fab__plus"></span>
+        </button>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; } = true;
+
+    private bool Open { get; set; }
+
+    private void Toggle() => Open = !Open;
+}

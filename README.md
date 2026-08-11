@@ -5,10 +5,21 @@ Houghton, and Centurion.
 
 ## Tech Stack
 - Frontend: React + Microsoft Fluent UI
+- Web prototype: Blazor Server (`Flexispace.Web`)
 - Backend: .NET 8 Web API
 - Database: Microsoft SQL Server (Azure SQL) + EF Core
 - Mobile: .NET MAUI
 - Auth: Microsoft Entra ID
+
+## Web prototype (Blazor)
+Khumo-Thato Chabeli (ST10448834) — browser-based booking UI prototype using mock data.
+
+```powershell
+cd FlexiSpace
+dotnet run --project Flexispace.Web/Flexispace.Web.csproj
+```
+
+See `Flexispace.Web/README.md` for demo accounts and routes.
 
 ## Team
 | Member | Role |

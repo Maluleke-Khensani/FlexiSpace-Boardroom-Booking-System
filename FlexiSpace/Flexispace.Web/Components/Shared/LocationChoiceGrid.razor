@@ -1,0 +1,28 @@
+@* Image-button grid for selecting an office location. *@
+@using Flexispace.Web.Helpers
+
+<div class="fs-choice-grid @(Compact ? "fs-choice-grid--compact" : "")">
+    @foreach (var loc in Items)
+    {
+        var selected = loc.Id == SelectedId;
+        <button type="button"
+                class="fs-choice-btn @(selected ? "fs-choice-btn--selected" : "")"
+                @onclick="() => OnSelect.InvokeAsync(loc)">
+            <img src="@DisplayHelpers.ImageUrl(loc.ImageKey)" alt="@loc.Name" />
+            <div class="fs-choice-btn__body">
+                <div class="fs-choice-btn__title">@loc.Name</div>
+                @if (!Compact)
+                {
+                    <div class="fs-choice-btn__meta">@loc.Tagline</div>
+                }
+            </div>
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<OfficeLocation> Items { get; set; } = [];
+    [Parameter] public string? SelectedId { get; set; }
+    [Parameter] public bool Compact { get; set; }
+    [Parameter] public EventCallback<OfficeLocation> OnSelect { get; set; }
+}

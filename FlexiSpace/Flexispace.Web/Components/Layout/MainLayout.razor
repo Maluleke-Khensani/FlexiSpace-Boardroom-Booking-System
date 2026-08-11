@@ -1,0 +1,137 @@
+﻿@* Authenticated app shell: sidebar navigation, page header, and content area. *@
+@inherits LayoutComponentBase
+@inject IAuthService Auth
+@inject AuthStateNotifier AuthNotifier
+@inject NavigationManager Navigation
+@implements IDisposable
+
+@if (ShowAppShell)
+{
+    <div class="fs-shell">
+        <aside class="fs-sidebar">
+            <div class="fs-sidebar__brand">
+                <a href="/home"><img class="fs-sidebar__logo" src="/images/flexispace_logo.png" alt="Flexispace" /></a>
+                <p class="fs-sidebar__tagline">Work outside of the box</p>
+            </div>
+            <nav class="fs-sidebar__nav">
+                @foreach (var tab in VisibleTabs)
+                {
+                    <NavLink class="fs-nav-item" href="@tab.Href" Match="@tab.Match">
+                        <NavIcon Name="@tab.Icon" />
+                        <span>@tab.Label</span>
+                    </NavLink>
+                }
+            </nav>
+            <div class="fs-sidebar__footer">
+                <div class="fs-sidebar__user">@(Auth.CurrentUser?.Name ?? "Guest")</div>
+                <div class="fs-sidebar__role">@(Auth.CurrentUser is null ? "" : RolePermissions.DisplayName(Auth.CurrentUser.Role))</div>
+            </div>
+        </aside>
+
+        <div class="fs-main">
+            @if (ShowPageHeader)
+            {
+                <header class="fs-page-header">
+                    <h1 class="fs-page-header__title">@PageTitle</h1>
+                    <div class="fs-page-header__actions">
+                        @HeaderActions
+                    </div>
+                </header>
+            }
+            <div class="fs-page-content @ContentClass @(ShowAppShell ? "fs-page-content--relative" : "")">
+                @if (ShowAppShell && ShowFloatingDecor)
+                {
+                    <FloatingDecor Variant="dashboard" />
+                }
+                @Body
+            </div>
+            @if (ShowAppShell && !IsConfirmationRoute)
+            {
+                <QuickActionsFab />
+            }
+        </div>
+    </div>
+}
+else
+{
+    @Body
+}
+
+@code {
+    [Parameter] public RenderFragment? HeaderActions { get; set; }
+
+    private bool ShowAppShell =>
+        Auth.IsAuthenticated &&
+        !IsAuthRoute;
+
+    private bool IsAuthRoute
+    {
+        get
+        {
+            var path = Navigation.ToBaseRelativePath(Navigation.Uri).Split('?')[0].TrimEnd('/');
+            return path is "" or "login" || path.EndsWith("/confirmation");
+        }
+    }
+
+    private bool IsConfirmationRoute =>
+        Navigation.ToBaseRelativePath(Navigation.Uri).Contains("confirmation");
+
+    private bool ShowFloatingDecor =>
+        !IsConfirmationRoute && Navigation.ToBaseRelativePath(Navigation.Uri).Split('?')[0] is "book" or "live";
+
+    private bool ShowPageHeader =>
+        ShowAppShell && !IsConfirmationRoute;
+
+    private string ContentClass =>
+        IsFullBleed ? "fs-page-content--full" : "fs-page-content--padded";
+
+    private bool IsFullBleed
+    {
+        get
+        {
+            var path = Navigation.ToBaseRelativePath(Navigation.Uri).Split('?')[0];
+            return path is "home" or "locations" || path.StartsWith("locations/");
+        }
+    }
+
+    private string PageTitle => Navigation.ToBaseRelativePath(Navigation.Uri).Split('?')[0] switch
+    {
+        "home" => "Dashboard",
+        "book" => "Book a boardroom",
+        "live" => "Live availability",
+        "manage" => "Manage bookings",
+        "notifications" => "Alerts",
+        "profile" => "My profile",
+        "my-bookings" => "My bookings",
+        "locations" => "All locations",
+        var p when p.StartsWith("locations/") => "Location details",
+        var p when p.StartsWith("bookings/") && !p.Contains("confirmation") => "Booking details",
+        _ => "Flexispace"
+    };
+
+    private IEnumerable<TabItem> VisibleTabs
+    {
+        get
+        {
+            var role = Auth.CurrentUser?.Role;
+            yield return new("home", "Dashboard", "/home", NavLinkMatch.All);
+            yield return new("book", "Book a room", "/book", NavLinkMatch.Prefix);
+            if (role is null || RolePermissions.CanViewAvailability(role.Value))
+                yield return new("live", "Live availability", "/live", NavLinkMatch.Prefix);
+            if (role is null || RolePermissions.CanAccessManageHub(role.Value))
+                yield return new("manage", "Manage", "/manage", NavLinkMatch.Prefix);
+            yield return new("alerts", "Alerts", "/notifications", NavLinkMatch.Prefix);
+            yield return new("profile", "Profile", "/profile", NavLinkMatch.Prefix);
+        }
+    }
+
+    protected override void OnInitialized() =>
+        AuthNotifier.StateChanged += OnAuthChanged;
+
+    private void OnAuthChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() =>
+        AuthNotifier.StateChanged -= OnAuthChanged;
+
+    private record TabItem(string Icon, string Label, string Href, NavLinkMatch Match);
+}
