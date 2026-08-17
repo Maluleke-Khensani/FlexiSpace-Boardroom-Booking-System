@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Flexispace.Mobile.ViewModels"
+             x:Class="Flexispace.Mobile.Views.BookingConfirmationPage"
+             x:DataType="vm:BookingConfirmationViewModel"
+             Title="Confirmed"
+             BackgroundColor="{StaticResource BrandIvory}"
+             Shell.NavBarIsVisible="False">
+
+    <Grid>
+        <ScrollView>
+            <VerticalStackLayout x:Name="ConfirmContent" Padding="24,36,24,28" Spacing="16"
+                                 VerticalOptions="Center" MaximumWidthRequest="480" HorizontalOptions="Center">
+
+                <Border x:Name="CelebrateBadge" Style="{StaticResource QuickActionOrb}"
+                        WidthRequest="88" HeightRequest="88" HorizontalOptions="Center"
+                        BackgroundColor="{StaticResource BrandGold}"
+                        IsVisible="{Binding IsConfirmed}">
+                    <Border.Shadow>
+                        <Shadow Brush="{StaticResource BrandGoldDeep}" Opacity="0.5" Radius="18" Offset="0,6" />
+                    </Border.Shadow>
+                    <Label Style="{StaticResource MaterialGlyph}" Text="&#xe86c;" FontSize="40" TextColor="{StaticResource BrandBlack}" />
+                </Border>
+
+                <Border Style="{StaticResource QuickActionOrbGhost}"
+                        WidthRequest="88" HeightRequest="88" HorizontalOptions="Center"
+                        IsVisible="{Binding IsPending}">
+                    <Label Style="{StaticResource MaterialGlyph}" Text="&#xe8b5;" FontSize="36" TextColor="{StaticResource BrandGold}" />
+                </Border>
+
+                <Label Text="BOOKED" Style="{StaticResource EyebrowLabel}"
+                       HorizontalTextAlignment="Center"
+                       IsVisible="{Binding IsConfirmed}" />
+                <Label Text="AWAITING APPROVAL" Style="{StaticResource EyebrowLabel}"
+                       HorizontalTextAlignment="Center"
+                       IsVisible="{Binding IsPending}" />
+
+                <Label Text="Your boardroom is ready." Style="{StaticResource SectionTitle}"
+                       HorizontalTextAlignment="Center" FontSize="26"
+                       IsVisible="{Binding IsConfirmed}" />
+                <Label Text="Request sent to your Centre Manager." Style="{StaticResource SectionTitle}"
+                       HorizontalTextAlignment="Center" FontSize="24"
+                       IsVisible="{Binding IsPending}" />
+
+                <Border Style="{StaticResource ElevatedCard}" Padding="0">
+                    <Border.Stroke>
+                        <SolidColorBrush Color="{StaticResource BrandGold}" />
+                    </Border.Stroke>
+                    <Grid ColumnDefinitions="4,*">
+                        <BoxView Color="{StaticResource BrandGold}" />
+                        <VerticalStackLayout Grid.Column="1" Spacing="8" Padding="18,16">
+                            <Label Text="{Binding Booking.RoomName}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="20" HorizontalTextAlignment="Center" />
+                            <HorizontalStackLayout Spacing="6" HorizontalOptions="Center">
+                                <Label Style="{StaticResource MaterialGlyph}" Text="&#xe55f;" FontSize="14" TextColor="{StaticResource BrandGold}" />
+                                <Label Text="{Binding Booking.LocationName}" TextColor="{StaticResource BrandMuted}" FontSize="14" VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                            <HorizontalStackLayout Spacing="6" HorizontalOptions="Center">
+                                <Label Style="{StaticResource MaterialGlyph}" Text="&#xe878;" FontSize="14" TextColor="{StaticResource BrandGold}" />
+                                <Label Text="{Binding Booking.Start, StringFormat='{0:ddd d MMM · HH:mm}'}" TextColor="{StaticResource BrandInk}" FontSize="14" VerticalOptions="Center" />
+                                <Label Text="{Binding Booking.End, StringFormat='– {0:HH:mm}'}" TextColor="{StaticResource BrandMuted}" FontSize="14" VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                            <Border Style="{StaticResource StatusPillBorder}" BackgroundColor="{StaticResource BrandSuccess}"
+                                    HorizontalOptions="Center" IsVisible="{Binding IsConfirmed}">
+                                <Label Text="Confirmed" Style="{StaticResource StatusPillText}" />
+                            </Border>
+                            <Border Style="{StaticResource StatusPillBorder}" BackgroundColor="{StaticResource BrandGold}"
+                                    HorizontalOptions="Center" IsVisible="{Binding IsPending}">
+                                <Label Text="Pending approval" Style="{StaticResource StatusPillText}" TextColor="{StaticResource BrandBlack}" />
+                            </Border>
+                        </VerticalStackLayout>
+                    </Grid>
+                </Border>
+
+                <Label Text="A confirmation is in Alerts — tap it to reopen this booking. Outlook sync lands when the API is live."
+                       Style="{StaticResource MutedLabel}" HorizontalTextAlignment="Center"
+                       IsVisible="{Binding IsConfirmed}" />
+                <Label Text="A Centre Manager still needs to approve this. An unread item was added to Alerts."
+                       Style="{StaticResource MutedLabel}" HorizontalTextAlignment="Center"
+                       IsVisible="{Binding IsPending}" />
+
+                <Button Text="Open in Alerts" Command="{Binding ViewAlertsCommand}" Style="{StaticResource GoldButton}" />
+                <Button Text="View my bookings" Command="{Binding ViewBookingsCommand}" Style="{StaticResource GhostButton}" />
+                <Button Text="Back to home" Command="{Binding DoneCommand}" Style="{StaticResource GhostButton}" />
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <AbsoluteLayout x:Name="FireworksLayer"
+                        InputTransparent="True"
+                        CascadeInputTransparent="True"
+                        IsVisible="False" />
+    </Grid>
+</ContentPage>
