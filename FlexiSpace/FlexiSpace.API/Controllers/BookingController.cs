@@ -1,4 +1,5 @@
-﻿using FlexiSpace.Core.DTOs.Booking;
+using FlexiSpace.Core.Common;
+using FlexiSpace.Core.DTOs.Booking;
 using FlexiSpace.Core.DTOs.Catering;
 using FlexiSpace.Core.DTOs.Equipment;
 using FlexiSpace.Core.Entities;
@@ -27,6 +28,28 @@ namespace FlexiSpace.API.Controllers
             var bookings = await _bookingService.GetAllBookingsAsync();
 
             var response = bookings.Select(MapToResponseDto);
+
+            return Ok(response);
+        }
+
+        // Searches bookings with optional filters (boardroom, location, user,
+        // status, date range, free-text on Company/Notes), sorted by
+        // date/time, and paginated. This is a separate endpoint from
+        // GetAllBookings so existing front-end code built against the plain
+        // list keeps working unchanged - flag in the group chat once this
+        // is ready to be adopted.
+        [HttpGet("search")]
+        public async Task<IActionResult> SearchBookings([FromQuery] BookingQueryParameters query)
+        {
+            var result = await _bookingService.SearchBookingsAsync(query);
+
+            var response = new PagedResult<BookingResponseDto>
+            {
+                Items = result.Items.Select(MapToResponseDto).ToList(),
+                TotalCount = result.TotalCount,
+                Page = result.Page,
+                PageSize = result.PageSize
+            };
 
             return Ok(response);
         }
@@ -79,12 +102,23 @@ namespace FlexiSpace.API.Controllers
                 });
             }
 
-            var createdBooking = await _bookingService.CreateBookingAsync(booking);
+            try
+            {
+                var createdBooking = await _bookingService.CreateBookingAsync(booking);
 
-            return CreatedAtAction(
-                nameof(GetBookingById),
-                new { id = createdBooking.Id },
-                MapToResponseDto(createdBooking));
+                return CreatedAtAction(
+                    nameof(GetBookingById),
+                    new { id = createdBooking.Id },
+                    MapToResponseDto(createdBooking));
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (BusinessRuleException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
+            }
         }
 
         // Updates an existing booking.
@@ -114,32 +148,50 @@ namespace FlexiSpace.API.Controllers
                 Quantity = c.Quantity
             }).ToList();
 
-            var updated = await _bookingService.UpdateBookingAsync(
-                id,
-                booking,
-                equipment,
-                catering);
-
-            if (!updated)
+            try
             {
-                return NotFound();
-            }
+                var updated = await _bookingService.UpdateBookingAsync(
+                    id,
+                    booking,
+                    equipment,
+                    catering);
 
-            return NoContent();
+                if (!updated)
+                {
+                    return NotFound();
+                }
+
+                return NoContent();
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (BusinessRuleException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
+            }
         }
 
-        // Deletes an existing booking.
+        // Cancels an existing booking (soft delete - see IBookingService).
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteBooking(int id)
         {
-            var deleted = await _bookingService.DeleteBookingAsync(id);
-
-            if (!deleted)
+            try
             {
-                return NotFound();
-            }
+                var deleted = await _bookingService.DeleteBookingAsync(id);
 
-            return NoContent();
+                if (!deleted)
+                {
+                    return NotFound();
+                }
+
+                return NoContent();
+            }
+            catch (BusinessRuleException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
+            }
         }
 
         // Updates the booking status.
@@ -148,17 +200,28 @@ namespace FlexiSpace.API.Controllers
             int id,
             BookingStatusDto dto)
         {
-            var updated = await _bookingService.UpdateBookingStatusAsync(
-                id,
-                dto.Status,
-                dto.ApprovedById);
-
-            if (!updated)
+            try
             {
-                return NotFound();
-            }
+                var updated = await _bookingService.UpdateBookingStatusAsync(
+                    id,
+                    dto.Status,
+                    dto.ApprovedById);
 
-            return NoContent();
+                if (!updated)
+                {
+                    return NotFound();
+                }
+
+                return NoContent();
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (BusinessRuleException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
+            }
         }
 
         // Converts a Booking entity into a BookingResponseDto.
