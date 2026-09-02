@@ -23,4 +23,9 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\FlexiSpace.Core\FlexiSpace.Core.csproj" />
+    <ProjectReference Include="..\FlexiSpace.Infrastructure\FlexiSpace.Infrastructure.csproj" />
+  </ItemGroup>
+
 </Project>
