@@ -29,6 +29,14 @@ namespace FlexiSpace.API
             // My application will have API controllers.
             builder.Services.AddControllers();
 
+
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowReactTestClient", policy =>
+                    policy.WithOrigins("http://localhost:5173")
+                          .AllowAnyHeader()
+                          .AllowAnyMethod());
+            });
             // Register the database context and configure SQL Server
             // as the database provider.
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -47,6 +55,15 @@ namespace FlexiSpace.API
             // and allow endpoint testing during development.
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
+
+            // After builder.Services.AddControllers();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowReactTestClient", policy =>
+        policy.WithOrigins("http://localhost:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod());
+});
 
             // I've finished configuring everything. Now build the application.
             var app = builder.Build();
@@ -69,6 +86,7 @@ namespace FlexiSpace.API
             }
 
             app.UseHttpsRedirection();
+            app.UseCors("AllowReactTestClient");   
 
             // Authentication must happen before authorization.
             app.UseAuthentication();
