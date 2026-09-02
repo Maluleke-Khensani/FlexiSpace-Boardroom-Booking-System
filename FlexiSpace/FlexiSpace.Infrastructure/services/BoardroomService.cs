@@ -40,11 +40,7 @@ namespace FlexiSpace.Infrastructure.Services
 
             return boardroom;
         }
-
-        public async Task<bool> UpdateBoardroomAsync(
-     int id,
-     Boardroom updatedBoardroom,
-     List<BoardroomEquipment> equipment)
+        public async Task<bool> UpdateBoardroomAsync(int id,Boardroom updatedBoardroom,List<BoardroomEquipment> equipment)
         {
             var existingBoardroom = await _context.Boardrooms
                 .Include(b => b.BoardroomEquipments)

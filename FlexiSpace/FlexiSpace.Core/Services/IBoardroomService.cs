@@ -1,4 +1,5 @@
 ﻿using FlexiSpace.Core.Entities;
+using FlexiSpace.Core.DTOs.Equipment;
 
 namespace FlexiSpace.Core.Services
 {
@@ -10,10 +11,8 @@ namespace FlexiSpace.Core.Services
 
         Task<Boardroom> CreateBoardroomAsync(Boardroom boardroom);
 
-        Task<bool> UpdateBoardroomAsync(
-            int id,
-            Boardroom boardroom,
-            List<BoardroomEquipment> equipment);
+        Task<bool> UpdateBoardroomAsync(int id, Boardroom boardroom, List<BoardroomEquipment> equipment);
+
         Task<bool> DeleteBoardroomAsync(int id);
     }
 }

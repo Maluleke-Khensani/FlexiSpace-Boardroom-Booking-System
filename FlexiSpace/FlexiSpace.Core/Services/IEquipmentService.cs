@@ -1,4 +1,9 @@
 ﻿using FlexiSpace.Core.Entities;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace FlexiSpace.Core.Services
 {
@@ -12,7 +17,6 @@ namespace FlexiSpace.Core.Services
 
         Task<bool> UpdateEquipmentAsync(int id, Equipment equipment);
 
-        Task<bool> UpdateEquipmentStatusAsync(int id, bool isActive);
         Task<bool> DeleteEquipmentAsync(int id);
     }
 }
