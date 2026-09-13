@@ -1,3 +1,5 @@
+
+using FlexiSpace.Core.Common;
 using FlexiSpace.Core.Services;
 using FlexiSpace.Infrastructure.Persistence;
 using FlexiSpace.Infrastructure.Seed;
@@ -29,6 +31,12 @@ namespace FlexiSpace.API
             // My application will have API controllers.
             builder.Services.AddControllers();
 
+            // Needed by CurrentUserService to read claims off the current
+            // request outside of a controller (it's injected into a
+            // Scoped service, not a controller, so it can't just take
+            // HttpContext directly).
+            builder.Services.AddHttpContextAccessor();
+
 
             builder.Services.AddCors(options =>
             {
@@ -49,19 +57,24 @@ namespace FlexiSpace.API
             builder.Services.AddScoped<IEquipmentService, EquipmentService>();
             builder.Services.AddScoped<IBookingService, BookingService>();
 
+            // Fix: ICateringService and IUserService were being injected
+            // into CateringController/UserController but were never
+            // registered here - same bug class (and same fix) as the
+            // missing IBookingService registration Tino found. Without
+            // this, every request to those controllers throws
+            // "Unable to resolve service for type ..." at runtime.
+            builder.Services.AddScoped<ICateringService, CateringService>();
+            builder.Services.AddScoped<IUserService, UserService>();
+
+            // RBAC / admin / notifications (Denzel's scope).
+            builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+            builder.Services.AddScoped<IAuditService, AuditService>();
+            builder.Services.AddScoped<INotificationService, NotificationService>();
+
 
             // Register Swagger services to generate API documentation and allow endpoint testing during development.
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
-
-            // After builder.Services.AddControllers();
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowReactTestClient", policy =>
-        policy.WithOrigins("http://localhost:5173")
-              .AllowAnyHeader()
-              .AllowAnyMethod());
-});
 
             // I've finished configuring everything. Now build the application.
             var app = builder.Build();
