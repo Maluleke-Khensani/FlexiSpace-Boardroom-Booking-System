@@ -1,8 +1,8 @@
-
 using FlexiSpace.Core.Common;
 using FlexiSpace.Core.Services;
 using FlexiSpace.Infrastructure.Persistence;
 using FlexiSpace.Infrastructure.Seed;
+using FlexiSpace.Infrastructure.services;
 using FlexiSpace.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Identity.Web;
@@ -37,7 +37,6 @@ namespace FlexiSpace.API
             // HttpContext directly).
             builder.Services.AddHttpContextAccessor();
 
-
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowReactTestClient", policy =>
@@ -45,11 +44,23 @@ namespace FlexiSpace.API
                           .AllowAnyHeader()
                           .AllowAnyMethod());
             });
+
             // Register the database context and configure SQL Server
             // as the database provider.
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlServer(
                     builder.Configuration.GetConnectionString("DefaultConnection")));
+
+            builder.Services.AddScoped<ICalendarService>(sp =>
+            {
+                var configuration = sp.GetRequiredService<IConfiguration>();
+
+                return new MicrosoftGraphCalendarService(
+                    configuration["MicrosoftGraph:TenantId"]!,
+                    configuration["MicrosoftGraph:ClientId"]!,
+                    configuration["MicrosoftGraph:ClientSecret"]!
+                );
+            });
 
             // Register application services.
             builder.Services.AddScoped<ILocationService, LocationService>();
@@ -97,7 +108,7 @@ namespace FlexiSpace.API
             }
 
             app.UseHttpsRedirection();
-            app.UseCors("AllowReactTestClient");   
+            app.UseCors("AllowReactTestClient");
 
             // Authentication must happen before authorization.
             app.UseAuthentication();

@@ -37,12 +37,11 @@ public class Booking
     public DateTime? ModifiedAt { get; set; }
 
 
+    public int? ModifiedById { get; set; }
+    public User? ModifiedBy { get; set; }
 
-
-    // Optional Approval Relationship
-    public int? ApprovedById { get; set; }
-
-    public User? ApprovedBy { get; set; }
+    public int? CancelledById { get; set; }
+    public User? CancelledBy { get; set; }
 
 
     // One Booking -> Many BookingEquipment

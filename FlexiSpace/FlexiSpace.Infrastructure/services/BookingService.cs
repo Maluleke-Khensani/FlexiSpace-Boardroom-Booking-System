@@ -21,12 +21,10 @@ namespace FlexiSpace.Infrastructure.Services
 
         // Valid next statuses for a booking, keyed by its current status.
         // Pending -> Cancelled covers "rejecting" a booking, since the
-        // BookingStatus enum has no separate Rejected value today - flag
-        // this with the team if a distinct Rejected status is wanted.
+       
         private static readonly Dictionary<BookingStatus, BookingStatus[]> AllowedStatusTransitions = new()
         {
-            [BookingStatus.Pending] = new[] { BookingStatus.Approved, BookingStatus.Cancelled },
-            [BookingStatus.Approved] = new[] { BookingStatus.Cancelled, BookingStatus.Completed },
+            [BookingStatus.Pending] = new[] { BookingStatus.Cancelled, BookingStatus.Completed },
             [BookingStatus.Cancelled] = Array.Empty<BookingStatus>(),
             [BookingStatus.Completed] = Array.Empty<BookingStatus>()
         };
@@ -37,7 +35,7 @@ namespace FlexiSpace.Infrastructure.Services
         private static readonly BookingStatus[] SlotHoldingStatuses =
         {
             BookingStatus.Pending,
-            BookingStatus.Approved
+          
         };
 
         private const int DefaultPageSize = 20;
@@ -239,9 +237,9 @@ namespace FlexiSpace.Infrastructure.Services
         // Updates the booking status, enforcing the Pending -> Approved/Cancelled
         // -> Completed workflow.
         public async Task<bool> UpdateBookingStatusAsync(
-            int id,
-            BookingStatus status,
-            int? approvedById)
+     int id,
+     BookingStatus status,
+     int? approvedById)
         {
             var booking = await _context.Bookings.FindAsync(id);
 
@@ -252,7 +250,6 @@ namespace FlexiSpace.Infrastructure.Services
 
             if (booking.Status == status)
             {
-                // Already in the requested status - nothing to do.
                 return true;
             }
 
@@ -262,25 +259,6 @@ namespace FlexiSpace.Infrastructure.Services
             {
                 throw new BusinessRuleException(
                     $"Booking {id} cannot move from {booking.Status} to {status}.");
-            }
-
-            if (status == BookingStatus.Approved)
-            {
-                if (approvedById == null)
-                {
-                    throw new BusinessRuleException(
-                        "ApprovedById is required when approving a booking.");
-                }
-
-                var approver = await _context.Users
-                    .FirstOrDefaultAsync(u => u.Id == approvedById);
-
-                if (approver == null)
-                {
-                    throw new NotFoundException($"User {approvedById} was not found.");
-                }
-
-                booking.ApprovedById = approvedById;
             }
 
             booking.Status = status;

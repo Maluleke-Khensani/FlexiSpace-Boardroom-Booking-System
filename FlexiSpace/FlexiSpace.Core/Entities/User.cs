@@ -15,7 +15,6 @@ namespace FlexiSpace.Core.Entities
 
         public required string PhoneNumber { get; set; }
 
-        //  public required string Department{ get; set; }
 
         //IsActive property is used to indicate whether the user is currently active or not. It can be useful for managing user accounts, such as deactivating users who are no longer part of the organization or temporarily suspending access.
         public bool IsActive { get; set; } = true;
@@ -32,8 +31,12 @@ namespace FlexiSpace.Core.Entities
         //One User can have many bookings, so we use a collection to represent this relationship
         public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
-        public ICollection<Booking> ApprovedBookings { get; set; } = new List<Booking>();
 
+        // Bookings this user has modified (Centre Manager action)
+        public ICollection<Booking> ModifiedBookings { get; set; } = new List<Booking>();
+
+        // Bookings this user has cancelled (Centre Manager action)
+        public ICollection<Booking> CancelledBookings { get; set; } = new List<Booking>();
         public ICollection<Notification> Notifications { get; set; }
     = new List<Notification>();
 
