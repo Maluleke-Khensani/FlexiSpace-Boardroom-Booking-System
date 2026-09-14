@@ -46,8 +46,8 @@ namespace FlexiSpace.Infrastructure.Persistence.Configurations
 
             // Relationships
 
-            // Booking -> User
-            builder.HasOne(b => b.User)
+// Booking -> User (the person who made the booking)
+                    builder.HasOne(b => b.User)
                    .WithMany(u => u.Bookings)
                    .HasForeignKey(b => b.UserId)
                    .OnDelete(DeleteBehavior.Restrict);
@@ -57,12 +57,16 @@ namespace FlexiSpace.Infrastructure.Persistence.Configurations
                    .WithMany(br => br.Bookings)
                    .HasForeignKey(b => b.BoardroomId)
                    .OnDelete(DeleteBehavior.Restrict);
+            // Booking -> ModifiedBy (User)
+            builder.HasOne(b => b.ModifiedBy)
+                   .WithMany(u => u.ModifiedBookings)
+                   .HasForeignKey(b => b.ModifiedById)
+                   .OnDelete(DeleteBehavior.Restrict);
 
-            // Booking -> Approver (User)
-
-            builder.HasOne(b => b.ApprovedBy)
-                   .WithMany(u => u.ApprovedBookings)
-                   .HasForeignKey(b => b.ApprovedById)
+            // Booking -> CancelledBy (User)
+            builder.HasOne(b => b.CancelledBy)
+                   .WithMany(u => u.CancelledBookings)
+                   .HasForeignKey(b => b.CancelledById)
                    .OnDelete(DeleteBehavior.Restrict);
 
             // Booking -> BookingEquipment

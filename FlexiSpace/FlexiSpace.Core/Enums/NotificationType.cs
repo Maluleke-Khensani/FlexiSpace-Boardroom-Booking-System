@@ -9,8 +9,6 @@ namespace FlexiSpace.Core.Enums
     public enum NotificationType
     {
         BookingCreated,
-        BookingApproved,
-        BookingRejected,
         BookingCancelled,
         BookingReminder,
         BookingModified

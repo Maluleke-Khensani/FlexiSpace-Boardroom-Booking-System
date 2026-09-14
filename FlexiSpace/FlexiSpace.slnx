@@ -2,7 +2,8 @@
   <Project Path="FlexiSpace.API/FlexiSpace.API.csproj" />
   <Project Path="FlexiSpace.Core/FlexiSpace.Core.csproj" />
   <Project Path="FlexiSpace.Infrastructure/FlexiSpace.Infrastructure.csproj" />
+  <Project Path="FlexiSpace.Prototype.Core/FlexiSpace.Prototype.Core.csproj" />
+  <Project Path="FlexiSpace.TestClient/FlexiSpace.TestClient.csproj" />
   <Project Path="FlexiSpace.Tests/FlexiSpace.Tests.csproj" />
-  <Project Path="Flexispace.Prototype.Core/Flexispace.Core.csproj" />
-  <Project Path="Flexispace.Web/Flexispace.Web.csproj" />
+  <Project Path="FlexiSpace.Web/FlexiSpace.Web.csproj" />
 </Solution>

@@ -1,6 +1,7 @@
 using FlexiSpace.Core.Services;
 using FlexiSpace.Infrastructure.Persistence;
 using FlexiSpace.Infrastructure.Seed;
+using FlexiSpace.Infrastructure.services;
 using FlexiSpace.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Identity.Web;
@@ -43,11 +44,26 @@ namespace FlexiSpace.API
                 options.UseSqlServer(
                     builder.Configuration.GetConnectionString("DefaultConnection")));
 
+            builder.Services.AddScoped<ICalendarService>(sp =>
+            {
+                var configuration = sp.GetRequiredService<IConfiguration>();
+
+                return new MicrosoftGraphCalendarService(
+                    configuration["MicrosoftGraph:TenantId"]!,
+                    configuration["MicrosoftGraph:ClientId"]!,
+                    configuration["MicrosoftGraph:ClientSecret"]!
+                );
+            });
+
             // Register application services.
             builder.Services.AddScoped<ILocationService, LocationService>();
             builder.Services.AddScoped<IBoardroomService, BoardroomService>();
             builder.Services.AddScoped<IEquipmentService, EquipmentService>();
             builder.Services.AddScoped<IBookingService, BookingService>();
+            builder.Services.AddScoped<ICateringService, CateringService>();
+            builder.Services.AddScoped<IUserService, UserService>();
+
+
 
 
             // Register Swagger services to generate API documentation and allow endpoint testing during development.
@@ -55,13 +71,13 @@ namespace FlexiSpace.API
             builder.Services.AddSwaggerGen();
 
             // After builder.Services.AddControllers();
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowReactTestClient", policy =>
-        policy.WithOrigins("http://localhost:5173")
-              .AllowAnyHeader()
-              .AllowAnyMethod());
-});
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowReactTestClient", policy =>
+                    policy.WithOrigins("http://localhost:5173")
+                          .AllowAnyHeader()
+                          .AllowAnyMethod());
+            });
 
             // I've finished configuring everything. Now build the application.
             var app = builder.Build();
@@ -84,7 +100,7 @@ builder.Services.AddCors(options =>
             }
 
             app.UseHttpsRedirection();
-            app.UseCors("AllowReactTestClient");   
+            app.UseCors("AllowReactTestClient");
 
             // Authentication must happen before authorization.
             app.UseAuthentication();

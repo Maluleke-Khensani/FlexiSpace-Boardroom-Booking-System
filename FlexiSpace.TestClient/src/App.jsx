@@ -16,11 +16,15 @@ function App() {
                 account: accounts[0]
             })
 
-const response = await fetch('https://localhost:7055/api/location', {                
-    headers: {
-                    Authorization: `Bearer ${tokenResponse.accessToken}`
-                }
-            })
+const response = await fetch(
+    'https://localhost:7055/api/GraphTest/create-test-event',
+    {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${tokenResponse.accessToken}`
+        }
+    }
+)
 
             if (!response.ok) {
                 setApiError(`Request failed: ${response.status}`)
