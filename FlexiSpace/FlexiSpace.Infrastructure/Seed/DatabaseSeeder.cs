@@ -47,6 +47,22 @@ namespace FlexiSpace.Infrastructure.Seed
                     Role = UserRole.Staff,
                     LocationId = location.Id,
                     Location = location
+                },
+
+                // Previously nobody was seeded with Administrator, so
+                // there was no way to test the [AuthorizeRoles(Administrator)]
+                // endpoints (UserController) without manually editing the
+                // Role column in SSMS after the fact.
+                new User
+                {
+                    EntraObjectId = Guid.NewGuid(),
+                    FirstName = "Denzel",
+                    LastName = "Admin",
+                    Email = "denzel.admin@flexispace.co.za",
+                    PhoneNumber = "0821112222",
+                    Role = UserRole.Administrator,
+                    LocationId = location.Id,
+                    Location = location
                 }
             };
 
