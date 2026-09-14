@@ -9,7 +9,6 @@ namespace FlexiSpace.Core.Enums
     public enum BookingStatus
     {
     Pending,
-    Approved,
     Cancelled,
     Completed
     }
