@@ -12,9 +12,11 @@ function App() {
         setApiResult(null)
         try {
             const tokenResponse = await instance.acquireTokenSilent({
-                ...apiRequest,
-                account: accounts[0]
-            })
+    ...apiRequest,
+    account: accounts[0]
+})
+
+console.log("ACCESS TOKEN:", tokenResponse.accessToken)
 
 const response = await fetch(
     'https://localhost:7055/api/GraphTest/create-test-event',

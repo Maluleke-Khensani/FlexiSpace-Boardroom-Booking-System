@@ -68,6 +68,9 @@ namespace FlexiSpace.API
             builder.Services.AddScoped<IEquipmentService, EquipmentService>();
             builder.Services.AddScoped<IBookingService, BookingService>();
 
+            // Register AI recommendation service.
+            builder.Services.AddHttpClient<IAiRecommendationService, AiRecommendationService>();
+
             // Fix: ICateringService and IUserService were being injected
             // into CateringController/UserController but were never
             // registered here - same bug class (and same fix) as the
@@ -85,8 +88,33 @@ namespace FlexiSpace.API
 
             // Register Swagger services to generate API documentation and allow endpoint testing during development.
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+            builder.Services.AddSwaggerGen(options =>
+            {
+                options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                {
+                    Name = "Authorization",
+                    Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    BearerFormat = "JWT",
+                    In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+                    Description = "Paste your Entra ID access token here. Swagger UI will automatically add the Bearer prefix."
+                });
 
+                options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+            });
             // I've finished configuring everything. Now build the application.
             var app = builder.Build();
 

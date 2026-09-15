@@ -56,10 +56,6 @@ namespace FlexiSpace.Infrastructure.Persistence.Configurations
                    .HasForeignKey(b => b.UserId)
                    .OnDelete(DeleteBehavior.Restrict);
 
-            builder.HasMany(u => u.ApprovedBookings)
-                   .WithOne(b => b.ApprovedBy)
-                   .HasForeignKey(b => b.ApprovedById)
-                   .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }
