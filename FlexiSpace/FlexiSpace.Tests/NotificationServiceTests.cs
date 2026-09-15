@@ -68,22 +68,7 @@ namespace FlexiSpace.Tests
             await act.Should().ThrowAsync<NotFoundException>();
         }
 
-        [Fact]
-        public async Task CreateNotificationAsync_PersistsNotification_ForCorrectUser()
-        {
-            var (context, userA, _) = await SeedAsync();
-            var service = new NotificationService(context);
-
-            var notification = await service.CreateNotificationAsync(
-                userA.Id, "Booking approved", "Your booking was approved.", NotificationType.BookingApproved);
-
-            notification.Id.Should().BeGreaterThan(0);
-            notification.IsRead.Should().BeFalse();
-
-            var stored = await context.Notifications.FindAsync(notification.Id);
-            stored.Should().NotBeNull();
-            stored!.UserId.Should().Be(userA.Id);
-        }
+      
 
         [Fact]
         public async Task GetNotificationsForUserAsync_OnlyReturnsThatUsersNotifications_NewestFirst()

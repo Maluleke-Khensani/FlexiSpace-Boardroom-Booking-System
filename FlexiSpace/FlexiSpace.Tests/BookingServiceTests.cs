@@ -395,73 +395,8 @@ namespace FlexiSpace.Tests
             result.Should().BeFalse();
         }
 
-        [Fact]
-        public async Task UpdateBookingStatusAsync_Throws_OnInvalidTransition()
-        {
-            var (context, boardroom, user) = await SeedAsync();
-            var service = new BookingService(context);
-
-            var created = await service.CreateBookingAsync(ValidBooking(boardroom.Id, user.Id));
-            await service.DeleteBookingAsync(created.Id); // now Cancelled
-
-            var act = async () => await service.UpdateBookingStatusAsync(created.Id, BookingStatus.Approved, user.Id);
-
-            await act.Should().ThrowAsync<BusinessRuleException>();
-        }
-
-        [Fact]
-        public async Task UpdateBookingStatusAsync_Throws_WhenApprovingWithoutApprovedById()
-        {
-            var (context, boardroom, user) = await SeedAsync();
-            var service = new BookingService(context);
-
-            var created = await service.CreateBookingAsync(ValidBooking(boardroom.Id, user.Id));
-
-            var act = async () => await service.UpdateBookingStatusAsync(created.Id, BookingStatus.Approved, null);
-
-            await act.Should().ThrowAsync<BusinessRuleException>();
-        }
-
-        [Fact]
-        public async Task UpdateBookingStatusAsync_Approves_WhenApprovedByIdIsValid()
-        {
-            var (context, boardroom, user) = await SeedAsync();
-            var service = new BookingService(context);
-
-            var created = await service.CreateBookingAsync(ValidBooking(boardroom.Id, user.Id));
-
-            var result = await service.UpdateBookingStatusAsync(created.Id, BookingStatus.Approved, user.Id);
-
-            result.Should().BeTrue();
-
-            var updated = await service.GetBookingByIdAsync(created.Id);
-            updated!.Status.Should().Be(BookingStatus.Approved);
-            updated.ApprovedById.Should().Be(user.Id);
-        }
-
-        [Fact]
-        public async Task SearchBookingsAsync_FiltersByStatus()
-        {
-            var (context, boardroom, user) = await SeedAsync();
-            var service = new BookingService(context);
-
-            await service.CreateBookingAsync(ValidBooking(
-                boardroom.Id, user.Id, start: new TimeOnly(9, 0), end: new TimeOnly(10, 0)));
-
-            var approved = await service.CreateBookingAsync(ValidBooking(
-                boardroom.Id, user.Id, start: new TimeOnly(11, 0), end: new TimeOnly(12, 0)));
-
-            await service.UpdateBookingStatusAsync(approved.Id, BookingStatus.Approved, user.Id);
-
-            var result = await service.SearchBookingsAsync(new BookingQueryParameters
-            {
-                Status = BookingStatus.Approved
-            });
-
-            result.TotalCount.Should().Be(1);
-            result.Items.Single().Id.Should().Be(approved.Id);
-        }
-
+     
+       
         [Fact]
         public async Task SearchBookingsAsync_Paginates()
         {

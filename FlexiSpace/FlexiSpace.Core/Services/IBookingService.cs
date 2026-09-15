@@ -53,5 +53,15 @@ namespace FlexiSpace.Core.Services
         // Filters, sorts (by date/time) and paginates bookings.
         // Page/PageSize are clamped to sane bounds rather than throwing.
         Task<PagedResult<Booking>> SearchBookingsAsync(BookingQueryParameters query);
+
+
+        // Retrieves boardrooms that are available for the requested
+        // booking date and time.
+        // The availability check considers the boardroom's active status
+        // and existing bookings that occupy the requested time slot.
+        Task<IEnumerable<Boardroom>> GetAvailableBoardroomsAsync(
+            DateOnly bookingDate,
+            TimeOnly startTime,
+            TimeOnly endTime);
     }
 }
