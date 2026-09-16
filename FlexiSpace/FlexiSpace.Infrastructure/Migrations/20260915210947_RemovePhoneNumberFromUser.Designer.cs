@@ -4,6 +4,7 @@ using FlexiSpace.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FlexiSpace.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260915210947_RemovePhoneNumberFromUser")]
+    partial class RemovePhoneNumberFromUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -124,14 +127,14 @@ namespace FlexiSpace.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("ApprovedById")
-                        .HasColumnType("int");
-
                     b.Property<int>("BoardroomId")
                         .HasColumnType("int");
 
                     b.Property<DateOnly>("BookingDate")
                         .HasColumnType("date");
+
+                    b.Property<int?>("CancelledById")
+                        .HasColumnType("int");
 
                     b.Property<string>("Company")
                         .HasMaxLength(150)
@@ -145,6 +148,9 @@ namespace FlexiSpace.Infrastructure.Migrations
 
                     b.Property<DateTime?>("ModifiedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("ModifiedById")
+                        .HasColumnType("int");
 
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
@@ -168,9 +174,11 @@ namespace FlexiSpace.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ApprovedById");
-
                     b.HasIndex("BoardroomId");
+
+                    b.HasIndex("CancelledById");
+
+                    b.HasIndex("ModifiedById");
 
                     b.HasIndex("UserId");
 
@@ -464,16 +472,21 @@ namespace FlexiSpace.Infrastructure.Migrations
 
             modelBuilder.Entity("FlexiSpace.Core.Entities.Booking", b =>
                 {
-                    b.HasOne("FlexiSpace.Core.Entities.User", "ApprovedBy")
-                        .WithMany("ApprovedBookings")
-                        .HasForeignKey("ApprovedById")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("FlexiSpace.Core.Entities.Boardroom", "Boardroom")
                         .WithMany("Bookings")
                         .HasForeignKey("BoardroomId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("FlexiSpace.Core.Entities.User", "CancelledBy")
+                        .WithMany("CancelledBookings")
+                        .HasForeignKey("CancelledById")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FlexiSpace.Core.Entities.User", "ModifiedBy")
+                        .WithMany("ModifiedBookings")
+                        .HasForeignKey("ModifiedById")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("FlexiSpace.Core.Entities.User", "User")
                         .WithMany("Bookings")
@@ -481,9 +494,11 @@ namespace FlexiSpace.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("ApprovedBy");
-
                     b.Navigation("Boardroom");
+
+                    b.Navigation("CancelledBy");
+
+                    b.Navigation("ModifiedBy");
 
                     b.Navigation("User");
                 });
@@ -596,11 +611,13 @@ namespace FlexiSpace.Infrastructure.Migrations
 
             modelBuilder.Entity("FlexiSpace.Core.Entities.User", b =>
                 {
-                    b.Navigation("ApprovedBookings");
-
                     b.Navigation("AuditLogs");
 
                     b.Navigation("Bookings");
+
+                    b.Navigation("CancelledBookings");
+
+                    b.Navigation("ModifiedBookings");
 
                     b.Navigation("Notifications");
                 });

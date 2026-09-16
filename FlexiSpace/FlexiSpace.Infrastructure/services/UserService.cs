@@ -14,31 +14,54 @@ namespace FlexiSpace.Infrastructure.Services
             _context = context;
         }
 
-        // Retrieves all users from the database.
         public async Task<IEnumerable<User>> GetAllUsersAsync()
         {
+            // Retrieves all users stored in the FlexiSpace database.
             return await _context.Users.ToListAsync();
         }
 
-        // Retrieves a single user by their ID.
         public async Task<User?> GetUserByIdAsync(int id)
         {
+            // Finds a FlexiSpace user using their local database ID.
             return await _context.Users.FindAsync(id);
         }
 
-        // Updates an existing user's information.
+        public async Task<User?> GetUserByEntraObjectIdAsync(Guid entraObjectId)
+        {
+            // Finds the FlexiSpace user linked to the
+            // Entra ID account using the Entra Object ID.
+            return await _context.Users
+                .FirstOrDefaultAsync(u => u.EntraObjectId == entraObjectId);
+        }
+
+
+        public async Task<User?> CreateUserAsync(User user)
+        {
+            // Prevents the same Entra account from being registered more than once.
+            var existingUser = await _context.Users
+                .FirstOrDefaultAsync(u => u.EntraObjectId == user.EntraObjectId);
+
+            if (existingUser != null)
+                return null;
+
+            // Adds the new FlexiSpace user to the database.
+            _context.Users.Add(user);
+
+            await _context.SaveChangesAsync();
+
+            return user;
+        }
+
         public async Task<bool> UpdateUserAsync(int id, User user)
         {
+            // Finds the existing user before updating their details.
             var existingUser = await _context.Users.FindAsync(id);
 
             if (existingUser == null)
-            {
                 return false;
-            }
 
             existingUser.FirstName = user.FirstName;
             existingUser.LastName = user.LastName;
-            existingUser.PhoneNumber = user.PhoneNumber;
             existingUser.Role = user.Role;
             existingUser.LocationId = user.LocationId;
 
@@ -47,17 +70,15 @@ namespace FlexiSpace.Infrastructure.Services
             return true;
         }
 
-        // Activates or deactivates a user account.
         public async Task<bool> UpdateUserStatusAsync(int id, bool isActive)
         {
-            var existingUser = await _context.Users.FindAsync(id);
+            // Finds the user whose active status needs to be changed.
+            var user = await _context.Users.FindAsync(id);
 
-            if (existingUser == null)
-            {
+            if (user == null)
                 return false;
-            }
 
-            existingUser.IsActive = isActive;
+            user.IsActive = isActive;
 
             await _context.SaveChangesAsync();
 

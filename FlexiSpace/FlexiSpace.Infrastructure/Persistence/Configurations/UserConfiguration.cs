@@ -24,10 +24,6 @@ namespace FlexiSpace.Infrastructure.Persistence.Configurations
                    .IsRequired()
                    .HasMaxLength(255);
 
-            builder.Property(u => u.PhoneNumber)
-                   .IsRequired()
-                   .HasMaxLength(20);
-
             builder.Property(u => u.EntraObjectId)
                    .IsRequired();
 
