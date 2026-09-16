@@ -43,6 +43,31 @@ namespace FlexiSpace.API
                 options.UseSqlServer(
                     builder.Configuration.GetConnectionString("DefaultConnection")));
 
+<<<<<<< Updated upstream
+=======
+            builder.Services.AddScoped<IGraphDirectoryService>(sp =>
+            {
+                var configuration = sp.GetRequiredService<IConfiguration>();
+
+                return new GraphDirectoryService(
+                    configuration["MicrosoftGraph:TenantId"]!,
+                    configuration["MicrosoftGraph:ClientId"]!,
+                    configuration["MicrosoftGraph:ClientSecret"]!
+                );
+            });
+
+            builder.Services.AddScoped<ICalendarService>(sp =>
+            {
+                var configuration = sp.GetRequiredService<IConfiguration>();
+
+                return new MicrosoftGraphCalendarService(
+                    configuration["MicrosoftGraph:TenantId"]!,
+                    configuration["MicrosoftGraph:ClientId"]!,
+                    configuration["MicrosoftGraph:ClientSecret"]!
+                );
+            });
+
+>>>>>>> Stashed changes
             // Register application services.
             builder.Services.AddScoped<ILocationService, LocationService>();
             builder.Services.AddScoped<IBoardroomService, BoardroomService>();
