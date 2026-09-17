@@ -1,0 +1,31 @@
+<?xml version = "1.0" encoding = "UTF-8" ?>
+<Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:conv="clr-namespace:Flexispace.Mobile.Converters"
+             xmlns:local="clr-namespace:Flexispace.Mobile"
+             x:Class="Flexispace.Mobile.App">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
+                <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <conv:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+            <conv:IsNotNullConverter x:Key="IsNotNullConverter" />
+            <conv:BoolToOpacityConverter x:Key="BoolToOpacityConverter" />
+            <conv:StringNotEmptyConverter x:Key="StringNotEmptyConverter" />
+            <conv:StepEqualsConverter x:Key="StepEqualsConverter" />
+            <conv:IntAtLeastConverter x:Key="IntAtLeastConverter" />
+            <conv:IntBelowConverter x:Key="IntBelowConverter" />
+            <conv:JoinListConverter x:Key="JoinListConverter" />
+            <conv:ChipSelectedConverter x:Key="ChipSelectedConverter" />
+            <conv:NotificationIconConverter x:Key="NotificationIconConverter" />
+            <conv:NotificationAccentConverter x:Key="NotificationAccentConverter" />
+            <conv:TimeAgoConverter x:Key="TimeAgoConverter" />
+            <conv:ReadToggleTextConverter x:Key="ReadToggleTextConverter" />
+            <conv:StatusAccentConverter x:Key="StatusAccentConverter" />
+            <conv:InitialsConverter x:Key="InitialsConverter" />
+            <conv:RoleDisplayConverter x:Key="RoleDisplayConverter" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

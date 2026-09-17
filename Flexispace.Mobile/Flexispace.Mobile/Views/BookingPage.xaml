@@ -1,0 +1,308 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Flexispace.Mobile.ViewModels"
+             xmlns:models="clr-namespace:Flexispace.Mobile.Models"
+             x:Class="Flexispace.Mobile.Views.BookingPage"
+             x:DataType="vm:BookingViewModel"
+             Title="Book a room"
+             BackgroundColor="{StaticResource BrandIvory}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="14" MaximumWidthRequest="560" HorizontalOptions="Center">
+            <Label Text="MEETING ROOM / BOARDROOM" Style="{StaticResource EyebrowLabel}" />
+            <Label Text="Make the right impression" Style="{StaticResource SectionTitle}" />
+            <Label Text="Fully equipped rooms with uncapped fibre, backup power, conference calling, tea &amp; coffee, and secure parking — from R150 per hour." Style="{StaticResource MutedLabel}" />
+
+            <Border Style="{StaticResource ElevatedCard}" Padding="12,14">
+                <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="6">
+                    <Border Style="{StaticResource WizardStepPillActive}">
+                        <Label Text="1 · Place" TextColor="{StaticResource BrandBlack}" FontSize="11" FontAttributes="Bold" HorizontalTextAlignment="Center" />
+                    </Border>
+                    <Border Grid.Column="1" Style="{StaticResource WizardStepPillActive}"
+                            IsVisible="{Binding Step, Converter={StaticResource IntAtLeastConverter}, ConverterParameter=2}">
+                        <Label Text="2 · Room" TextColor="{StaticResource BrandBlack}" FontSize="11" FontAttributes="Bold" HorizontalTextAlignment="Center" />
+                    </Border>
+                    <Border Grid.Column="1" Style="{StaticResource WizardStepPill}"
+                            IsVisible="{Binding Step, Converter={StaticResource IntBelowConverter}, ConverterParameter=2}">
+                        <Label Text="2 · Room" TextColor="{StaticResource BrandGold}" FontSize="11" FontAttributes="Bold" HorizontalTextAlignment="Center" />
+                    </Border>
+                    <Border Grid.Column="2" Style="{StaticResource WizardStepPillActive}"
+                            IsVisible="{Binding Step, Converter={StaticResource IntAtLeastConverter}, ConverterParameter=3}">
+                        <Label Text="3 · Time" TextColor="{StaticResource BrandBlack}" FontSize="11" FontAttributes="Bold" HorizontalTextAlignment="Center" />
+                    </Border>
+                    <Border Grid.Column="2" Style="{StaticResource WizardStepPill}"
+                            IsVisible="{Binding Step, Converter={StaticResource IntBelowConverter}, ConverterParameter=3}">
+                        <Label Text="3 · Time" TextColor="{StaticResource BrandGold}" FontSize="11" FontAttributes="Bold" HorizontalTextAlignment="Center" />
+                    </Border>
+                    <Border Grid.Column="3" Style="{StaticResource WizardStepPillActive}"
+                            IsVisible="{Binding Step, Converter={StaticResource IntAtLeastConverter}, ConverterParameter=4}">
+                        <Label Text="4 · Done" TextColor="{StaticResource BrandBlack}" FontSize="11" FontAttributes="Bold" HorizontalTextAlignment="Center" />
+                    </Border>
+                    <Border Grid.Column="3" Style="{StaticResource WizardStepPill}"
+                            IsVisible="{Binding Step, Converter={StaticResource IntBelowConverter}, ConverterParameter=4}">
+                        <Label Text="4 · Done" TextColor="{StaticResource BrandGold}" FontSize="11" FontAttributes="Bold" HorizontalTextAlignment="Center" />
+                    </Border>
+                </Grid>
+            </Border>
+
+            <Label Text="{Binding StepHeadline}" Style="{StaticResource SectionTitle}" FontSize="18" />
+            <Label Text="{Binding Step, StringFormat='Step {0} of 4'}" TextColor="{StaticResource BrandGoldDeep}" FontSize="12" />
+
+            <Border Style="{StaticResource CardBorder}" IsVisible="{Binding ShowClientPaymentNote}" Padding="12">
+                <Label Text="Online payment arrives in Phase 2." Style="{StaticResource MutedLabel}" FontSize="13" />
+            </Border>
+
+            <Border StrokeThickness="0" StrokeShape="RoundRectangle 16" BackgroundColor="{StaticResource BrandDangerSoft}" Padding="12,10"
+                    IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}">
+                <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource BrandDanger}" FontSize="13" />
+            </Border>
+
+            <VerticalStackLayout IsVisible="{Binding Step, Converter={StaticResource StepEqualsConverter}, ConverterParameter=1}" Spacing="10">
+                <Label Text="Swipe, mouse wheel, keyboard arrows, or the chevrons." Style="{StaticResource MutedLabel}" FontSize="12" />
+
+                <Grid x:Name="BookingCarouselHost" HeightRequest="310" Padding="0,6" ColumnDefinitions="52,*,52">
+                    <Grid.GestureRecognizers>
+                        <SwipeGestureRecognizer Direction="Left" Swiped="OnBookingSwipedLeft" />
+                        <SwipeGestureRecognizer Direction="Right" Swiped="OnBookingSwipedRight" />
+                    </Grid.GestureRecognizers>
+
+                    <Button Grid.Column="0" Text="&#xe5cb;" Clicked="OnBookingPreviousClicked" Style="{StaticResource CarouselNavButton}" Margin="0,0,0,40" ZIndex="5" />
+                    <Button Grid.Column="2" Text="&#xe5cc;" Clicked="OnBookingNextClicked" Style="{StaticResource CarouselNavButton}" Margin="0,0,0,40" ZIndex="5" />
+
+                    <Grid Grid.Column="1" HorizontalOptions="Fill" VerticalOptions="Fill">
+                        <Border x:Name="BookingLeftCard" WidthRequest="150" HeightRequest="160" HorizontalOptions="Start" VerticalOptions="Center" Stroke="{StaticResource BrandLine}" StrokeThickness="1" StrokeShape="RoundRectangle 20" BackgroundColor="White" ZIndex="1">
+                            <Grid>
+                                <Image x:Name="BookingLeftImage" Aspect="AspectFill" />
+                                <BoxView Color="#88000000" VerticalOptions="End" HeightRequest="52" />
+                                <VerticalStackLayout VerticalOptions="End" Padding="12" Spacing="1">
+                                    <Label x:Name="BookingLeftTitle" TextColor="White" FontAttributes="Bold" FontSize="13" />
+                                    <Label x:Name="BookingLeftSubtitle" TextColor="{StaticResource BrandGoldSoft}" FontSize="10" LineBreakMode="TailTruncation" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Border>
+
+                        <Border x:Name="BookingCenterCard" WidthRequest="250" HeightRequest="220" HorizontalOptions="Center" VerticalOptions="Center" Stroke="{StaticResource BrandGold}" StrokeThickness="2" StrokeShape="RoundRectangle 20" BackgroundColor="White" ZIndex="3">
+                            <Border.Shadow>
+                                <Shadow Brush="{StaticResource BrandGoldDeep}" Opacity="0.28" Radius="16" Offset="0,6" />
+                            </Border.Shadow>
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnBookingCenterTapped" />
+                            </Border.GestureRecognizers>
+                            <Grid>
+                                <Image x:Name="BookingCenterImage" Aspect="AspectFill" />
+                                <BoxView Color="#99000000" VerticalOptions="End" HeightRequest="78" />
+                                <VerticalStackLayout VerticalOptions="End" Padding="14" Spacing="2">
+                                    <Label x:Name="BookingCenterTitle" TextColor="White" FontAttributes="Bold" FontSize="18" />
+                                    <Label x:Name="BookingCenterSubtitle" TextColor="{StaticResource BrandGoldSoft}" FontSize="11" LineBreakMode="TailTruncation" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Border>
+
+                        <Border x:Name="BookingRightCard" WidthRequest="150" HeightRequest="160" HorizontalOptions="End" VerticalOptions="Center" Stroke="{StaticResource BrandLine}" StrokeThickness="1" StrokeShape="RoundRectangle 20" BackgroundColor="White" ZIndex="1">
+                            <Grid>
+                                <Image x:Name="BookingRightImage" Aspect="AspectFill" />
+                                <BoxView Color="#88000000" VerticalOptions="End" HeightRequest="52" />
+                                <VerticalStackLayout VerticalOptions="End" Padding="12" Spacing="1">
+                                    <Label x:Name="BookingRightTitle" TextColor="White" FontAttributes="Bold" FontSize="13" />
+                                    <Label x:Name="BookingRightSubtitle" TextColor="{StaticResource BrandGoldSoft}" FontSize="10" LineBreakMode="TailTruncation" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+
+                <Button Text="Choose this location" Clicked="OnChooseBookingLocationClicked" Style="{StaticResource GoldButton}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout IsVisible="{Binding Step, Converter={StaticResource StepEqualsConverter}, ConverterParameter=2}" Spacing="10">
+                <Label Text="{Binding SelectedLocation.Name, StringFormat='Rooms at {0}'}" Style="{StaticResource MutedLabel}" />
+                <Button Text="Back" Command="{Binding BackCommand}" Style="{StaticResource GhostButton}" HorizontalOptions="Start" />
+
+                <Border IsVisible="{Binding ShowCombineTip}"
+                        StrokeThickness="0"
+                        StrokeShape="RoundRectangle 12"
+                        BackgroundColor="{StaticResource BrandTealSoft}"
+                        Padding="14,12">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <Border Style="{StaticResource QuickActionOrb}" WidthRequest="36" HeightRequest="36"
+                                BackgroundColor="{StaticResource BrandTeal}">
+                            <Label Style="{StaticResource MaterialGlyph}" Text="&#xe574;" FontSize="18"
+                                   TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                            <Label Text="Larger groups welcome" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="13" />
+                            <Label Text="{Binding CombineTipText}" TextColor="{StaticResource BrandMuted}" FontSize="12" LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </Border>
+
+                <Grid ColumnDefinitions="*,Auto">
+                    <Label Text="Tap a room photo or name to pick it." Style="{StaticResource MutedLabel}" FontSize="11" VerticalOptions="Center" />
+                    <HorizontalStackLayout Grid.Column="1" Spacing="6">
+                        <Button x:Name="RoomsMapViewButton" Text="Map" Clicked="OnRoomsMapViewClicked" Style="{StaticResource ActionPill}" Padding="12,6" FontSize="11" MinimumHeightRequest="34" />
+                        <Button x:Name="RoomsListViewButton" Text="List" Clicked="OnRoomsListViewClicked" Style="{StaticResource ActionPill}" Padding="12,6" FontSize="11" MinimumHeightRequest="34" />
+                    </HorizontalStackLayout>
+                </Grid>
+
+                <VerticalStackLayout x:Name="RoomsMapHost" Padding="0,10,0,0" IsVisible="True" />
+
+                <VerticalStackLayout x:Name="RoomsListHost" Spacing="10" IsVisible="False"
+                                     BindableLayout.ItemsSource="{Binding Rooms}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="models:Boardroom">
+                            <Border Style="{StaticResource ElevatedCard}" Padding="0">
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsCombined}" Value="True">
+                                        <Setter Property="Stroke" Value="{StaticResource BrandGold}" />
+                                        <Setter Property="StrokeThickness" Value="1.5" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:BookingViewModel}}, Path=SelectRoomCommand}" CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <Grid ColumnDefinitions="110,*">
+                                    <Image Source="{Binding ImageKey}" Aspect="AspectFill" HeightRequest="110" />
+                                    <VerticalStackLayout Grid.Column="1" Spacing="4" Padding="12" VerticalOptions="Center">
+                                        <HorizontalStackLayout Spacing="6">
+                                            <Label Text="{Binding Name}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="15" LineBreakMode="TailTruncation" />
+                                        </HorizontalStackLayout>
+                                        <Border IsVisible="{Binding IsCombined}"
+                                                Style="{StaticResource SectionIndexBadge}" Margin="0" HorizontalOptions="Start"
+                                                BackgroundColor="{StaticResource BrandGold}">
+                                            <Label Text="Combined suite" TextColor="{StaticResource BrandBlack}" FontSize="10" FontAttributes="Bold" />
+                                        </Border>
+                                        <Border Style="{StaticResource SectionIndexBadge}" Margin="0" HorizontalOptions="Start">
+                                            <Label Text="{Binding DisplayCapacity}" TextColor="{StaticResource BrandBlack}" FontSize="11" FontAttributes="Bold" />
+                                        </Border>
+                                        <Label Text="{Binding CombineHint}"
+                                               IsVisible="{Binding CombineHint, Converter={StaticResource StringNotEmptyConverter}}"
+                                               TextColor="{StaticResource BrandTeal}" FontSize="11" LineBreakMode="WordWrap" />
+                                        <Label Text="{Binding Equipment, Converter={StaticResource JoinListConverter}}" TextColor="{StaticResource BrandMuted}" FontSize="12" LineBreakMode="TailTruncation" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+
+            <VerticalStackLayout IsVisible="{Binding Step, Converter={StaticResource StepEqualsConverter}, ConverterParameter=3}" Spacing="12">
+                <Label Text="{Binding SelectedRoom.Name, StringFormat='When — {0}'}" Style="{StaticResource MutedLabel}" />
+                <Button Text="Back" Command="{Binding BackCommand}" Style="{StaticResource GhostButton}" HorizontalOptions="Start" />
+
+                <Border Style="{StaticResource ElevatedCard}" Padding="16">
+                    <VerticalStackLayout Spacing="10">
+                        <HorizontalStackLayout Spacing="8">
+                            <Label Style="{StaticResource MaterialGlyph}" Text="&#xe935;" FontSize="18" TextColor="{StaticResource BrandGold}" />
+                            <Label Text="Date" TextColor="{StaticResource BrandMuted}" FontSize="12" VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                        <DatePicker Date="{Binding SelectedDate}" TextColor="{StaticResource BrandInk}" />
+                        <HorizontalStackLayout Spacing="8">
+                            <Label Style="{StaticResource MaterialGlyph}" Text="&#xe8b5;" FontSize="18" TextColor="{StaticResource BrandGold}" />
+                            <Label Text="Start" TextColor="{StaticResource BrandMuted}" FontSize="12" VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                        <TimePicker Time="{Binding StartTime}" TextColor="{StaticResource BrandInk}" />
+                        <HorizontalStackLayout Spacing="8">
+                            <Label Style="{StaticResource MaterialGlyph}" Text="&#xe192;" FontSize="18" TextColor="{StaticResource BrandGold}" />
+                            <Label Text="End" TextColor="{StaticResource BrandMuted}" FontSize="12" VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                        <TimePicker Time="{Binding EndTime}" TextColor="{StaticResource BrandInk}" />
+                    </VerticalStackLayout>
+                </Border>
+                <Button Text="Continue" Command="{Binding NextToDetailsCommand}" Style="{StaticResource GoldButton}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout IsVisible="{Binding Step, Converter={StaticResource StepEqualsConverter}, ConverterParameter=4}" Spacing="10">
+                <Label Text="Who’s coming, and extras" Style="{StaticResource MutedLabel}" />
+                <Button Text="Back" Command="{Binding BackCommand}" Style="{StaticResource GhostButton}" HorizontalOptions="Start" />
+
+                <Border Style="{StaticResource ElevatedCard}" Padding="16">
+                    <VerticalStackLayout Spacing="10">
+                        <Entry Text="{Binding Company}" Placeholder="Company" Style="{StaticResource FieldEntry}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <Entry Text="{Binding AttendeesText}" Keyboard="Numeric" Placeholder="Attendees" Style="{StaticResource FieldEntry}" />
+                            <Border Grid.Column="1" Style="{StaticResource SectionIndexBadge}" Margin="0" VerticalOptions="Center">
+                                <Label Text="{Binding SelectedRoom.DisplayCapacity}" TextColor="{StaticResource BrandBlack}" FontSize="11" FontAttributes="Bold" />
+                            </Border>
+                        </Grid>
+                        <Border IsVisible="{Binding ShowCapacityCombineOffer}"
+                                Stroke="{StaticResource BrandGold}"
+                                StrokeThickness="1"
+                                StrokeShape="RoundRectangle 12"
+                                BackgroundColor="#22C4A035"
+                                Padding="12,10">
+                            <VerticalStackLayout Spacing="8">
+                                <Label Text="Need more seats?" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" FontSize="13" />
+                                <Label Text="{Binding CapacityCombineMessage}" TextColor="{StaticResource BrandInk}" FontSize="12" LineBreakMode="WordWrap" />
+                                <Button Text="Book combined suite"
+                                        Command="{Binding UseCombinedSuiteCommand}"
+                                        Style="{StaticResource GoldButton}"
+                                        Padding="12,8"
+                                        FontSize="12"
+                                        MinimumHeightRequest="40" />
+                            </VerticalStackLayout>
+                        </Border>
+                        <Label IsVisible="{Binding SelectedRoom.IsCombined}"
+                               Text="You’ll have both adjoining rooms for this booking."
+                               TextColor="{StaticResource BrandTeal}" FontSize="12" />
+                        <Editor Text="{Binding Notes}" Placeholder="Notes" AutoSize="TextChanges" HeightRequest="80" TextColor="{StaticResource BrandInk}" PlaceholderColor="{StaticResource BrandMuted}" BackgroundColor="{StaticResource BrandSurface}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="Equipment" TextColor="{StaticResource BrandGoldDeep}" FontSize="13" Margin="0,8,0,0" />
+                <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding EquipmentOptions}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SelectableOption">
+                            <Border Style="{StaticResource PerkChip}" Margin="0,0,8,8">
+                                <HorizontalStackLayout Spacing="8">
+                                    <CheckBox IsChecked="{Binding IsSelected}" Color="{StaticResource BrandGold}" />
+                                    <Label Text="{Binding Label}" TextColor="{StaticResource BrandInk}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
+                                </HorizontalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </FlexLayout>
+
+                <Label Text="Catering" TextColor="{StaticResource BrandGoldDeep}" FontSize="13" />
+                <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding CateringOptions}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SelectableOption">
+                            <Border Style="{StaticResource PerkChip}" Margin="0,0,8,8">
+                                <HorizontalStackLayout Spacing="8">
+                                    <CheckBox IsChecked="{Binding IsSelected}" Color="{StaticResource BrandGold}" />
+                                    <Label Text="{Binding Label}" TextColor="{StaticResource BrandInk}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
+                                </HorizontalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </FlexLayout>
+
+                <Border StrokeThickness="0"
+                        StrokeShape="RoundRectangle 12"
+                        BackgroundColor="{StaticResource BrandTealSoft}"
+                        Padding="12,10">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding OpenPrivacyCommand}" />
+                    </Border.GestureRecognizers>
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                        <Label Style="{StaticResource MaterialGlyph}" Text="&#xe32a;" FontSize="18"
+                               TextColor="{StaticResource BrandTeal}" VerticalOptions="Center" />
+                        <Label Grid.Column="1"
+                               Text="We use your booking details under our Privacy policy (PoPIA)."
+                               TextColor="{StaticResource BrandInk}"
+                               FontSize="12"
+                               VerticalOptions="Center"
+                               LineBreakMode="WordWrap" />
+                        <Label Grid.Column="2" Text="View" TextColor="{StaticResource BrandTeal}" FontAttributes="Bold"
+                               FontSize="12" VerticalOptions="Center" />
+                    </Grid>
+                </Border>
+
+                <Label Text="{Binding SuggestedSlotsText}" TextColor="{StaticResource BrandGoldSoft}" IsVisible="{Binding SuggestedSlotsText, Converter={StaticResource StringNotEmptyConverter}}" />
+                <Button Text="Confirm booking" Command="{Binding SubmitCommand}" Style="{StaticResource GoldButton}" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="{StaticResource BrandGold}" />
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

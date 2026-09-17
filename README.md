@@ -20,6 +20,16 @@ dotnet run --project Flexispace.Web/FlexiSpace.Web
 
 See `Flexispace.Web/README.md` for demo accounts and routes. Open `Flexispace.Web/Flexispace.Web.sln` to work on the web app independently.
 
+## Mobile prototype (MAUI)
+Riba — Windows-first .NET MAUI booking app using mock services.
+
+```powershell
+dotnet build Flexispace.Mobile/Flexispace.Mobile/Flexispace.Mobile.csproj -f net10.0-windows10.0.19041.0
+dotnet run --project Flexispace.Mobile/Flexispace.Mobile/Flexispace.Mobile.csproj -f net10.0-windows10.0.19041.0
+```
+
+See `Flexispace.Mobile/README.md` for demo accounts and roles. Open `Flexispace.Mobile/Flexispace.Mobile.sln` to work on the mobile app independently.
+
 ## Team
 | Member | Role |
 |---|---|
