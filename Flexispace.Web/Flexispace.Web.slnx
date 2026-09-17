@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="FlexiSpace.Web/Flexispace.Web.csproj" />
+  <Project Path="FlexiSpace.Prototype.Core/FlexiSpace.Core.csproj" />
+</Solution>

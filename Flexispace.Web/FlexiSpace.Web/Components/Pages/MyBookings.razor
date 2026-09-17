@@ -1,0 +1,62 @@
+@* Booking history with optional scope filter for managers/admins. *@
+@page "/my-bookings"
+@rendermode InteractiveServer
+@inject MyBookingsViewModel Vm
+@inject IAuthService Auth
+@using Flexispace.Core.Helpers
+
+<PageTitle>My bookings · Flexispace</PageTitle>
+
+@if (!Auth.IsAuthenticated)
+{
+    <RedirectToLogin />
+}
+else
+{
+    <div class="fs-content-wide">
+        @if (Vm.CanToggleScope)
+        {
+            <div class="fs-filter-bar" style="margin-bottom:24px">
+                <button type="button" class="fs-btn fs-btn--pill @(Vm.ShowMineOnly ? "active" : "")" @onclick="() => SetFilter(true)">My bookings</button>
+                <button type="button" class="fs-btn fs-btn--pill @(!Vm.ShowMineOnly ? "active" : "")" @onclick="() => SetFilter(false)">All in scope</button>
+            </div>
+        }
+
+        @if (Vm.IsEmpty)
+        {
+            <div class="fs-card" style="text-align:center; padding:48px">
+                <p class="fs-muted" style="margin:0">No bookings yet. Use Book a room to reserve a boardroom.</p>
+            </div>
+        }
+        else
+        {
+            <div class="fs-grid-2">
+                @foreach (var booking in Vm.Items)
+                {
+                    <div class="fs-card--elevated fs-card--clickable" @onclick="() => Open(booking)">
+                        <div style="display:flex">
+                            <div class="fs-card__accent" style="background:@StatusAccent.GetColor(booking.Status)"></div>
+                            <div class="fs-card__body">
+                                <div style="display:flex; justify-content:space-between; gap:8px">
+                                    <strong style="font-size:16px">@booking.RoomName</strong>
+                                    <span class="fs-pill" style="background:@StatusAccent.GetColor(booking.Status)">@booking.Status</span>
+                                </div>
+                                <p class="fs-muted" style="font-size:13px; margin:6px 0">@booking.LocationName</p>
+                                <p style="font-size:13px; margin:0">@booking.Start.ToString("ddd d MMM · HH:mm")</p>
+                                <p class="fs-muted" style="font-size:12px; margin:4px 0 0">@booking.Company</p>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    protected override async Task OnInitializedAsync() =>
+        await Vm.AppearingCommand.ExecuteAsync(null);
+
+    private Task SetFilter(bool mineOnly) => Vm.SetFilterCommand.ExecuteAsync(mineOnly);
+    private void Open(Booking booking) => Vm.OpenCommand.Execute(booking);
+}
