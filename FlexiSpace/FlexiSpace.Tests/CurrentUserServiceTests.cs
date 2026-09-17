@@ -81,7 +81,6 @@ namespace FlexiSpace.Tests
                 FirstName = "Denzel",
                 LastName = "Admin",
                 Email = "denzel@flexispace.net.za",
-                PhoneNumber = "0000000000",
                 Role = UserRole.Administrator,
                 Location = location,
                 EntraObjectId = entraId
@@ -112,7 +111,6 @@ namespace FlexiSpace.Tests
                 FirstName = "Former",
                 LastName = "Employee",
                 Email = "former@flexispace.net.za",
-                PhoneNumber = "0000000000",
                 Role = UserRole.Staff,
                 Location = location,
                 EntraObjectId = entraId,

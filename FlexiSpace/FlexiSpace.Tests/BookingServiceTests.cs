@@ -47,7 +47,6 @@ namespace FlexiSpace.Tests
                 FirstName = "Test",
                 LastName = "User",
                 Email = "user@flexispace.net.za",
-                PhoneNumber = "0000000000",
                 Role = UserRole.Staff,
                 Location = location,
                 EntraObjectId = Guid.NewGuid()

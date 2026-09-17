@@ -13,7 +13,7 @@ namespace FlexiSpace.Core.Entities
 
         public required string Email { get; set; }
 
-        public required string PhoneNumber { get; set; }
+  
 
 
         //IsActive property is used to indicate whether the user is currently active or not. It can be useful for managing user accounts, such as deactivating users who are no longer part of the organization or temporarily suspending access.
@@ -21,10 +21,12 @@ namespace FlexiSpace.Core.Entities
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public UserRole Role{ get; set; }
 
-
-        
         //Many Users --> One Location, so we use a navigation property to represent this relationship
-        public int LocationId { get; set; }
+
+        // A user may be associated with a FlexiSpace location.
+        // This is nullable because Clients do not belong to a specific
+        // FlexiSpace location.
+        public int? LocationId { get; set; }
 
         public  Location? Location { get; set; }
 

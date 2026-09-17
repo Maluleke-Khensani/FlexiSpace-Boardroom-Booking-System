@@ -29,7 +29,6 @@ namespace FlexiSpace.Tests
                 FirstName = "Denzel",
                 LastName = "Admin",
                 Email = "denzel.admin@flexispace.net.za",
-                PhoneNumber = "0000000000",
                 Role = UserRole.Administrator,
                 Location = location,
                 EntraObjectId = Guid.NewGuid()
