@@ -15,11 +15,10 @@ Houghton, and Centurion.
 Khumo-Thato Chabeli (ST10448834) — browser-based booking UI prototype using mock data.
 
 ```powershell
-cd FlexiSpace
-dotnet run --project Flexispace.Web/Flexispace.Web.csproj
+dotnet run --project Flexispace.Web/FlexiSpace.Web
 ```
 
-See `Flexispace.Web/README.md` for demo accounts and routes.
+See `Flexispace.Web/README.md` for demo accounts and routes. Open `Flexispace.Web/Flexispace.Web.sln` to work on the web app independently.
 
 ## Team
 | Member | Role |
