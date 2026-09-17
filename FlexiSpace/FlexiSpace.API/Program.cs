@@ -51,6 +51,25 @@ namespace FlexiSpace.API
                 options.UseSqlServer(
                     builder.Configuration.GetConnectionString("DefaultConnection")));
 
+            builder.Services.AddScoped<IEntraUserService>(sp =>
+            {
+                var configuration = sp.GetRequiredService<IConfiguration>();
+
+                var tenantId = configuration["AzureAd:TenantId"]
+                    ?? throw new InvalidOperationException("AzureAd:TenantId is missing.");
+
+                var clientId = configuration["AzureAd:ClientId"]
+                    ?? throw new InvalidOperationException("AzureAd:ClientId is missing.");
+
+                var clientSecret = configuration["AzureAd:ClientSecret"]
+                    ?? throw new InvalidOperationException("AzureAd:ClientSecret is missing.");
+
+                return new EntraUserService(
+                    tenantId,
+                    clientId,
+                    clientSecret);
+            });
+
             builder.Services.AddScoped<ICalendarService>(sp =>
             {
                 var configuration = sp.GetRequiredService<IConfiguration>();

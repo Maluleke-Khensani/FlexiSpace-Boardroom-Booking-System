@@ -24,10 +24,6 @@ namespace FlexiSpace.Infrastructure.Persistence.Configurations
                    .IsRequired()
                    .HasMaxLength(255);
 
-            builder.Property(u => u.PhoneNumber)
-                   .IsRequired()
-                   .HasMaxLength(20);
-
             builder.Property(u => u.EntraObjectId)
                    .IsRequired();
 
@@ -45,11 +41,14 @@ namespace FlexiSpace.Infrastructure.Persistence.Configurations
 
             builder.HasIndex(u => u.EntraObjectId)
                    .IsUnique();
-
+            // Many Users -> One Location.
+            // LocationId is nullable because some users, such as Clients,
+            // do not belong to a specific FlexiSpace location.
             builder.HasOne(u => u.Location)
                    .WithMany(l => l.Users)
                    .HasForeignKey(u => u.LocationId)
                    .OnDelete(DeleteBehavior.Restrict);
+
 
             builder.HasMany(u => u.Bookings)
                    .WithOne(b => b.User)

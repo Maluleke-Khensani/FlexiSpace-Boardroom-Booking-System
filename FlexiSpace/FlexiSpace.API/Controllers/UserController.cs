@@ -1,3 +1,4 @@
+
 using FlexiSpace.Core.Common;
 using System.Text.Json;
 using FlexiSpace.API.Authorization;
@@ -8,18 +9,22 @@ using FlexiSpace.Core.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 
-
 namespace FlexiSpace.API.Controllers
 {
-    // This is the admin "manage users" screen's backing controller - view,
-    // edit, activate/deactivate, and change a user's role. Every action
-    // requires Administrator (see AuthorizeRolesAttribute for why this is
-    // a custom RBAC check rather than [Authorize(Roles = "...")]), and
-    // every mutation writes an AuditLog row so "who changed what, when" is
-    // reconstructable later from the admin dashboard.
+    // Admin user-management controller.
+    //
+    // Only authenticated Administrators can access this controller.
+    // RBAC is enforced through the AuthorizeRoles attribute below.
+    //
+    // This controller supports:
+    // - Viewing all provisioned FlexiSpace users
+    // - Viewing an individual user
+    // - Provisioning an existing Microsoft Entra user
+    // - Updating a user's profile/role/location
+    // - Activating/deactivating a user
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize] // Every endpoint in this controller requires an authenticated user.
+    [Authorize]
     [AuthorizeRoles(UserRole.Administrator)]
     public class UserController : ControllerBase
     {
@@ -37,7 +42,8 @@ namespace FlexiSpace.API.Controllers
             _currentUserService = currentUserService;
         }
 
-        // Retrieves all users in the system.
+        // Retrieves all users that have been provisioned
+        // into the FlexiSpace database.
         [HttpGet]
         public async Task<IActionResult> GetAllUsers()
         {
@@ -48,7 +54,8 @@ namespace FlexiSpace.API.Controllers
             return Ok(response);
         }
 
-        // Retrieves a specific user using their unique ID.
+        // Retrieves a specific FlexiSpace user using
+        // their local database ID.
         [HttpGet("{id}")]
         public async Task<IActionResult> GetUserById(int id)
         {
@@ -62,11 +69,76 @@ namespace FlexiSpace.API.Controllers
             return Ok(MapToResponseDto(user));
         }
 
-        // Updates an existing user's information (including their Role -
-        // this is how an admin changes someone's role from this screen).
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateUser(int id, UserUpdateDto dto)
+        // Provisions an existing Microsoft Entra user
+        // into the FlexiSpace application.
+        //
+        // The administrator supplies:
+        // - The Entra Object ID of the selected user
+        // - The FlexiSpace role
+        // - The optional FlexiSpace location
+        //
+        // The user's name and email are retrieved from
+        // Microsoft Entra ID by the UserService.
+        [HttpPost("provision")]
+        public async Task<IActionResult> ProvisionUser(
+            UserProvisionDto dto)
         {
+            // Ask the UserService to provision the selected
+            // Microsoft Entra user into the local database.
+            var user = await _userService.ProvisionUserAsync(dto);
+
+            // ProvisionUserAsync returns null when provisioning
+            // cannot be completed.
+            //
+            // This can happen if:
+            // - The Entra user does not exist
+            // - The Entra account is inactive
+            // - The user is already provisioned
+            // - The supplied LocationId does not exist
+            if (user == null)
+            {
+                return BadRequest(
+                    "The user could not be provisioned. " +
+                    "Verify that the Microsoft Entra user exists and is active, " +
+                    "has a valid FlexiSpace application role, " +
+                    "has not already been provisioned, and that the selected " +
+                    "location exists.");
+            }
+
+            // Record the provisioning action in the audit log.
+            //
+            // The target user is the newly created FlexiSpace user.
+            await LogAdminActionAsync(
+                AuditAction.Create,
+                user.Id,
+                oldValues: null,
+                newValues: JsonSerializer.Serialize(new
+                {
+                    user.EntraObjectId,
+                    user.FirstName,
+                    user.LastName,
+                    user.Email,
+                    Role = user.Role.ToString(),
+                    user.LocationId,
+                    user.IsActive
+                }));
+
+            // Return the newly provisioned user using the DTO
+            // rather than exposing the database entity directly.
+            return CreatedAtAction(
+                nameof(GetUserById),
+                new { id = user.Id },
+                MapToResponseDto(user));
+        }
+
+        // Updates an existing user's information.
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateUser(
+            int id,
+            UserUpdateDto dto)
+        {
+            // Retrieve the existing user first so that the
+            // previous values can be recorded in the audit log.
             var before = await _userService.GetUserByIdAsync(id);
 
             if (before == null)
@@ -74,11 +146,15 @@ namespace FlexiSpace.API.Controllers
                 return NotFound();
             }
 
+            // Create a User entity containing only the fields
+            // that can be updated through this endpoint.
+            //
+            // Email and EntraObjectId are deliberately not changed
+            // because they originate from Microsoft Entra ID.
             var user = new User
             {
                 FirstName = dto.FirstName,
                 LastName = dto.LastName,
-                PhoneNumber = dto.PhoneNumber,
                 Role = dto.Role,
                 LocationId = dto.LocationId,
 
@@ -95,6 +171,7 @@ namespace FlexiSpace.API.Controllers
                 return NotFound();
             }
 
+            // Record the changes made by the Administrator.
             await LogAdminActionAsync(
                 AuditAction.Update,
                 id,
@@ -102,7 +179,6 @@ namespace FlexiSpace.API.Controllers
                 {
                     before.FirstName,
                     before.LastName,
-                    before.PhoneNumber,
                     Role = before.Role.ToString(),
                     before.LocationId
                 }),
@@ -110,7 +186,6 @@ namespace FlexiSpace.API.Controllers
                 {
                     dto.FirstName,
                     dto.LastName,
-                    dto.PhoneNumber,
                     Role = dto.Role.ToString(),
                     dto.LocationId
                 }));
@@ -118,10 +193,17 @@ namespace FlexiSpace.API.Controllers
             return NoContent();
         }
 
-        // Activates or deactivates a user account.
+        // Activates or deactivates a user's FlexiSpace account.
+        //
+        // This changes the user's status inside FlexiSpace.
+        // It does not disable the user's Microsoft Entra account.
         [HttpPatch("{id}/status")]
-        public async Task<IActionResult> UpdateUserStatus(int id, UserStatusDto dto)
+        public async Task<IActionResult> UpdateUserStatus(
+            int id,
+            UserStatusDto dto)
         {
+            // Retrieve the existing user so that the previous
+            // status can be recorded in the audit log.
             var before = await _userService.GetUserByIdAsync(id);
 
             if (before == null)
@@ -129,35 +211,46 @@ namespace FlexiSpace.API.Controllers
                 return NotFound();
             }
 
-            var updated = await _userService.UpdateUserStatusAsync(id, dto.IsActive);
+            var updated = await _userService.UpdateUserStatusAsync(
+                id,
+                dto.IsActive);
 
             if (!updated)
             {
                 return NotFound();
             }
 
+            // Record the status change in the audit log.
             await LogAdminActionAsync(
                 AuditAction.Update,
                 id,
-                oldValues: JsonSerializer.Serialize(new { before.IsActive }),
-                newValues: JsonSerializer.Serialize(new { dto.IsActive }));
+                oldValues: JsonSerializer.Serialize(new
+                {
+                    before.IsActive
+                }),
+                newValues: JsonSerializer.Serialize(new
+                {
+                    dto.IsActive
+                }));
 
             return NoContent();
         }
 
-        // Records who (the authenticated admin) did what to which User row.
-        // Falls back gracefully if, for some reason, the current user
-        // can't be resolved (e.g. local dev with [Authorize] bypassed per
-        // Tino's handover) rather than throwing and losing the actual
-        // change that already succeeded.
+        // Records who performed an administrative action.
+        //
+        // CurrentUserService identifies the authenticated
+        // FlexiSpace user from their Microsoft Entra Object ID.
         private async Task LogAdminActionAsync(
             AuditAction action,
             int targetUserId,
             string? oldValues,
             string? newValues)
         {
-            var actingUserId = await _currentUserService.GetCurrentUserIdAsync();
+            var actingUserId =
+                await _currentUserService.GetCurrentUserIdAsync();
 
+            // If the current user cannot be identified locally,
+            // do not create an audit record with an invalid user ID.
             if (actingUserId == null)
             {
                 return;
@@ -173,6 +266,9 @@ namespace FlexiSpace.API.Controllers
         }
 
         // Converts a User entity into a UserResponseDto.
+        //
+        // DTOs are returned to the API consumer instead of
+        // exposing the Entity Framework entity directly.
         private static UserResponseDto MapToResponseDto(User user)
         {
             return new UserResponseDto
@@ -182,7 +278,6 @@ namespace FlexiSpace.API.Controllers
                 FirstName = user.FirstName,
                 LastName = user.LastName,
                 Email = user.Email,
-                PhoneNumber = user.PhoneNumber,
                 Role = user.Role,
                 IsActive = user.IsActive,
                 LocationId = user.LocationId,
@@ -191,3 +286,4 @@ namespace FlexiSpace.API.Controllers
         }
     }
 }
+

@@ -32,7 +32,6 @@ namespace FlexiSpace.Tests
                 FirstName = "Alice",
                 LastName = "A",
                 Email = "alice@flexispace.net.za",
-                PhoneNumber = "0000000001",
                 Role = UserRole.Staff,
                 Location = location,
                 EntraObjectId = Guid.NewGuid()
@@ -43,7 +42,6 @@ namespace FlexiSpace.Tests
                 FirstName = "Bongani",
                 LastName = "B",
                 Email = "bongani@flexispace.net.za",
-                PhoneNumber = "0000000002",
                 Role = UserRole.Staff,
                 Location = location,
                 EntraObjectId = Guid.NewGuid()

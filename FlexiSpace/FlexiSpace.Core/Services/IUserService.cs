@@ -1,4 +1,5 @@
-﻿using FlexiSpace.Core.Entities;
+﻿using FlexiSpace.Core.DTOs.User;
+using FlexiSpace.Core.Entities;
 
 namespace FlexiSpace.Core.Services
 {
@@ -11,5 +12,6 @@ namespace FlexiSpace.Core.Services
         Task<bool> UpdateUserAsync(int id, User user);
 
         Task<bool> UpdateUserStatusAsync(int id, bool isActive);
+        Task<User?> ProvisionUserAsync(UserProvisionDto dto);
     }
 }
