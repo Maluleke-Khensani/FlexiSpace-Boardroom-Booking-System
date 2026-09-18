@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Flexispace.Mobile.ViewModels"
+             xmlns:services="clr-namespace:Flexispace.Mobile.Services"
+             x:Class="Flexispace.Mobile.Views.PrivacyPage"
+             x:DataType="vm:PrivacyViewModel"
+             Title="Privacy"
+             BackgroundColor="{StaticResource BrandIvory}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="16" MaximumWidthRequest="720" HorizontalOptions="Center">
+
+            <Border Style="{StaticResource HeroBanner}" Padding="20,24">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="{Binding Eyebrow}" Style="{StaticResource EyebrowLabel}" TextColor="{StaticResource BrandGold}" />
+                    <Label Text="{Binding PageTitle}" TextColor="{StaticResource BrandIvory}" FontSize="26" FontAttributes="Bold" />
+                    <Label Text="{Binding CompanyLine}" TextColor="#C8C2B8" FontSize="12" />
+                    <Label Text="{Binding SourceNote}" TextColor="{StaticResource BrandGoldSoft}" FontSize="11" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource ElevatedCard}" Padding="16,14">
+                <Label Text="{Binding Intro}" TextColor="{StaticResource BrandInk}" FontSize="13" LineBreakMode="WordWrap" />
+            </Border>
+
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Sections}" Spacing="12">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="services:PrivacySection">
+                        <Border Style="{StaticResource ElevatedCard}" Padding="0">
+                            <Grid ColumnDefinitions="4,*">
+                                <BoxView Color="{StaticResource BrandGold}" />
+                                <VerticalStackLayout Grid.Column="1" Spacing="8" Padding="14,14">
+                                    <Label Text="{Binding Title}" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" FontSize="15" />
+                                    <Label Text="{Binding Body}" TextColor="{StaticResource BrandInk}" FontSize="13" LineBreakMode="WordWrap" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+
+            <Border Style="{StaticResource ElevatedCard}" Padding="16,14">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Conclusion" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" FontSize="15" />
+                    <Label Text="{Binding Conclusion}" TextColor="{StaticResource BrandInk}" FontSize="13" LineBreakMode="WordWrap" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource ElevatedCard}" Padding="16,14">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Questions or data requests" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" FontSize="15" />
+                    <Label Text="{Binding ContactLine}" TextColor="{StaticResource BrandMuted}" FontSize="12" />
+                    <Button Text="Email Flexispace" Command="{Binding ContactEmailCommand}" Style="{StaticResource GoldButton}" />
+                    <Button Text="View policy on flexispace.net.za" Command="{Binding OpenWebsitePolicyCommand}" Style="{StaticResource GhostButton}" />
+                    <Button Text="Learn more about POPIA" Command="{Binding OpenPopiaInfoCommand}" Style="{StaticResource GhostButton}" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
