@@ -18,6 +18,7 @@ public partial class HomeViewModel(IAuthService auth, IBookingService bookings, 
     [ObservableProperty] private bool canBook;
     [ObservableProperty] private bool canViewAvailability;
     [ObservableProperty] private bool canAccessManage;
+    [ObservableProperty] private bool canViewReports;
     [ObservableProperty] private bool showPayPlaceholder;
 
     public bool HasUnread => UnreadCount > 0;
@@ -39,19 +40,21 @@ public partial class HomeViewModel(IAuthService auth, IBookingService bookings, 
                 CanBook = RolePermissions.CanBookRooms(user.Role);
                 CanViewAvailability = RolePermissions.CanViewAvailability(user.Role);
                 CanAccessManage = RolePermissions.CanAccessManageHub(user.Role);
+                CanViewReports = RolePermissions.CanViewReports(user.Role);
                 ShowPayPlaceholder = RolePermissions.CanSeePayPlaceholder(user.Role);
                 RoleBanner = $"{RolePermissions.DisplayName(user.Role)} · {RolePermissions.Describe(user.Role)}";
                 Subtitle = user.Role switch
                 {
                     UserRole.Administrator => "All locations · rooms, users & reports",
                     UserRole.CentreManager => $"Managing {user.LocationId ?? "your centre"}",
+                    UserRole.Staff => "Book rooms · live availability · operations reports",
                     UserRole.Client => "Self-service booking across Flexispace",
                     _ => "You run your business — we run the rest."
                 };
             }
             else
             {
-                CanBook = CanViewAvailability = CanAccessManage = ShowPayPlaceholder = false;
+                CanBook = CanViewAvailability = CanAccessManage = CanViewReports = ShowPayPlaceholder = false;
                 RoleBanner = string.Empty;
             }
 
@@ -94,6 +97,13 @@ public partial class HomeViewModel(IAuthService auth, IBookingService bookings, 
     {
         if (!CanAccessManage) return;
         await Shell.Current.GoToAsync("//ManagePage");
+    }
+
+    [RelayCommand]
+    private async Task OpenReportsAsync()
+    {
+        if (!CanViewReports) return;
+        await Shell.Current.GoToAsync("//ReportsPage");
     }
 
     [RelayCommand]

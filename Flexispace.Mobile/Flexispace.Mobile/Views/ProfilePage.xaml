@@ -123,6 +123,15 @@
                         </Border>
                         <Label Text="Manage" FontSize="11" FontAttributes="Bold" HorizontalOptions="Center" TextColor="{StaticResource BrandMuted}" />
                     </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="6" IsVisible="{Binding CanViewReports}">
+                        <VerticalStackLayout.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenReportsCommand}" />
+                        </VerticalStackLayout.GestureRecognizers>
+                        <Border Style="{StaticResource QuickActionOrbGhost}">
+                            <Label Style="{StaticResource MaterialGlyph}" Text="&#xe6e1;" FontSize="22" TextColor="{StaticResource BrandGold}" />
+                        </Border>
+                        <Label Text="Reports" FontSize="11" FontAttributes="Bold" HorizontalOptions="Center" TextColor="{StaticResource BrandMuted}" />
+                    </VerticalStackLayout>
                     <VerticalStackLayout Spacing="6">
                         <VerticalStackLayout.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenAlertsCommand}" />
