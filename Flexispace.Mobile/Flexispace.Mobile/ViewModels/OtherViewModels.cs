@@ -177,6 +177,7 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
     [ObservableProperty] private string location = string.Empty;
     [ObservableProperty] private bool canAccessManage;
     [ObservableProperty] private bool canViewAvailability;
+    [ObservableProperty] private bool canViewReports;
     [ObservableProperty] private bool showPayPlaceholder;
     [ObservableProperty] private int todayCount;
     [ObservableProperty] private int upcomingCount;
@@ -200,6 +201,7 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
         Location = user?.LocationId ?? "All locations";
         CanAccessManage = user is not null && RolePermissions.CanAccessManageHub(user.Role);
         CanViewAvailability = user is not null && RolePermissions.CanViewAvailability(user.Role);
+        CanViewReports = user is not null && RolePermissions.CanViewReports(user.Role);
         ShowPayPlaceholder = user is not null && RolePermissions.CanSeePayPlaceholder(user.Role);
 
         DemoUsers.Clear();
@@ -260,6 +262,13 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
     [RelayCommand]
     private async Task OpenAlertsAsync() =>
         await Shell.Current.GoToAsync("//NotificationsPage");
+
+    [RelayCommand]
+    private async Task OpenReportsAsync()
+    {
+        if (!CanViewReports) return;
+        await Shell.Current.GoToAsync("//ReportsPage");
+    }
 
     [RelayCommand]
     private async Task OpenPrivacyAsync() =>

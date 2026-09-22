@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Flexispace.Mobile.ViewModels"
+             xmlns:services="clr-namespace:Flexispace.Mobile.Services"
+             x:Class="Flexispace.Mobile.Views.ReportsPage"
+             x:DataType="vm:ReportsViewModel"
+             Title="Reports"
+             BackgroundColor="{StaticResource BrandIvory}">
+
+    <RefreshView Command="{Binding AppearingCommand}" IsRefreshing="{Binding IsBusy}">
+        <ScrollView>
+            <VerticalStackLayout Padding="20" Spacing="16" MaximumWidthRequest="760" HorizontalOptions="Center">
+
+                <Border Style="{StaticResource HeroBanner}" Padding="20,24">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="EMPLOYEE ONLY" Style="{StaticResource EyebrowLabel}" TextColor="{StaticResource BrandGold}" />
+                        <Label Text="{Binding Title}" TextColor="{StaticResource BrandIvory}" FontSize="26" FontAttributes="Bold" />
+                        <Label Text="{Binding Subtitle}" TextColor="#C8C2B8" FontSize="13" />
+                        <Label Text="{Binding GeneratedLabel}" TextColor="{StaticResource BrandGoldSoft}" FontSize="11"
+                               IsVisible="{Binding HasAccess}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border IsVisible="{Binding HasAccess, Converter={StaticResource InvertedBoolConverter}}"
+                        Style="{StaticResource ElevatedCard}" Padding="16,18">
+                    <VerticalStackLayout Spacing="8" HorizontalOptions="Center">
+                        <Label Style="{StaticResource MaterialGlyph}" Text="&#xe32a;" FontSize="28"
+                               TextColor="{StaticResource BrandGold}" HorizontalOptions="Center" />
+                        <Label Text="Restricted" TextColor="{StaticResource BrandInk}" FontAttributes="Bold"
+                               FontSize="16" HorizontalTextAlignment="Center" />
+                        <Label Text="{Binding Subtitle}" Style="{StaticResource MutedLabel}" FontSize="13"
+                               HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <VerticalStackLayout IsVisible="{Binding HasAccess}" Spacing="16">
+
+                    <Label Text="Snapshot" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" FontSize="14" />
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8" RowDefinitions="Auto,Auto" RowSpacing="8">
+                        <Border Style="{StaticResource StatTile}">
+                            <VerticalStackLayout Spacing="2">
+                                <Label Text="{Binding TotalUsers}" Style="{StaticResource StatNumber}" TextColor="{StaticResource BrandGoldDeep}" />
+                                <Label Text="Users" Style="{StaticResource StatCaption}" />
+                            </VerticalStackLayout>
+                        </Border>
+                        <Border Grid.Column="1" Style="{StaticResource StatTile}">
+                            <VerticalStackLayout Spacing="2">
+                                <Label Text="{Binding TotalBookings}" Style="{StaticResource StatNumber}" />
+                                <Label Text="Bookings" Style="{StaticResource StatCaption}" />
+                            </VerticalStackLayout>
+                        </Border>
+                        <Border Grid.Column="2" Style="{StaticResource StatTile}">
+                            <VerticalStackLayout Spacing="2">
+                                <Label Text="{Binding OccupancyPercent, StringFormat='{0}%'}" Style="{StaticResource StatNumber}" TextColor="{StaticResource BrandGoldDeep}" />
+                                <Label Text="Today util." Style="{StaticResource StatCaption}" />
+                            </VerticalStackLayout>
+                        </Border>
+                        <Border Grid.Row="1" Style="{StaticResource StatTile}">
+                            <VerticalStackLayout Spacing="2">
+                                <Label Text="{Binding TodaysBookings}" Style="{StaticResource StatNumber}" />
+                                <Label Text="Today" Style="{StaticResource StatCaption}" />
+                            </VerticalStackLayout>
+                        </Border>
+                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource StatTile}">
+                            <VerticalStackLayout Spacing="2">
+                                <Label Text="{Binding ThisWeekBookings}" Style="{StaticResource StatNumber}" TextColor="{StaticResource BrandGoldDeep}" />
+                                <Label Text="This week" Style="{StaticResource StatCaption}" />
+                            </VerticalStackLayout>
+                        </Border>
+                        <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource StatTile}">
+                            <VerticalStackLayout Spacing="2">
+                                <Label Text="{Binding ActiveBookers}" Style="{StaticResource StatNumber}" />
+                                <Label Text="Active bookers" Style="{StaticResource StatCaption}" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </Grid>
+
+                    <Label Text="People" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" FontSize="14" Margin="0,4,0,0" />
+                    <Border Style="{StaticResource ElevatedCard}" Padding="0">
+                        <VerticalStackLayout Spacing="0">
+                            <Grid ColumnDefinitions="*,Auto" Padding="16,12">
+                                <Label Text="Employees" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" />
+                                <Label Grid.Column="1" Text="{Binding EmployeeUsers}" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" />
+                            </Grid>
+                            <BoxView Style="{StaticResource SectionRule}" Margin="16,0" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="16,12">
+                                <Label Text="External clients" TextColor="{StaticResource BrandInk}" />
+                                <Label Grid.Column="1" Text="{Binding ClientUsers}" TextColor="{StaticResource BrandMuted}" FontAttributes="Bold" />
+                            </Grid>
+                            <BoxView Style="{StaticResource SectionRule}" Margin="16,0" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding UsersByRole}"
+                                                 IsVisible="{Binding HasRoleBreakdown}"
+                                                 Padding="8,4,8,10" Spacing="6">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="services:NamedCount">
+                                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Padding="8,4">
+                                            <Label Text="{Binding Name}" TextColor="{StaticResource BrandMuted}" FontSize="13" />
+                                            <Label Grid.Column="1" Text="{Binding Percent, StringFormat='{0}%'}" TextColor="{StaticResource BrandMuted}" FontSize="12" />
+                                            <Label Grid.Column="2" Text="{Binding Count}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="13" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Label Text="Booking activity" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" FontSize="14" Margin="0,4,0,0" />
+                    <Border Style="{StaticResource ElevatedCard}" Padding="16,14">
+                        <VerticalStackLayout Spacing="10">
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="This month" Style="{StaticResource MutedLabel}" FontSize="11" />
+                                    <Label Text="{Binding ThisMonthBookings}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="20" />
+                                </VerticalStackLayout>
+                                <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                    <Label Text="Upcoming" Style="{StaticResource MutedLabel}" FontSize="11" />
+                                    <Label Text="{Binding UpcomingBookings}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="20" />
+                                </VerticalStackLayout>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="Confirmed" Style="{StaticResource MutedLabel}" FontSize="11" />
+                                    <Label Text="{Binding ConfirmedBookings}" TextColor="{StaticResource BrandSuccess}" FontAttributes="Bold" FontSize="18" />
+                                </VerticalStackLayout>
+                                <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                    <Label Text="Cancelled" Style="{StaticResource MutedLabel}" FontSize="11" />
+                                    <Label Text="{Binding CancelledBookings}" TextColor="{StaticResource BrandDanger}" FontAttributes="Bold" FontSize="18" />
+                                </VerticalStackLayout>
+                            </Grid>
+                            <BoxView Style="{StaticResource SectionRule}" />
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="Avg attendees / booking" Style="{StaticResource MutedLabel}" FontSize="11" />
+                                    <Label Text="{Binding AverageAttendees}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="16" />
+                                </VerticalStackLayout>
+                                <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                    <Label Text="Guests hosted (active)" Style="{StaticResource MutedLabel}" FontSize="11" />
+                                    <Label Text="{Binding TotalAttendeesServed}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="16" />
+                                </VerticalStackLayout>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="Bookings / active user" Style="{StaticResource MutedLabel}" FontSize="11" />
+                                    <Label Text="{Binding BookingsPerActiveUser}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="16" />
+                                </VerticalStackLayout>
+                                <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                    <Label Text="Avg bookings / day (week)" Style="{StaticResource MutedLabel}" FontSize="11" />
+                                    <Label Text="{Binding AvgBookingsPerDayThisWeek}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="16" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Label Text="This week by day" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" FontSize="14"
+                           IsVisible="{Binding HasWeekdayActivity}" />
+                    <Border Style="{StaticResource ElevatedCard}" Padding="14,12" IsVisible="{Binding HasWeekdayActivity}">
+                        <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding WeekdayActivity}" JustifyContent="SpaceEvenly">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="services:NamedCount">
+                                    <VerticalStackLayout Spacing="4" WidthRequest="48" Margin="4" HorizontalOptions="Center">
+                                        <Label Text="{Binding Count}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold"
+                                               FontSize="16" HorizontalTextAlignment="Center" />
+                                        <BoxView HeightRequest="4" Color="{StaticResource BrandGold}" CornerRadius="2"
+                                                 WidthRequest="28" HorizontalOptions="Center" />
+                                        <Label Text="{Binding Name}" TextColor="{StaticResource BrandMuted}" FontSize="11"
+                                               HorizontalTextAlignment="Center" />
+                                    </VerticalStackLayout>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </FlexLayout>
+                    </Border>
+
+                    <Label Text="By location" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" FontSize="14"
+                           IsVisible="{Binding HasLocationBreakdown}" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding BookingsByLocation}"
+                                         Spacing="8"
+                                         IsVisible="{Binding HasLocationBreakdown}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="services:NamedCount">
+                                <Border Style="{StaticResource ElevatedCard}" Padding="14,12">
+                                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="4">
+                                        <Label Text="{Binding Name}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" />
+                                        <Label Grid.Column="1" Text="{Binding Count, StringFormat='{0} bookings'}"
+                                               TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" FontSize="13" />
+                                        <Label Grid.Row="1" Text="{Binding Detail}" TextColor="{StaticResource BrandMuted}" FontSize="12" />
+                                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding Percent, StringFormat='{0}% of active'}"
+                                               TextColor="{StaticResource BrandMuted}" FontSize="11" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <Label Text="Top rooms" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" FontSize="14"
+                           IsVisible="{Binding HasTopRooms}" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding TopRooms}"
+                                         Spacing="8"
+                                         IsVisible="{Binding HasTopRooms}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="services:NamedCount">
+                                <Border Style="{StaticResource ElevatedCard}" Padding="14,12">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <VerticalStackLayout Spacing="2">
+                                            <Label Text="{Binding Name}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" />
+                                            <Label Text="{Binding Detail}" TextColor="{StaticResource BrandMuted}" FontSize="12" />
+                                        </VerticalStackLayout>
+                                        <Border Grid.Column="1" Style="{StaticResource SectionIndexBadge}" VerticalOptions="Center">
+                                            <Label Text="{Binding Count}" TextColor="{StaticResource BrandBlack}" FontAttributes="Bold" FontSize="12" />
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <Label Text="Operations health" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" FontSize="14" Margin="0,4,0,0" />
+                    <Border Style="{StaticResource ElevatedCard}" Padding="16,14">
+                        <VerticalStackLayout Spacing="10">
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="Rooms in scope" Style="{StaticResource MutedLabel}" FontSize="11" />
+                                    <Label Text="{Binding RoomsInScope}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="18" />
+                                </VerticalStackLayout>
+                                <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                    <Label Text="Active blocks" Style="{StaticResource MutedLabel}" FontSize="11" />
+                                    <Label Text="{Binding BlockedPeriods}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="18" />
+                                </VerticalStackLayout>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="Alerts generated" Style="{StaticResource MutedLabel}" FontSize="11" />
+                                    <Label Text="{Binding AlertsGenerated}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="18" />
+                                </VerticalStackLayout>
+                                <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                    <Label Text="Unread alerts" Style="{StaticResource MutedLabel}" FontSize="11" />
+                                    <Label Text="{Binding UnreadAlerts}" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" FontSize="18" />
+                                </VerticalStackLayout>
+                            </Grid>
+                            <BoxView Style="{StaticResource SectionRule}" />
+                            <Label Text="{Binding MostUsedRoom, StringFormat='Most used room · {0}'}" TextColor="{StaticResource BrandInk}" FontSize="13" />
+                            <Label Text="{Binding MostUsedLocation, StringFormat='Busiest centre · {0}'}" TextColor="{StaticResource BrandMuted}" FontSize="12" />
+                            <Label Text="{Binding BusiestDayLabel, StringFormat='Busiest weekday · {0}'}" TextColor="{StaticResource BrandMuted}" FontSize="12" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Label Text="Status mix" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" FontSize="14"
+                           IsVisible="{Binding HasStatusBreakdown}" />
+                    <Border Style="{StaticResource ElevatedCard}" Padding="12,10" IsVisible="{Binding HasStatusBreakdown}">
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding BookingsByStatus}" Spacing="8">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="services:NamedCount">
+                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                                        <Label Text="{Binding Name}" TextColor="{StaticResource BrandInk}" FontSize="13" />
+                                        <Label Grid.Column="1" Text="{Binding Percent, StringFormat='{0}%'}" TextColor="{StaticResource BrandMuted}" FontSize="12" />
+                                        <Label Grid.Column="2" Text="{Binding Count}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="13" />
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Label Text="Recent activity" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" FontSize="14"
+                           IsVisible="{Binding HasRecentActivity}" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding RecentActivity}"
+                                         Spacing="8"
+                                         IsVisible="{Binding HasRecentActivity}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="services:ReportActivityItem">
+                                <Border Style="{StaticResource ElevatedCard}" Padding="0">
+                                    <Grid ColumnDefinitions="4,*">
+                                        <BoxView Color="{Binding Kind, Converter={StaticResource NotificationAccentConverter}}" />
+                                        <Grid Grid.Column="1" ColumnDefinitions="*,Auto" Padding="14,12" ColumnSpacing="8">
+                                            <VerticalStackLayout Spacing="2">
+                                                <Label Text="{Binding Title}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="13" />
+                                                <Label Text="{Binding Detail}" TextColor="{StaticResource BrandMuted}" FontSize="12" LineBreakMode="TailTruncation" />
+                                            </VerticalStackLayout>
+                                            <Label Grid.Column="1" Text="{Binding WhenLabel}" TextColor="{StaticResource BrandMuted}"
+                                                   FontSize="11" VerticalOptions="Start" />
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <Label Text="Figures are calculated from live mock bookings, users, blocks, and alerts for the signed-in employee’s scope."
+                           Style="{StaticResource MutedLabel}" FontSize="11" Margin="0,4,0,8" />
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+    </RefreshView>
+</ContentPage>
