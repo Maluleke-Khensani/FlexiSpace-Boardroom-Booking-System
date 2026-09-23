@@ -1,6 +1,11 @@
-@* Auth guard: redirects unauthenticated users to the login page. *@
+@* Auth guard: sends visitors to login, or back to the privacy policy if they have not accepted it. *@
 @inject INavigationService Nav
+@inject PrivacyConsentService Consent
 
 @code {
-    protected override void OnInitialized() => Nav.NavigateTo("/login");
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        Nav.NavigateTo(await Consent.HasAcceptedAsync() ? "/login" : "/");
+    }
 }

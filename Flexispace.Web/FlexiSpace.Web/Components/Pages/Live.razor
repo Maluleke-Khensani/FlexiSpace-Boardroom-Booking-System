@@ -23,7 +23,13 @@ else
         else
         {
             <div class="fs-choice-section">
-                <p class="fs-choice-section__label">Location</p>
+                <div class="fs-toolbar">
+                    <p class="fs-choice-section__label" style="margin:0">Location</p>
+                    <div class="fs-view-toggle">
+                        <button type="button" class="@(ShowMap ? "active" : "")" @onclick="() => ShowMap = true">Map</button>
+                        <button type="button" class="@(!ShowMap ? "active" : "")" @onclick="() => ShowMap = false">List</button>
+                    </div>
+                </div>
                 @if (!Vm.LockLocationFilter)
                 {
                     <LocationChoiceGrid Items="Vm.Locations"
@@ -35,14 +41,6 @@ else
                 {
                     <p class="fs-muted" style="margin:0"><strong>@Vm.SelectedLocationName</strong></p>
                 }
-            </div>
-
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px">
-                <p class="fs-muted" style="margin:0; font-size:13px; max-width:480px">Tap a room's photo or name to explore it — laid out like a directory map since we don't have real floor plans yet.</p>
-                <div class="fs-view-toggle">
-                    <button type="button" class="@(ShowMap ? "active" : "")" @onclick="() => ShowMap = true">Map</button>
-                    <button type="button" class="@(!ShowMap ? "active" : "")" @onclick="() => ShowMap = false">List</button>
-                </div>
             </div>
 
             @if (Vm.IsEmpty)
@@ -111,10 +109,17 @@ else
                 g => g.Key,
                 g => g.Select((item, i) => new RoomMapTile(
                     item.Room.Name,
-                    item.StatusText,
+                    LiveTileSubtitle(item),
                     item.Room.ImageKey,
                     item.StatusColor,
                     item)).ToList());
+
+    private static string LiveTileSubtitle(AvailabilityItem item)
+    {
+        var canJoin = RoomCombinations.GetCombinationFor(item.Room.Id) is not null
+                      && item.Room.Status == RoomStatus.Available;
+        return canJoin ? $"{item.StatusText} · Can be conjoined" : item.StatusText;
+    }
 
     protected override async Task OnInitializedAsync() =>
         await Vm.AppearingCommand.ExecuteAsync(null);

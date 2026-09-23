@@ -16,9 +16,7 @@
 else
 {
     <div class="fs-content-wide">
-        <p class="fs-eyebrow">Meeting room / boardroom</p>
-        <h2 class="fs-section-title">Make the right impression</h2>
-        <p class="fs-muted" style="margin-bottom:24px">Fully equipped rooms with uncapped fibre, backup power, conference calling, tea &amp; coffee, and secure parking — from R150 per hour.</p>
+        <p class="fs-muted" style="margin-bottom:24px">@GetStepHint(Vm.Step)</p>
 
         <div class="fs-steps">
             @for (var s = 1; s <= 4; s++)
@@ -28,10 +26,6 @@ else
             }
         </div>
 
-        @if (Vm.ShowClientPaymentNote)
-        {
-            <div class="fs-card" style="margin-bottom:20px"><p class="fs-muted" style="margin:0; font-size:13px">Client bookings are submitted for Centre Manager approval. Online payment arrives in Phase 2.</p></div>
-        }
         @if (!string.IsNullOrEmpty(Vm.ErrorMessage))
         {
             <p class="fs-error" style="margin-bottom:16px">@Vm.ErrorMessage</p>
@@ -56,7 +50,7 @@ else
         }
         else if (Vm.Step == 2)
         {
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px">
+            <div class="fs-toolbar" style="margin-bottom:16px">
                 <div>
                     <p class="fs-muted" style="margin:0">Rooms at <strong>@Vm.SelectedLocation?.Name</strong></p>
                     <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" style="margin-top:8px" @onclick="Back">Back</button>
@@ -83,16 +77,26 @@ else
 
             @if (Vm.SelectedRoom is not null)
             {
+                @if (Vm.CanConjoin)
+                {
+                    <button type="button" class="fs-conjoin @(Vm.ConjoinEnabled ? "fs-conjoin--on" : "")" @onclick="ToggleConjoin">
+                        <span class="fs-conjoin__check" aria-hidden="true">@(Vm.ConjoinEnabled ? "✓" : "")</span>
+                        <span>
+                            <span class="fs-conjoin__title">Conjoin with @Vm.ConjoinPartnerName</span>
+                            <span class="fs-conjoin__meta">Open the partition for larger meetings · @Vm.ConjoinCapacity seats. Both rooms must be free.</span>
+                        </span>
+                    </button>
+                }
                 <div class="fs-step-actions">
                     <button type="button" class="fs-btn fs-btn--gold" @onclick="ContinueToDateTime">
-                        Continue · @Vm.SelectedRoom.Name
+                        Continue · @Vm.BookingRoomLabel
                     </button>
                 </div>
             }
         }
         else if (Vm.Step == 3)
         {
-            <p class="fs-muted" style="margin-bottom:20px">When — <strong>@Vm.SelectedRoom?.Name</strong> at <strong>@Vm.SelectedLocation?.Name</strong></p>
+            <p class="fs-muted" style="margin-bottom:20px"><strong>@Vm.BookingRoomLabel</strong> at <strong>@Vm.SelectedLocation?.Name</strong></p>
             <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" style="margin-bottom:20px" @onclick="Back">Back</button>
 
             <div class="fs-choice-section">
@@ -116,12 +120,21 @@ else
         }
         else if (Vm.Step >= 4)
         {
-            <p class="fs-muted">Booking details</p>
+            <p class="fs-muted" style="margin-bottom:20px"><strong>@Vm.BookingRoomLabel</strong> at <strong>@Vm.SelectedLocation?.Name</strong></p>
             <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" style="margin-bottom:16px" @onclick="Back">Back</button>
             <div class="fs-stack">
-                <input class="fs-field" @bind="Vm.Company" placeholder="Company" />
-                <input class="fs-field" @bind="Vm.AttendeesText" placeholder="Attendees" inputmode="numeric" />
-                <textarea class="fs-field" @bind="Vm.Notes" placeholder="Notes" rows="3"></textarea>
+                <div>
+                    <label class="fs-label" for="book-company">Company</label>
+                    <input id="book-company" class="fs-field" @bind="Vm.Company" />
+                </div>
+                <div>
+                    <label class="fs-label" for="book-attendees">Attendees</label>
+                    <input id="book-attendees" class="fs-field" @bind="Vm.AttendeesText" inputmode="numeric" />
+                </div>
+                <div>
+                    <label class="fs-label" for="book-notes">Notes</label>
+                    <textarea id="book-notes" class="fs-field" @bind="Vm.Notes" rows="3"></textarea>
+                </div>
                 <div>
                     <p class="fs-label">Equipment</p>
                     @foreach (var opt in Vm.EquipmentOptions)
@@ -163,10 +176,18 @@ else
     private IReadOnlyList<RoomMapTile> RoomTiles =>
         Vm.Rooms.Select((r, i) => new RoomMapTile(
             r.Name,
-            $"Seats {r.Capacity}",
+            RoomTileSubtitle(r),
             r.ImageKey,
             RingColors[i % RingColors.Length],
             r)).ToList();
+
+    private static string RoomTileSubtitle(Boardroom room)
+    {
+        var combo = RoomCombinations.GetCombinationFor(room.Id);
+        return combo is null
+            ? $"Seats {room.Capacity}"
+            : $"Seats {room.Capacity} · Can be conjoined";
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -180,6 +201,14 @@ else
         2 => "Room",
         3 => "Date & time",
         _ => "Details"
+    };
+
+    private static string GetStepHint(int step) => step switch
+    {
+        1 => "Choose a location.",
+        2 => "Choose a room.",
+        3 => "Choose a date and time.",
+        _ => "Add company, attendees, and extras."
     };
 
     private DateOnly SelectedDateOnly =>
@@ -212,6 +241,8 @@ else
     }
 
     private void ContinueToDateTime() => Vm.ContinueToScheduleCommand.Execute(null);
+
+    private void ToggleConjoin() => Vm.SetConjoin(!Vm.ConjoinEnabled);
 
     private Task OnDateSelected(DateOnly date)
     {

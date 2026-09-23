@@ -1,4 +1,5 @@
 @* Image-button grid for selecting a boardroom. *@
+@using Flexispace.Core.Helpers
 @using Flexispace.Web.Helpers
 
 <div class="fs-choice-grid fs-choice-grid--rooms">
@@ -11,7 +12,7 @@
             <img src="@DisplayHelpers.ImageUrl(room.ImageKey)" alt="@room.Name" />
             <div class="fs-choice-btn__body">
                 <div class="fs-choice-btn__title">@room.Name</div>
-                <div class="fs-choice-btn__meta">Seats @room.Capacity · @DisplayHelpers.JoinList(room.Equipment)</div>
+                <div class="fs-choice-btn__meta">Seats @room.Capacity@(RoomCombinations.GetCombinationFor(room.Id) is null ? "" : " · Can be conjoined") · @DisplayHelpers.JoinList(room.Equipment)</div>
             </div>
         </button>
     }
