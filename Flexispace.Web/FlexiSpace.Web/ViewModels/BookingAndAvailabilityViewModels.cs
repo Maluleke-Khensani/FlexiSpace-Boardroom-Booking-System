@@ -27,7 +27,15 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string suggestedSlotsText = string.Empty;
     [ObservableProperty] private bool canBook = true;
-    [ObservableProperty] private bool showClientPaymentNote;
+    [ObservableProperty] private bool conjoinEnabled;
+    [ObservableProperty] private bool canConjoin;
+    [ObservableProperty] private string? conjoinPartnerName;
+    [ObservableProperty] private int conjoinCapacity;
+
+    public string BookingRoomLabel =>
+        ConjoinEnabled && CanConjoin && SelectedRoom is not null && !string.IsNullOrEmpty(ConjoinPartnerName)
+            ? $"{SelectedRoom.Name} + {ConjoinPartnerName}"
+            : SelectedRoom?.Name ?? string.Empty;
 
     public ObservableCollection<OfficeLocation> Locations { get; } = [];
     public ObservableCollection<Boardroom> Rooms { get; } = [];
@@ -45,7 +53,6 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     {
         var user = auth.CurrentUser;
         CanBook = user is not null && RolePermissions.CanBookRooms(user.Role);
-        ShowClientPaymentNote = user?.Role == UserRole.Client;
         if (!CanBook)
         {
             ErrorMessage = "Your role cannot create bookings.";
@@ -95,6 +102,18 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
             }
             Step = Math.Max(Step, 2);
         }
+
+        if (SelectedRoom?.IsCombined == true)
+        {
+            var firstId = SelectedRoom.CombinedRoomIds.FirstOrDefault();
+            SelectedRoom = Rooms.FirstOrDefault(r => r.Id == firstId) ?? SelectedRoom;
+            RefreshConjoinState();
+            SetConjoin(true);
+        }
+        else
+        {
+            RefreshConjoinState();
+        }
     }
 
     [RelayCommand]
@@ -102,6 +121,7 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     {
         SelectedLocation = location;
         SelectedRoom = null;
+        ConjoinEnabled = false;
         await LoadRoomsAsync();
         Step = 2;
     }
@@ -115,7 +135,37 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     }
 
     [RelayCommand]
-    private void SelectRoom(Boardroom? room) => SelectedRoom = room;
+    private void SelectRoom(Boardroom? room)
+    {
+        SelectedRoom = room;
+        RefreshConjoinState();
+    }
+
+    public void SetConjoin(bool enabled)
+    {
+        ConjoinEnabled = CanConjoin && enabled;
+        OnPropertyChanged(nameof(BookingRoomLabel));
+    }
+
+    private void RefreshConjoinState()
+    {
+        var combo = SelectedRoom is null ? null : RoomCombinations.GetCombinationFor(SelectedRoom.Id);
+        CanConjoin = combo is not null;
+        if (combo is null)
+        {
+            ConjoinEnabled = false;
+            ConjoinPartnerName = null;
+            ConjoinCapacity = 0;
+            OnPropertyChanged(nameof(BookingRoomLabel));
+            return;
+        }
+
+        var partnerId = combo.CombinedRoomIds.First(id => id != SelectedRoom!.Id);
+        ConjoinPartnerName = Rooms.FirstOrDefault(r => r.Id == partnerId)?.Name
+                             ?? SeedData.Rooms.FirstOrDefault(r => r.Id == partnerId)?.Name;
+        ConjoinCapacity = combo.Capacity;
+        OnPropertyChanged(nameof(BookingRoomLabel));
+    }
 
     [RelayCommand]
     private void ContinueToSchedule()
@@ -150,9 +200,13 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
         {
             var start = SelectedDate.Date + StartTime;
             var end = SelectedDate.Date + EndTime;
+            var roomId = ConjoinEnabled && CanConjoin
+                ? RoomCombinations.GetCombinationFor(SelectedRoom.Id)?.Id ?? SelectedRoom.Id
+                : SelectedRoom.Id;
+
             var result = await bookings.CreateBookingAsync(new BookingRequest
             {
-                RoomId = SelectedRoom.Id,
+                RoomId = roomId,
                 Start = start,
                 End = end,
                 Company = Company,

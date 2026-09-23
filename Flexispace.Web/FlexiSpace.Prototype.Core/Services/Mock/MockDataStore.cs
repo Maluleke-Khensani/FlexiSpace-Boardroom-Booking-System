@@ -77,7 +77,7 @@ public class MockDataStore
                 BookerName = "Client Guest",
                 Company = "Pro Tem",
                 Attendees = 10,
-                Status = BookingStatus.Pending
+                Status = BookingStatus.Confirmed
             }
         ]);
     }

@@ -3,6 +3,7 @@
 @inject IAuthService Auth
 @inject AuthStateNotifier AuthNotifier
 @inject NavigationManager Navigation
+@inject PrivacyConsentService Consent
 @implements IDisposable
 
 @if (ShowAppShell)
@@ -11,7 +12,6 @@
         <aside class="fs-sidebar">
             <div class="fs-sidebar__brand">
                 <a href="/home"><img class="fs-sidebar__logo" src="/images/flexispace_logo.png" alt="Flexispace" /></a>
-                <p class="fs-sidebar__tagline">Work outside of the box</p>
             </div>
             <nav class="fs-sidebar__nav">
                 @foreach (var tab in VisibleTabs)
@@ -69,7 +69,7 @@ else
         get
         {
             var path = Navigation.ToBaseRelativePath(Navigation.Uri).Split('?')[0].TrimEnd('/');
-            return path is "" or "login" || path.EndsWith("/confirmation");
+            return path is "" or "login" or "privacy" || path.EndsWith("/confirmation");
         }
     }
 
@@ -80,7 +80,7 @@ else
         !IsConfirmationRoute && Navigation.ToBaseRelativePath(Navigation.Uri).Split('?')[0] is "book" or "live";
 
     private bool ShowPageHeader =>
-        ShowAppShell && !IsConfirmationRoute;
+        ShowAppShell && !IsConfirmationRoute && !IsFullBleed;
 
     private string ContentClass =>
         IsFullBleed ? "fs-page-content--full" : "fs-page-content--padded";
@@ -90,7 +90,7 @@ else
         get
         {
             var path = Navigation.ToBaseRelativePath(Navigation.Uri).Split('?')[0];
-            return path is "home" or "locations" || path.StartsWith("locations/");
+            return path is "home" or "profile" or "locations" || path.StartsWith("locations/");
         }
     }
 
@@ -127,6 +127,13 @@ else
 
     protected override void OnInitialized() =>
         AuthNotifier.StateChanged += OnAuthChanged;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        if (Auth.IsAuthenticated && !IsAuthRoute && !await Consent.HasAcceptedAsync())
+            Navigation.NavigateTo("/");
+    }
 
     private void OnAuthChanged() => InvokeAsync(StateHasChanged);
 

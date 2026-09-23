@@ -8,8 +8,8 @@ using Flexispace.Web.Services;
 
 namespace Flexispace.Web.ViewModels;
 
-//Manage console for Centre Managers and Administrators: pending approvals and in-scope bookings.
-public partial class ManageViewModel(IAuthService auth, IBookingService bookings, INavigationService nav) : ObservableObject
+//Manage console for Centre Managers and Administrators: in-scope bookings.
+public partial class ManageViewModel(IAuthService auth, IBookingService bookings, INavigationService nav, IRoomService rooms) : ObservableObject
 {
     [ObservableProperty] private string title = "Manage";
     [ObservableProperty] private string subtitle = string.Empty;
@@ -38,9 +38,12 @@ public partial class ManageViewModel(IAuthService auth, IBookingService bookings
         IsCentreManager = user!.Role == UserRole.CentreManager;
         IsAdministrator = user.Role == UserRole.Administrator;
         Title = IsAdministrator ? "Admin console" : "Centre management";
+        var locationName = user.LocationId is null
+            ? null
+            : (await rooms.GetLocationAsync(user.LocationId))?.Name;
         Subtitle = IsAdministrator
-            ? "Approve or decline bookings across every location."
-            : $"Approve or decline bookings for {user.LocationId ?? "your centre"}.";
+            ? "Review bookings across every location."
+            : $"Review and manage bookings for {locationName ?? "your centre"}.";
 
         IsBusy = true;
         Message = null;
@@ -158,8 +161,8 @@ public partial class NotificationsViewModel(INotificationService notifications, 
     }
 }
 
-//User profile: current account details, role description, demo-user switcher, and sign-out.
-public partial class ProfileViewModel(IAuthService auth, INavigationService nav) : ObservableObject
+//User profile: current account details, role info, and sign-out.
+public partial class ProfileViewModel(IAuthService auth, INavigationService nav, IRoomService rooms) : ObservableObject
 {
     [ObservableProperty] private string name = string.Empty;
     [ObservableProperty] private string email = string.Empty;
@@ -167,33 +170,26 @@ public partial class ProfileViewModel(IAuthService auth, INavigationService nav)
     [ObservableProperty] private string roleDescription = string.Empty;
     [ObservableProperty] private string location = string.Empty;
     [ObservableProperty] private bool canAccessManage;
-    [ObservableProperty] private bool showPayPlaceholder;
-
-    public ObservableCollection<User> DemoUsers { get; } = [];
 
     [RelayCommand]
-    private void Appearing()
+    private async Task AppearingAsync()
     {
         var user = auth.CurrentUser;
         Name = user?.Name ?? "Guest";
         Email = user?.Email ?? string.Empty;
         Role = user is null ? "—" : RolePermissions.DisplayName(user.Role);
         RoleDescription = user is null ? string.Empty : RolePermissions.Describe(user.Role);
-        Location = user?.LocationId ?? "All locations";
         CanAccessManage = user is not null && RolePermissions.CanAccessManageHub(user.Role);
-        ShowPayPlaceholder = user is not null && RolePermissions.CanSeePayPlaceholder(user.Role);
 
-        DemoUsers.Clear();
-        foreach (var u in auth.GetDemoUsers())
-            DemoUsers.Add(u);
-    }
-
-    [RelayCommand]
-    private async Task SwitchUserAsync(User? user)
-    {
-        if (user is null) return;
-        await auth.SwitchDemoUserAsync(user.Email);
-        await nav.ReloadAppAsync();
+        if (string.IsNullOrEmpty(user?.LocationId))
+        {
+            Location = "All locations";
+        }
+        else
+        {
+            var loc = await rooms.GetLocationAsync(user.LocationId);
+            Location = loc?.Name ?? user.LocationId;
+        }
     }
 
     [RelayCommand]

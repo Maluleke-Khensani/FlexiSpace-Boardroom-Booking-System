@@ -17,6 +17,7 @@ builder.Services.AddSingleton<IRoomService, MockRoomService>();
 builder.Services.AddSingleton<IBookingService, MockBookingService>();
 builder.Services.AddSingleton<IAdminService, MockAdminService>();
 builder.Services.AddScoped<INavigationService, NavigationService>();
+builder.Services.AddScoped<PrivacyConsentService>();
 builder.Services.AddSingleton<AuthStateNotifier>();
 
 builder.Services.AddTransient<WelcomeViewModel>();

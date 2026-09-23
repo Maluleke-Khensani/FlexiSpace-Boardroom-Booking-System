@@ -58,6 +58,15 @@ public class MockBookingService(
         if (room is null)
             return new BookingResult { Success = false, Message = "Room not found." };
 
+        if (request.Attendees > room.Capacity)
+        {
+            return new BookingResult
+            {
+                Success = false,
+                Message = $"{room.Name} seats {room.Capacity}. Reduce the attendee count or choose a larger room."
+            };
+        }
+
         // Centre managers only book / manage their own centre unless admin
         if (auth.CurrentUser.Role == UserRole.CentreManager &&
             !string.IsNullOrEmpty(auth.CurrentUser.LocationId) &&
@@ -70,34 +79,24 @@ public class MockBookingService(
             };
         }
 
-        if (store.BlockedPeriods.Any(b =>
-                b.RoomId == request.RoomId &&
-                request.Start < b.End &&
-                request.End > b.Start))
+        if (Overlaps(request.RoomId, request.Start, request.End))
         {
             return new BookingResult { Success = false, Message = "This room is blocked for that period." };
         }
 
         var location = await rooms.GetLocationAsync(room.LocationId);
-        var conflict = store.Bookings.Any(b =>
-            b.RoomId == request.RoomId &&
-            b.Status != BookingStatus.Cancelled &&
-            request.Start < b.End &&
-            request.End > b.Start);
-
-        if (conflict)
+        if (HasBookingConflict(request.RoomId, request.Start, request.End))
         {
             var suggestions = SuggestSlots(request.RoomId, request.Start.Date, request.End - request.Start);
             return new BookingResult
             {
                 Success = false,
-                Message = "This room is already booked for that time. Try one of the suggested slots.",
+                Message = room.IsCombined
+                    ? "Both rooms must be free to conjoin them. Try another time, or book one room on its own."
+                    : "This room is already booked for that time. Try one of the suggested slots.",
                 SuggestedSlots = suggestions
             };
         }
-
-        // Client / staff bookings can sit as Pending when optional approval is on for CM demo
-        var needsApproval = auth.CurrentUser.Role is UserRole.Client or UserRole.Staff;
 
         var booking = new Booking
         {
@@ -114,20 +113,16 @@ public class MockBookingService(
             Equipment = [.. request.Equipment],
             Catering = [.. request.Catering],
             Notes = request.Notes,
-            Status = needsApproval ? BookingStatus.Pending : BookingStatus.Confirmed,
-            OutlookEventId = $"mock-{Guid.NewGuid():N}"[..20]
+            Status = BookingStatus.Confirmed
         };
 
         store.Bookings.Add(booking);
 
-        // Always drop an unread Alerts item the booker can tap open (links to this booking).
         await notifications.AddAsync(new AppNotification
         {
-            Title = needsApproval ? "Booking request sent" : "Booking confirmed",
-            Message = needsApproval
-                ? $"{booking.RoomName} · {booking.LocationName} · {booking.Start:ddd d MMM HH:mm}–{booking.End:HH:mm} · awaiting Centre Manager approval. Tap to open."
-                : $"{booking.RoomName} · {booking.LocationName} · {booking.Start:ddd d MMM HH:mm}–{booking.End:HH:mm}. Tap to open.",
-            Type = needsApproval ? "Reminder" : "Confirmation",
+            Title = "Booking confirmed",
+            Message = $"{booking.RoomName} · {booking.LocationName} · {booking.Start:ddd d MMM HH:mm}–{booking.End:HH:mm}.",
+            Type = "Confirmation",
             CreatedAt = DateTime.Now,
             IsRead = false,
             BookingId = booking.Id
@@ -136,9 +131,7 @@ public class MockBookingService(
         return new BookingResult
         {
             Success = true,
-            Message = needsApproval
-                ? "Booking submitted for Centre Manager approval. Check Alerts for your request."
-                : "Your boardroom is booked. Check Alerts for the confirmation.",
+            Message = "Your boardroom is booked.",
             Booking = booking
         };
     }
@@ -213,11 +206,7 @@ public class MockBookingService(
         if (!RolePermissions.CanEditBookings(user.Role) || !IsInScope(user, booking)) return Task.FromResult(false);
         if (end <= start) return Task.FromResult(false);
 
-        var conflict = store.Bookings.Any(b =>
-            b.Id != bookingId &&
-            b.RoomId == booking.RoomId &&
-            b.Status != BookingStatus.Cancelled &&
-            start < b.End && end > b.Start);
+        var conflict = HasBookingConflict(booking.RoomId, start, end, bookingId);
         if (conflict) return Task.FromResult(false);
 
         booking.Start = start;
@@ -259,6 +248,26 @@ public class MockBookingService(
         user.Role == UserRole.Administrator ||
         (user.Role == UserRole.CentreManager && user.LocationId == booking.LocationId);
 
+    private bool HasBookingConflict(string roomId, DateTime start, DateTime end, Guid? excludeId = null)
+    {
+        var linked = RoomCombinations.GetConflictRoomIds(roomId);
+        return store.Bookings.Any(b =>
+            (excludeId is null || b.Id != excludeId) &&
+            linked.Contains(b.RoomId) &&
+            b.Status != BookingStatus.Cancelled &&
+            start < b.End &&
+            end > b.Start);
+    }
+
+    private bool Overlaps(string roomId, DateTime start, DateTime end)
+    {
+        var linked = RoomCombinations.GetConflictRoomIds(roomId);
+        return store.BlockedPeriods.Any(b =>
+            linked.Contains(b.RoomId) &&
+            start < b.End &&
+            end > b.Start);
+    }
+
     private List<DateTime> SuggestSlots(string roomId, DateTime day, TimeSpan duration)
     {
         var suggestions = new List<DateTime>();
@@ -266,12 +275,8 @@ public class MockBookingService(
         {
             var start = day.AddHours(hour);
             var end = start + duration;
-            var busy = store.Bookings.Any(b =>
-                b.RoomId == roomId &&
-                b.Status != BookingStatus.Cancelled &&
-                start < b.End && end > b.Start);
-            var blocked = store.BlockedPeriods.Any(b =>
-                b.RoomId == roomId && start < b.End && end > b.Start);
+            var busy = HasBookingConflict(roomId, start, end);
+            var blocked = Overlaps(roomId, start, end);
             if (!busy && !blocked) suggestions.Add(start);
         }
         return suggestions;
