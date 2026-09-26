@@ -1,17 +1,29 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using FlexiSpace.API.Authorization;
+using FlexiSpace.API.Controllers.Base;
 using FlexiSpace.Core.DTOs.Location;
-using FlexiSpace.Core.Services;
 using FlexiSpace.Core.Entities;
+using FlexiSpace.Core.Enums;
+using FlexiSpace.Core.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using FlexiSpace.Core.Common;
 
 namespace FlexiSpace.API.Controllers
 {
+    // Any authenticated user can read locations (branches). Creating,
+    // editing or deleting a branch is Administrator-only.
     [ApiController]
     [Route("api/[controller]")]
-    public class LocationController : ControllerBase
+    [Authorize]
+    public class LocationController : AuditableControllerBase
     {
         private readonly ILocationService _locationService;
 
-        public LocationController(ILocationService locationService)
+        public LocationController(
+            ILocationService locationService,
+            IAuditService auditService,
+            ICurrentUserService currentUserService)
+            : base(auditService, currentUserService)
         {
             _locationService = locationService;
         }
@@ -19,7 +31,7 @@ namespace FlexiSpace.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAllLocations()
         {
-            // Retrieving all locations from the service and stroing them in a variable
+            // Retrieving all locations from the service and storing them in a variable
             var locations = await _locationService.GetAllLocationsAsync();
 
             //Mapping the locations to LocationResponseDto
@@ -34,6 +46,8 @@ namespace FlexiSpace.API.Controllers
             return Ok(response);
         }
 
+        // Administrator-only.
+        [AuthorizeRoles(UserRole.Administrator)]
         [HttpPost]
         public async Task<IActionResult> CreateLocation([FromBody] LocationCreateDto locationDto)
         {
@@ -46,6 +60,12 @@ namespace FlexiSpace.API.Controllers
 
             // Send the entity to the service to be saved
             var createdLocation = await _locationService.CreateLocationAsync(location);
+
+            await LogActionAsync(
+                AuditAction.Create,
+                nameof(Location),
+                createdLocation.Id.ToString(),
+                newValues: new { createdLocation.Name, createdLocation.Address });
 
             // Convert the saved entity back into a Response DTO
             var response = new LocationResponseDto
@@ -86,9 +106,18 @@ namespace FlexiSpace.API.Controllers
             return Ok(response);
         }
 
+        // Administrator-only.
+        [AuthorizeRoles(UserRole.Administrator)]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateLocation(int id, [FromBody] LocationUpdateDto locationDto)
         {
+            var before = await _locationService.GetLocationByIdAsync(id);
+
+            if (before == null)
+            {
+                return NotFound();
+            }
+
             // Convert the Update DTO into a Location entity
             var location = new Location
             {
@@ -105,13 +134,29 @@ namespace FlexiSpace.API.Controllers
                 return NotFound();
             }
 
+            await LogActionAsync(
+                AuditAction.Update,
+                nameof(Location),
+                id.ToString(),
+                oldValues: new { before.Name, before.Address },
+                newValues: new { locationDto.Name, locationDto.Address });
+
             // Return HTTP 204 (No Content)
             return NoContent();
         }
 
+        // Administrator-only.
+        [AuthorizeRoles(UserRole.Administrator)]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteLocation(int id)
         {
+            var before = await _locationService.GetLocationByIdAsync(id);
+
+            if (before == null)
+            {
+                return NotFound();
+            }
+
             // Ask the service to delete the location
             var deleted = await _locationService.DeleteLocationAsync(id);
 
@@ -121,11 +166,14 @@ namespace FlexiSpace.API.Controllers
                 return NotFound();
             }
 
+            await LogActionAsync(
+                AuditAction.Delete,
+                nameof(Location),
+                id.ToString(),
+                oldValues: new { before.Name, before.Address });
+
             // Return HTTP 204 (No Content)
             return NoContent();
         }
-
-
     }
 }
-

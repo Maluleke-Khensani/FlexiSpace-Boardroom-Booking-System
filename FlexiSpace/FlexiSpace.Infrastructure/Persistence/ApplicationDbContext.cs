@@ -23,7 +23,7 @@ namespace FlexiSpace.Infrastructure.Persistence
         public DbSet<Boardroom> Boardrooms => Set<Boardroom>();
         public DbSet<User> Users => Set<User>();
         public DbSet<Booking> Bookings => Set<Booking>();
-
+        public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
         //Lookup Eneities
         public DbSet<Equipment> Equipments => Set<Equipment>();
         public DbSet<Catering> Caterings => Set<Catering>();

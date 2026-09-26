@@ -1,19 +1,33 @@
-﻿using FlexiSpace.Core.DTOs.Boardroom;
+using FlexiSpace.API.Authorization;
+using FlexiSpace.API.Controllers.Base;
+using FlexiSpace.Core.DTOs.Boardroom;
 using FlexiSpace.Core.DTOs.Equipment;
 using FlexiSpace.Core.Entities;
+using FlexiSpace.Core.Enums;
 using FlexiSpace.Core.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using FlexiSpace.Core.Common;
 
 namespace FlexiSpace.API.Controllers
 {
+    // Any authenticated FlexiSpace user can read boardrooms (they need to
+    // see rooms to book them). Creating/editing/deleting a boardroom is
+    // catalogue management, not booking - restricted to Administrators,
+    // same rule as Equipment/Catering/Location.
     [ApiController]
     [Route("api/[controller]")]
-    public class BoardroomController : ControllerBase
+    [Authorize]
+    public class BoardroomController : AuditableControllerBase
     {
         // Service responsible for handling all boardroom-related business operations.
         private readonly IBoardroomService _boardroomService;
 
-        public BoardroomController(IBoardroomService boardroomService)
+        public BoardroomController(
+            IBoardroomService boardroomService,
+            IAuditService auditService,
+            ICurrentUserService currentUserService)
+            : base(auditService, currentUserService)
         {
             _boardroomService = boardroomService;
         }
@@ -46,6 +60,8 @@ namespace FlexiSpace.API.Controllers
         }
 
         // Creates a new boardroom and assigns the selected equipment.
+        // Administrator-only: see class summary above.
+        [AuthorizeRoles(UserRole.Administrator)]
         [HttpPost]
         public async Task<IActionResult> CreateBoardroom(BoardroomCreateDto dto)
         {
@@ -72,6 +88,18 @@ namespace FlexiSpace.API.Controllers
             // Save the new boardroom and its equipment.
             var createdBoardroom = await _boardroomService.CreateBoardroomAsync(boardroom);
 
+            await LogActionAsync(
+                AuditAction.Create,
+                nameof(Boardroom),
+                createdBoardroom.Id.ToString(),
+                newValues: new
+                {
+                    createdBoardroom.Name,
+                    createdBoardroom.Capacity,
+                    Status = createdBoardroom.Status.ToString(),
+                    createdBoardroom.LocationId
+                });
+
             // Return HTTP 201 with the newly created resource.
             return CreatedAtAction(
                 nameof(GetBoardroomById),
@@ -80,9 +108,20 @@ namespace FlexiSpace.API.Controllers
         }
 
         // Updates an existing boardroom and replaces its equipment list.
+        // Administrator-only: see class summary above.
+        [AuthorizeRoles(UserRole.Administrator)]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateBoardroom(int id, BoardroomUpdateDto dto)
         {
+            // Fetch the existing state first so the audit log can record
+            // what changed, not just what it changed to.
+            var before = await _boardroomService.GetBoardroomByIdAsync(id);
+
+            if (before == null)
+            {
+                return NotFound();
+            }
+
             // Create an entity containing the updated boardroom information.
             var boardroom = new Boardroom
             {
@@ -109,14 +148,43 @@ namespace FlexiSpace.API.Controllers
                 return NotFound();
             }
 
+            await LogActionAsync(
+                AuditAction.Update,
+                nameof(Boardroom),
+                id.ToString(),
+                oldValues: new
+                {
+                    before.Name,
+                    before.Capacity,
+                    Status = before.Status.ToString(),
+                    before.LocationId
+                },
+                newValues: new
+                {
+                    dto.Name,
+                    dto.Capacity,
+                    Status = dto.Status.ToString(),
+                    dto.LocationId
+                });
+
             // HTTP 204 indicates the update completed successfully.
             return NoContent();
         }
 
         // Deletes a boardroom from the system.
+        // Administrator-only: this is the exact example the team used when
+        // scoping RBAC ("only Admins can delete a room").
+        [AuthorizeRoles(UserRole.Administrator)]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteBoardroom(int id)
         {
+            var before = await _boardroomService.GetBoardroomByIdAsync(id);
+
+            if (before == null)
+            {
+                return NotFound();
+            }
+
             var deleted = await _boardroomService.DeleteBoardroomAsync(id);
 
             // Return HTTP 404 if the boardroom doesn't exist.
@@ -124,6 +192,18 @@ namespace FlexiSpace.API.Controllers
             {
                 return NotFound();
             }
+
+            await LogActionAsync(
+                AuditAction.Delete,
+                nameof(Boardroom),
+                id.ToString(),
+                oldValues: new
+                {
+                    before.Name,
+                    before.Capacity,
+                    Status = before.Status.ToString(),
+                    before.LocationId
+                });
 
             // HTTP 204 indicates the resource was successfully deleted.
             return NoContent();

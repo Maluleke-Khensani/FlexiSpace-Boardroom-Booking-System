@@ -103,6 +103,20 @@ namespace FlexiSpace.API
             builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
             builder.Services.AddScoped<IAuditService, AuditService>();
             builder.Services.AddScoped<INotificationService, NotificationService>();
+            builder.Services.AddScoped<IReportingService, ReportingService>();
+
+            // Push notifications (mobile only - see DeviceToken/NotificationService
+            // comments). NotificationService takes a dependency on
+            // IPushNotificationSender, so without this registration the app
+            // throws on the very first notification (booking created, etc.)
+            // - this was present in code but missing here.
+            builder.Services.AddScoped<IDeviceTokenService, DeviceTokenService>();
+            builder.Services.AddScoped<IPushNotificationSender, FcmPushNotificationSender>();
+
+            // Scans for bookings needing a 24h/2h reminder push - see
+            // BookingReminderHostedService for why this has to be a timer
+            // rather than triggered from a controller.
+            builder.Services.AddHostedService<BookingReminderHostedService>();
 
 
             // Register Swagger services to generate API documentation and allow endpoint testing during development.

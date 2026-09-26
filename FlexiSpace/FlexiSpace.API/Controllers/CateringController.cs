@@ -1,17 +1,30 @@
-﻿using FlexiSpace.Core.DTOs.Catering;
+using FlexiSpace.API.Authorization;
+using FlexiSpace.API.Controllers.Base;
+using FlexiSpace.Core.DTOs.Catering;
 using FlexiSpace.Core.Entities;
+using FlexiSpace.Core.Enums;
 using FlexiSpace.Core.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using FlexiSpace.Core.Common;
 
 namespace FlexiSpace.API.Controllers
 {
+    // Any authenticated user can read the catering catalogue (they need it
+    // to request items on a booking). Managing the catalogue itself is
+    // Administrator-only.
     [ApiController]
     [Route("api/[controller]")]
-    public class CateringController : ControllerBase
+    [Authorize]
+    public class CateringController : AuditableControllerBase
     {
         private readonly ICateringService _cateringService;
 
-        public CateringController(ICateringService cateringService)
+        public CateringController(
+            ICateringService cateringService,
+            IAuditService auditService,
+            ICurrentUserService currentUserService)
+            : base(auditService, currentUserService)
         {
             _cateringService = cateringService;
         }
@@ -60,6 +73,8 @@ namespace FlexiSpace.API.Controllers
             return Ok(response);
         }
 
+        // Administrator-only.
+        [AuthorizeRoles(UserRole.Administrator)]
         [HttpPost]
         public async Task<IActionResult> CreateCatering(CateringCreateDto dto)
         {
@@ -72,6 +87,12 @@ namespace FlexiSpace.API.Controllers
 
             // Ask the service to create the catering item
             var createdCatering = await _cateringService.CreateCateringAsync(catering);
+
+            await LogActionAsync(
+                AuditAction.Create,
+                nameof(Catering),
+                createdCatering.Id.ToString(),
+                newValues: new { createdCatering.Name, createdCatering.Description });
 
             // Convert the created entity into a Response DTO
             var response = new CateringResponseDto
@@ -88,9 +109,18 @@ namespace FlexiSpace.API.Controllers
                 response);
         }
 
+        // Administrator-only.
+        [AuthorizeRoles(UserRole.Administrator)]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateCatering(int id, CateringUpdateDto dto)
         {
+            var before = await _cateringService.GetCateringByIdAsync(id);
+
+            if (before == null)
+            {
+                return NotFound();
+            }
+
             // Convert the Update DTO into a Catering entity
             var catering = new Catering
             {
@@ -108,13 +138,29 @@ namespace FlexiSpace.API.Controllers
                 return NotFound();
             }
 
+            await LogActionAsync(
+                AuditAction.Update,
+                nameof(Catering),
+                id.ToString(),
+                oldValues: new { before.Name, before.Description, before.IsActive },
+                newValues: new { dto.Name, dto.Description, dto.IsActive });
+
             // Return HTTP 204 (No Content)
             return NoContent();
         }
 
+        // Administrator-only.
+        [AuthorizeRoles(UserRole.Administrator)]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCatering(int id)
         {
+            var before = await _cateringService.GetCateringByIdAsync(id);
+
+            if (before == null)
+            {
+                return NotFound();
+            }
+
             // Ask the service to delete the catering item
             var deleted = await _cateringService.DeleteCateringAsync(id);
 
@@ -123,6 +169,12 @@ namespace FlexiSpace.API.Controllers
             {
                 return NotFound();
             }
+
+            await LogActionAsync(
+                AuditAction.Delete,
+                nameof(Catering),
+                id.ToString(),
+                oldValues: new { before.Name, before.Description });
 
             // Return HTTP 204 (No Content)
             return NoContent();

@@ -195,7 +195,8 @@ namespace FlexiSpace.Infrastructure.Services
             int id,
             Booking booking,
             List<BookingEquipment> equipment,
-            List<BookingCatering> catering)
+            List<BookingCatering> catering,
+            int? modifiedById = null)
         {
             var existingBooking = await _context.Bookings
                 .Include(b => b.BookingEquipments)
@@ -264,6 +265,7 @@ namespace FlexiSpace.Infrastructure.Services
             existingBooking.Company = booking.Company;
             existingBooking.NumberOfAttendees = booking.NumberOfAttendees;
             existingBooking.Notes = booking.Notes;
+            existingBooking.ModifiedById = modifiedById;
 
             // Replace Equipment
             existingBooking.BookingEquipments.Clear();
@@ -290,7 +292,7 @@ namespace FlexiSpace.Infrastructure.Services
         //
         // This is a soft delete: the row stays in the database and its
         // Status moves to Cancelled, so booking history is preserved.
-        public async Task<bool> DeleteBookingAsync(int id)
+        public async Task<bool> DeleteBookingAsync(int id, int? cancelledById = null)
         {
             var booking = await _context.Bookings.FindAsync(id);
 
@@ -306,6 +308,7 @@ namespace FlexiSpace.Infrastructure.Services
             }
 
             booking.Status = BookingStatus.Cancelled;
+            booking.CancelledById = cancelledById;
 
             await _context.SaveChangesAsync();
 

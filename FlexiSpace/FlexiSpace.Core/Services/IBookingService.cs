@@ -27,17 +27,27 @@ namespace FlexiSpace.Core.Services
         // Throws BusinessRuleException if validation fails (including an
         // overlap with another booking), or if the booking is already
         // Cancelled/Completed and can no longer be edited.
+        //
+        // modifiedById is the id of the FlexiSpace user performing the
+        // update (resolved by the controller from the caller's token via
+        // ICurrentUserService), recorded on Booking.ModifiedById. Optional
+        // so existing callers that don't have/need this keep compiling.
         Task<bool> UpdateBookingAsync(
             int id,
             Booking booking,
             List<BookingEquipment> equipment,
-            List<BookingCatering> catering);
+            List<BookingCatering> catering,
+            int? modifiedById = null);
 
         // Cancels a booking (soft delete - the row is kept and Status is set
         // to Cancelled so booking history is preserved).
         // Returns false if the booking does not exist.
         // Throws BusinessRuleException if the booking is already Completed.
-        Task<bool> DeleteBookingAsync(int id);
+        //
+        // cancelledById is the id of the FlexiSpace user performing the
+        // cancellation, recorded on Booking.CancelledById. Optional so
+        // existing callers keep compiling.
+        Task<bool> DeleteBookingAsync(int id, int? cancelledById = null);
 
         // Updates the booking status (Approve, Cancel, mark Completed, etc.).
         // Returns false if the booking does not exist.

@@ -51,4 +51,6 @@ public class Booking
     // One Booking -> Many BookingCatering
     public ICollection<BookingCatering> BookingCaterings { get; set; }
         = new List<BookingCatering>();
+    public DateTime? Reminder24hSentAt { get; set; }
+    public DateTime? Reminder2hSentAt { get; set; }
 }
