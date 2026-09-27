@@ -1,4 +1,5 @@
-﻿using FlexiSpace.Core.DTOs.Equipment;
+﻿using FlexiSpace.Core.Common;
+using FlexiSpace.Core.DTOs.Equipment;
 using FlexiSpace.Core.Entities;
 using FlexiSpace.Core.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -16,7 +17,6 @@ namespace FlexiSpace.API.Controllers
             _equipmentService = equipmentService;
         }
 
-        // Retrieves all equipment available in the system.
         [HttpGet]
         public async Task<IActionResult> GetAllEquipment()
         {
@@ -27,7 +27,6 @@ namespace FlexiSpace.API.Controllers
             return Ok(response);
         }
 
-        // Retrieves a single piece of equipment using its unique ID.
         [HttpGet("{id}")]
         public async Task<IActionResult> GetEquipmentById(int id)
         {
@@ -41,7 +40,6 @@ namespace FlexiSpace.API.Controllers
             return Ok(MapToResponseDto(equipment));
         }
 
-        // Creates a new equipment record.
         [HttpPost]
         public async Task<IActionResult> CreateEquipment(EquipmentCreateDto dto)
         {
@@ -59,7 +57,6 @@ namespace FlexiSpace.API.Controllers
                 MapToResponseDto(createdEquipment));
         }
 
-        // Updates an existing equipment record.
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateEquipment(int id, EquipmentUpdateDto dto)
         {
@@ -79,21 +76,28 @@ namespace FlexiSpace.API.Controllers
             return NoContent();
         }
 
-        // Deletes equipment from the system.
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteEquipment(int id)
         {
-            var deleted = await _equipmentService.DeleteEquipmentAsync(id);
-
-            if (!deleted)
+            // NEW: DeleteEquipmentAsync can now throw BusinessRuleException
+            // (equipment still assigned to a boardroom or booking).
+            try
             {
-                return NotFound();
-            }
+                var deleted = await _equipmentService.DeleteEquipmentAsync(id);
 
-            return NoContent();
+                if (!deleted)
+                {
+                    return NotFound();
+                }
+
+                return NoContent();
+            }
+            catch (BusinessRuleException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
+            }
         }
 
-        // Converts an Equipment entity into a response DTO.
         private static EquipmentResponseDto MapToResponseDto(Equipment equipment)
         {
             return new EquipmentResponseDto

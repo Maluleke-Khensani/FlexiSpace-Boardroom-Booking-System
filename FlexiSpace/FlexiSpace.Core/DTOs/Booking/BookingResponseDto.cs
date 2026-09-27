@@ -27,6 +27,14 @@ namespace FlexiSpace.Core.DTOs.Booking
 
         public DateTime CreatedAt { get; set; }
 
+        public DateTime? ModifiedAt { get; set; }
+
+        public int? ModifiedById { get; set; }
+
+        public int? CancelledById { get; set; }
+
+        public string? OutlookEventId { get; set; }
+
         public List<BookingEquipmentDto> Equipment { get; set; } = new();
 
         public List<BookingCateringDto> Catering { get; set; } = new();
