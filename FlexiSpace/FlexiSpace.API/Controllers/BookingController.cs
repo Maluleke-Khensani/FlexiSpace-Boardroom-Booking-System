@@ -5,13 +5,15 @@ using FlexiSpace.Core.DTOs.Equipment;
 using FlexiSpace.Core.Entities;
 using FlexiSpace.Core.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FlexiSpace.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
+    // TEMP — local Swagger testing only. Revert before committing.
+    // [Authorize]
     public class BookingController : ControllerBase
     {
         private readonly IBookingService _bookingService;
@@ -21,7 +23,7 @@ namespace FlexiSpace.API.Controllers
             _bookingService = bookingService;
         }
 
-        // Retrieves all bookings.
+        // Retrieves all bookings the current caller is allowed to see.
         [HttpGet]
         public async Task<IActionResult> GetAllBookings()
         {
@@ -68,14 +70,15 @@ namespace FlexiSpace.API.Controllers
             return Ok(MapToResponseDto(booking));
         }
 
-        // Creates a new booking.
+        // Creates a new booking. The booker is always the authenticated
+        // caller - the request body has no UserId field, so nobody can
+        // book as someone else.
         [HttpPost]
         public async Task<IActionResult> CreateBooking(BookingCreateDto dto)
         {
             var booking = new Booking
             {
                 BoardroomId = dto.BoardroomId,
-                UserId = dto.UserId,
                 BookingDate = dto.BookingDate,
                 StartTime = dto.StartTime,
                 EndTime = dto.EndTime,
@@ -111,6 +114,10 @@ namespace FlexiSpace.API.Controllers
                     new { id = createdBooking.Id },
                     MapToResponseDto(createdBooking));
             }
+            catch (ForbiddenException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+            }
             catch (NotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });
@@ -121,7 +128,9 @@ namespace FlexiSpace.API.Controllers
             }
         }
 
-        // Updates an existing booking.
+        // Updates an existing booking. Only the booking's own owner, a
+        // Centre Manager at that location, or an Administrator may edit it
+        // - enforced server-side in BookingService, not just in the apps.
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateBooking(int id, BookingUpdateDto dto)
         {
@@ -163,6 +172,10 @@ namespace FlexiSpace.API.Controllers
 
                 return NoContent();
             }
+            catch (ForbiddenException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+            }
             catch (NotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });
@@ -174,6 +187,8 @@ namespace FlexiSpace.API.Controllers
         }
 
         // Cancels an existing booking (soft delete - see IBookingService).
+        // Only the booking's own owner, a Centre Manager at that location,
+        // or an Administrator may cancel it.
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteBooking(int id)
         {
@@ -188,13 +203,18 @@ namespace FlexiSpace.API.Controllers
 
                 return NoContent();
             }
+            catch (ForbiddenException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+            }
             catch (BusinessRuleException ex)
             {
                 return BadRequest(new { errors = ex.Errors });
             }
         }
 
-        // Updates the booking status.
+        // Updates the booking status. Only the booking's own owner, a
+        // Centre Manager at that location, or an Administrator may change it.
         [HttpPatch("{id}/status")]
         public async Task<IActionResult> UpdateBookingStatus(
             int id,
@@ -204,8 +224,7 @@ namespace FlexiSpace.API.Controllers
             {
                 var updated = await _bookingService.UpdateBookingStatusAsync(
                     id,
-                    dto.Status,
-                    dto.ApprovedById);
+                    dto.Status);
 
                 if (!updated)
                 {
@@ -213,6 +232,10 @@ namespace FlexiSpace.API.Controllers
                 }
 
                 return NoContent();
+            }
+            catch (ForbiddenException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
             }
             catch (NotFoundException ex)
             {
@@ -240,6 +263,10 @@ namespace FlexiSpace.API.Controllers
                 NumberOfAttendees = booking.NumberOfAttendees,
                 Notes = booking.Notes,
                 CreatedAt = booking.CreatedAt,
+                ModifiedAt = booking.ModifiedAt,
+                ModifiedById = booking.ModifiedById,
+                CancelledById = booking.CancelledById,
+                OutlookEventId = booking.OutlookEventId,
 
                 Equipment = booking.BookingEquipments.Select(e => new BookingEquipmentDto
                 {

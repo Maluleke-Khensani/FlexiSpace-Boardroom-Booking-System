@@ -1,4 +1,5 @@
-﻿using FlexiSpace.Core.Entities;
+﻿using FlexiSpace.Core.Common;
+using FlexiSpace.Core.Entities;
 using FlexiSpace.Core.Services;
 using FlexiSpace.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -57,6 +58,19 @@ namespace FlexiSpace.Infrastructure.Services
             if (equipment == null)
             {
                 return false;
+            }
+
+            // NEW: delete guard. Equipment still attached to a boardroom's
+            // inventory, or referenced by a booking's requested extras,
+            // can't be removed - that would strip it out from under
+            // records that still expect it.
+            var inUse = await _context.BoardroomEquipments.AnyAsync(be => be.EquipmentId == id)
+                || await _context.BookingEquipments.AnyAsync(be => be.EquipmentId == id);
+
+            if (inUse)
+            {
+                throw new BusinessRuleException(
+                    "This equipment can't be deleted because it's still assigned to a boardroom or booking.");
             }
 
             _context.Equipments.Remove(equipment);

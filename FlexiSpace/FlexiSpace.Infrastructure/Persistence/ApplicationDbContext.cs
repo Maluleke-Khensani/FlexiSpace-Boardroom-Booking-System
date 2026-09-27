@@ -32,6 +32,7 @@ namespace FlexiSpace.Infrastructure.Persistence
         public DbSet<BoardroomEquipment> BoardroomEquipments => Set<BoardroomEquipment>();
         public DbSet<BookingEquipment> BookingEquipments => Set<BookingEquipment>();
         public DbSet<BookingCatering> BookingCaterings => Set<BookingCatering>();
+        public DbSet<BoardroomComponent> BoardroomComponents => Set<BoardroomComponent>();
 
 
         // Supporting Entities

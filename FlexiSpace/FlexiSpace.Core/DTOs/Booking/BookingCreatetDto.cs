@@ -6,8 +6,6 @@ namespace FlexiSpace.Core.DTOs.Booking
     {
         public int BoardroomId { get; set; }
 
-        public int UserId { get; set; }
-
         public DateOnly BookingDate { get; set; }
 
         public TimeOnly StartTime { get; set; }
