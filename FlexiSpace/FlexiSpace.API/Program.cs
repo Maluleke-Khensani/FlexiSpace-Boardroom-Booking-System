@@ -17,16 +17,14 @@ namespace FlexiSpace.API
             // Creating a new ASP.NET application
             var builder = WebApplication.CreateBuilder(args);
 
-            // TEMP — local Swagger testing only. Revert before committing.
             // Configure authentication using Microsoft Identity Web API
             // with Bearer token authentication.
-            // builder.Services.AddAuthentication("Bearer")
-            //     .AddMicrosoftIdentityWebApi(
-            //         builder.Configuration.GetSection("AzureAd"));
+            builder.Services.AddAuthentication("Bearer")
+                .AddMicrosoftIdentityWebApi(
+                    builder.Configuration.GetSection("AzureAd"));
 
-            // TEMP — local Swagger testing only. Revert before committing.
             // Authorization
-            // builder.Services.AddAuthorization();
+            builder.Services.AddAuthorization();
 
             // Add services to the container.
 
@@ -214,10 +212,9 @@ namespace FlexiSpace.API
             app.UseHttpsRedirection();
             app.UseCors("AllowReactTestClient");
 
-            // TEMP — local Swagger testing only. Revert before committing.
             // Authentication must happen before authorization.
-            // app.UseAuthentication();
-            // app.UseAuthorization();
+            app.UseAuthentication();
+            app.UseAuthorization();
 
             app.MapControllers();
 
