@@ -39,6 +39,7 @@ namespace FlexiSpace.Infrastructure.Persistence
         public DbSet<LocationCalendarAccount> LocationCalendarAccounts => Set<LocationCalendarAccount>();
         public DbSet<Notification> Notifications => Set<Notification>();
         public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+        public DbSet<BlockedPeriod> BlockedPeriods => Set<BlockedPeriod>();
 
         //// Automatically apply all Fluent API configurations in this assembly.
         protected override void OnModelCreating(ModelBuilder modelBuilder)
