@@ -131,15 +131,18 @@ namespace FlexiSpace.Infrastructure.Services
 
             foreach (var boardroom in boardrooms)
             {
-                if (await HasConflictAsync(
-                    new Booking
-                    {
-                        BoardroomId = boardroom.Id,
-                        BookingDate = bookingDate,
-                        StartTime = startTime,
-                        EndTime = endTime
-                    },
-                    excludeBookingId: null))
+                var candidate = new Booking
+                {
+                    BoardroomId = boardroom.Id,
+                    BookingDate = bookingDate,
+                    StartTime = startTime,
+                    EndTime = endTime
+                };
+
+                // Unavailable if another booking overlaps, or a Centre
+                // Manager / Administrator has blocked the room for that time.
+                if (await HasConflictAsync(candidate, excludeBookingId: null)
+                    || await HasBlockConflictAsync(candidate))
                 {
                     unavailableBoardroomIds.Add(boardroom.Id);
                 }
@@ -195,6 +198,12 @@ namespace FlexiSpace.Infrastructure.Services
                 // before either commits. Not a full guarantee without a
                 // DB-level unique constraint, but a real improvement over
                 // checking outside any transaction at all.
+                if (await HasBlockConflictAsync(booking))
+                {
+                    throw new BusinessRuleException(
+                        $"{boardroom.Name} is blocked for that period and cannot be booked.");
+                }
+
                 if (await HasConflictAsync(booking, excludeBookingId: null))
                 {
                     throw new BusinessRuleException(
@@ -290,6 +299,12 @@ namespace FlexiSpace.Infrastructure.Services
 
             async Task ApplyUpdateAsync()
             {
+                if (await HasBlockConflictAsync(booking))
+                {
+                    throw new BusinessRuleException(
+                        $"{newBoardroom.Name} is blocked for that period and cannot be booked.");
+                }
+
                 if (await HasConflictAsync(booking, excludeBookingId: id))
                 {
                     throw new BusinessRuleException(
@@ -742,6 +757,24 @@ namespace FlexiSpace.Infrastructure.Services
                 && (!excludeBookingId.HasValue || b.Id != excludeBookingId.Value)
                 && booking.StartTime < b.EndTime
                 && b.StartTime < booking.EndTime);
+        }
+
+        // Returns true if a Centre Manager / Administrator has blocked this
+        // boardroom (or a boardroom it's physically linked to - same rule
+        // as HasConflictAsync) for any part of the requested time. Block
+        // Start/End are South African local time, like BookingDate and
+        // StartTime/EndTime, so the two compare directly.
+        private async Task<bool> HasBlockConflictAsync(Booking booking)
+        {
+            var conflictingBoardroomIds = await GetConflictingBoardroomIdsAsync(booking.BoardroomId);
+
+            var bookingStart = booking.BookingDate.ToDateTime(booking.StartTime);
+            var bookingEnd = booking.BookingDate.ToDateTime(booking.EndTime);
+
+            return await _context.BlockedPeriods.AnyAsync(bp =>
+                conflictingBoardroomIds.Contains(bp.BoardroomId)
+                && bookingStart < bp.End
+                && bp.Start < bookingEnd);
         }
 
         // Some boardrooms can be physically conjoined into one bigger space

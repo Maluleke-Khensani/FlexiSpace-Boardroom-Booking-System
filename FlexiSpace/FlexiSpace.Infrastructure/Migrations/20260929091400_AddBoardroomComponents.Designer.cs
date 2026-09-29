@@ -4,6 +4,7 @@ using FlexiSpace.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FlexiSpace.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260929091400_AddBoardroomComponents")]
+    partial class AddBoardroomComponents
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -61,43 +64,6 @@ namespace FlexiSpace.Infrastructure.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("AuditLogs", (string)null);
-                });
-
-            modelBuilder.Entity("FlexiSpace.Core.Entities.BlockedPeriod", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("BoardroomId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("CreatedById")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("End")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<DateTime>("Start")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedById");
-
-                    b.HasIndex("BoardroomId", "Start", "End");
-
-                    b.ToTable("BlockedPeriods", (string)null);
                 });
 
             modelBuilder.Entity("FlexiSpace.Core.Entities.Boardroom", b =>
@@ -487,25 +453,6 @@ namespace FlexiSpace.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("FlexiSpace.Core.Entities.BlockedPeriod", b =>
-                {
-                    b.HasOne("FlexiSpace.Core.Entities.Boardroom", "Boardroom")
-                        .WithMany()
-                        .HasForeignKey("BoardroomId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("FlexiSpace.Core.Entities.User", "CreatedBy")
-                        .WithMany()
-                        .HasForeignKey("CreatedById")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Boardroom");
-
-                    b.Navigation("CreatedBy");
                 });
 
             modelBuilder.Entity("FlexiSpace.Core.Entities.Boardroom", b =>

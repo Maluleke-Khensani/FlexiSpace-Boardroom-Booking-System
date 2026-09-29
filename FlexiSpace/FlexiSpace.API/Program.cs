@@ -142,6 +142,10 @@ namespace FlexiSpace.API
             builder.Services.AddScoped<IEquipmentService, EquipmentService>();
             builder.Services.AddScoped<IBookingService, BookingService>();
 
+            // Room blocking (maintenance, private events, etc.). Must be
+            // registered or BlockedPeriodController can't be constructed.
+            builder.Services.AddScoped<IBlockedPeriodService, BlockedPeriodService>();
+
             // Register AI recommendation service.
             builder.Services.AddHttpClient<IAiRecommendationService, AiRecommendationService>();
 
