@@ -18,9 +18,9 @@ function App() {
 
 console.log("ACCESS TOKEN:", tokenResponse.accessToken)
 
-const response = await fetch(
-    'https://localhost:7055/api/GraphTest/create-test-event',
-    {
+      const response = await fetch(
+       'https://localhost:7055/api/GraphTest/create-test-event',
+       {
         method: 'POST',
         headers: {
             Authorization: `Bearer ${tokenResponse.accessToken}`

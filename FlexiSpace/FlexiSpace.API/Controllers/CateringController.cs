@@ -1,12 +1,12 @@
 using FlexiSpace.API.Authorization;
 using FlexiSpace.API.Controllers.Base;
+using FlexiSpace.Core.Common;
 using FlexiSpace.Core.DTOs.Catering;
 using FlexiSpace.Core.Entities;
 using FlexiSpace.Core.Enums;
 using FlexiSpace.Core.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using FlexiSpace.Core.Common;
 
 namespace FlexiSpace.API.Controllers
 {
@@ -32,10 +32,8 @@ namespace FlexiSpace.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAllCatering()
         {
-            // Retrieve all catering items from the service
             var cateringItems = await _cateringService.GetAllCateringAsync();
 
-            // Convert the entities into Response DTOs
             var response = cateringItems.Select(catering => new CateringResponseDto
             {
                 Id = catering.Id,
@@ -44,23 +42,19 @@ namespace FlexiSpace.API.Controllers
                 IsActive = catering.IsActive
             });
 
-            // Return HTTP 200 (OK)
             return Ok(response);
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetCateringById(int id)
         {
-            // Ask the service for the requested catering item
             var catering = await _cateringService.GetCateringByIdAsync(id);
 
-            // Return HTTP 404 if the catering item doesn't exist
             if (catering == null)
             {
                 return NotFound();
             }
 
-            // Convert the entity into a Response DTO
             var response = new CateringResponseDto
             {
                 Id = catering.Id,
@@ -69,23 +63,20 @@ namespace FlexiSpace.API.Controllers
                 IsActive = catering.IsActive
             };
 
-            // Return HTTP 200 (OK)
             return Ok(response);
         }
 
-        // Administrator-only.
-        [AuthorizeRoles(UserRole.Administrator)]
+      
+        [AuthorizeRoles(UserRole.Administrator, UserRole.CentreManager)]
         [HttpPost]
         public async Task<IActionResult> CreateCatering(CateringCreateDto dto)
         {
-            // Convert the Create DTO into a Catering entity
             var catering = new Catering
             {
                 Name = dto.Name,
                 Description = dto.Description
             };
 
-            // Ask the service to create the catering item
             var createdCatering = await _cateringService.CreateCateringAsync(catering);
 
             await LogActionAsync(
@@ -94,7 +85,6 @@ namespace FlexiSpace.API.Controllers
                 createdCatering.Id.ToString(),
                 newValues: new { createdCatering.Name, createdCatering.Description });
 
-            // Convert the created entity into a Response DTO
             var response = new CateringResponseDto
             {
                 Id = createdCatering.Id,
@@ -103,7 +93,6 @@ namespace FlexiSpace.API.Controllers
                 IsActive = createdCatering.IsActive
             };
 
-            // Return HTTP 201 (Created)
             return CreatedAtAction(nameof(GetCateringById),
                 new { id = response.Id },
                 response);
@@ -121,7 +110,6 @@ namespace FlexiSpace.API.Controllers
                 return NotFound();
             }
 
-            // Convert the Update DTO into a Catering entity
             var catering = new Catering
             {
                 Name = dto.Name,
@@ -129,10 +117,8 @@ namespace FlexiSpace.API.Controllers
                 IsActive = dto.IsActive
             };
 
-            // Ask the service to update the catering item
             var updated = await _cateringService.UpdateCateringAsync(id, catering);
 
-            // Return HTTP 404 if the catering item doesn't exist
             if (!updated)
             {
                 return NotFound();
@@ -145,7 +131,6 @@ namespace FlexiSpace.API.Controllers
                 oldValues: new { before.Name, before.Description, before.IsActive },
                 newValues: new { dto.Name, dto.Description, dto.IsActive });
 
-            // Return HTTP 204 (No Content)
             return NoContent();
         }
 
@@ -161,23 +146,29 @@ namespace FlexiSpace.API.Controllers
                 return NotFound();
             }
 
-            // Ask the service to delete the catering item
-            var deleted = await _cateringService.DeleteCateringAsync(id);
-
-            // Return HTTP 404 if the catering item doesn't exist
-            if (!deleted)
+            // DeleteCateringAsync can throw BusinessRuleException (catering
+            // item still requested on a booking).
+            try
             {
-                return NotFound();
+                var deleted = await _cateringService.DeleteCateringAsync(id);
+
+                if (!deleted)
+                {
+                    return NotFound();
+                }
+
+                await LogActionAsync(
+                    AuditAction.Delete,
+                    nameof(Catering),
+                    id.ToString(),
+                    oldValues: new { before.Name, before.Description });
+
+                return NoContent();
             }
-
-            await LogActionAsync(
-                AuditAction.Delete,
-                nameof(Catering),
-                id.ToString(),
-                oldValues: new { before.Name, before.Description });
-
-            // Return HTTP 204 (No Content)
-            return NoContent();
+            catch (BusinessRuleException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
+            }
         }
     }
 }

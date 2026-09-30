@@ -32,12 +32,14 @@ namespace FlexiSpace.Infrastructure.Persistence
         public DbSet<BoardroomEquipment> BoardroomEquipments => Set<BoardroomEquipment>();
         public DbSet<BookingEquipment> BookingEquipments => Set<BookingEquipment>();
         public DbSet<BookingCatering> BookingCaterings => Set<BookingCatering>();
+        public DbSet<BoardroomComponent> BoardroomComponents => Set<BoardroomComponent>();
 
 
         // Supporting Entities
         public DbSet<LocationCalendarAccount> LocationCalendarAccounts => Set<LocationCalendarAccount>();
         public DbSet<Notification> Notifications => Set<Notification>();
         public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+        public DbSet<BlockedPeriod> BlockedPeriods => Set<BlockedPeriod>();
 
         //// Automatically apply all Fluent API configurations in this assembly.
         protected override void OnModelCreating(ModelBuilder modelBuilder)

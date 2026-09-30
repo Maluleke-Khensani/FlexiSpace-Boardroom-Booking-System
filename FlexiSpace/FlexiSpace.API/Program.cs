@@ -29,7 +29,18 @@ namespace FlexiSpace.API
             // Add services to the container.
 
             // My application will have API controllers.
-            builder.Services.AddControllers();
+            // Enums are serialized as their string names (e.g. "Confirmed"),
+            // not the underlying int - the clients' own enums don't share
+            // the same ordinal positions as this one, and never reliably
+            // will once either side adds/removes/reorders a value, so
+            // number-based serialization is a silent correctness bug
+            // waiting to happen rather than a one-time mismatch to patch up.
+            builder.Services.AddControllers()
+                .AddJsonOptions(options =>
+                {
+                    options.JsonSerializerOptions.Converters.Add(
+                        new System.Text.Json.Serialization.JsonStringEnumConverter());
+                });
 
             // Needed by CurrentUserService to read claims off the current
             // request outside of a controller (it's injected into a
@@ -70,22 +81,70 @@ namespace FlexiSpace.API
                     clientSecret);
             });
 
-            builder.Services.AddScoped<ICalendarService>(sp =>
-            {
-                var configuration = sp.GetRequiredService<IConfiguration>();
+            // MicrosoftGraph credentials aren't configured yet in any
+            // environment this runs in (appsettings has no MicrosoftGraph
+            // section). Registering MicrosoftGraphCalendarService/
+            // MicrosoftGraphEmailService directly with null values throws
+            // inside ClientSecretCredential's constructor - which runs
+            // inside the DI factory, so it would fail every single request
+            // that needs IBookingService (which depends on both), not just
+            // whichever endpoint actually tries to send a calendar event or
+            // an email. Fall back to no-op implementations instead, so
+            // missing config degrades gracefully until real credentials
+            // land - see NullCalendarService/NullEmailService.
+            var graphTenantId = builder.Configuration["MicrosoftGraph:TenantId"];
+            var graphClientId = builder.Configuration["MicrosoftGraph:ClientId"];
+            var graphClientSecret = builder.Configuration["MicrosoftGraph:ClientSecret"];
+            var graphSenderEmail = builder.Configuration["MicrosoftGraph:SenderEmail"];
 
-                return new MicrosoftGraphCalendarService(
-                    configuration["MicrosoftGraph:TenantId"]!,
-                    configuration["MicrosoftGraph:ClientId"]!,
-                    configuration["MicrosoftGraph:ClientSecret"]!
-                );
-            });
+            var graphAppCredentialsConfigured =
+                !string.IsNullOrWhiteSpace(graphTenantId)
+                && !string.IsNullOrWhiteSpace(graphClientId)
+                && !string.IsNullOrWhiteSpace(graphClientSecret);
+
+            if (graphAppCredentialsConfigured)
+            {
+                builder.Services.AddScoped<ICalendarService>(sp =>
+                    new MicrosoftGraphCalendarService(
+                        graphTenantId!,
+                        graphClientId!,
+                        graphClientSecret!));
+            }
+            else
+            {
+                builder.Services.AddScoped<ICalendarService, NullCalendarService>();
+            }
+
+            // Sends outbound email (e.g. "booking created" alerts to Centre
+            // Managers) via the same app-only Graph credentials used for
+            // calendar sync above. Needs the Mail.Send Application
+            // permission granted on that app registration, plus a
+            // MicrosoftGraph:SenderEmail mailbox to send from (a shared
+            // mailbox like notifications@flexispace.net.za, not a specific
+            // person's inbox).
+            if (graphAppCredentialsConfigured && !string.IsNullOrWhiteSpace(graphSenderEmail))
+            {
+                builder.Services.AddScoped<IEmailService>(sp =>
+                    new MicrosoftGraphEmailService(
+                        graphTenantId!,
+                        graphClientId!,
+                        graphClientSecret!,
+                        graphSenderEmail!));
+            }
+            else
+            {
+                builder.Services.AddScoped<IEmailService, NullEmailService>();
+            }
 
             // Register application services.
             builder.Services.AddScoped<ILocationService, LocationService>();
             builder.Services.AddScoped<IBoardroomService, BoardroomService>();
             builder.Services.AddScoped<IEquipmentService, EquipmentService>();
             builder.Services.AddScoped<IBookingService, BookingService>();
+
+            // Room blocking (maintenance, private events, etc.). Must be
+            // registered or BlockedPeriodController can't be constructed.
+            builder.Services.AddScoped<IBlockedPeriodService, BlockedPeriodService>();
 
             // Register AI recommendation service.
             builder.Services.AddHttpClient<IAiRecommendationService, AiRecommendationService>();

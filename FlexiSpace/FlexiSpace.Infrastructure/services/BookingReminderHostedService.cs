@@ -94,7 +94,7 @@ namespace FlexiSpace.Infrastructure.Services
             var horizon = DateOnly.FromDateTime(now.AddDays(2));
 
             var candidates = await context.Bookings
-                .Where(b => b.Status == BookingStatus.Pending)
+                .Where(b => b.Status == BookingStatus.Confirmed)
                 .Where(b => b.BookingDate <= horizon)
                 .Where(b => b.Reminder24hSentAt == null || b.Reminder2hSentAt == null)
                 .ToListAsync(cancellationToken);

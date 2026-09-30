@@ -1,12 +1,12 @@
 using FlexiSpace.API.Authorization;
 using FlexiSpace.API.Controllers.Base;
+using FlexiSpace.Core.Common;
 using FlexiSpace.Core.DTOs.Equipment;
 using FlexiSpace.Core.Entities;
 using FlexiSpace.Core.Enums;
 using FlexiSpace.Core.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using FlexiSpace.Core.Common;
 
 namespace FlexiSpace.API.Controllers
 {
@@ -29,7 +29,6 @@ namespace FlexiSpace.API.Controllers
             _equipmentService = equipmentService;
         }
 
-        // Retrieves all equipment available in the system.
         [HttpGet]
         public async Task<IActionResult> GetAllEquipment()
         {
@@ -40,7 +39,6 @@ namespace FlexiSpace.API.Controllers
             return Ok(response);
         }
 
-        // Retrieves a single piece of equipment using its unique ID.
         [HttpGet("{id}")]
         public async Task<IActionResult> GetEquipmentById(int id)
         {
@@ -55,7 +53,7 @@ namespace FlexiSpace.API.Controllers
         }
 
         // Creates a new equipment record. Administrator-only.
-        [AuthorizeRoles(UserRole.Administrator)]
+        [AuthorizeRoles(UserRole.Administrator, UserRole.CentreManager)]
         [HttpPost]
         public async Task<IActionResult> CreateEquipment(EquipmentCreateDto dto)
         {
@@ -126,23 +124,31 @@ namespace FlexiSpace.API.Controllers
                 return NotFound();
             }
 
-            var deleted = await _equipmentService.DeleteEquipmentAsync(id);
-
-            if (!deleted)
+            // DeleteEquipmentAsync can throw BusinessRuleException
+            // (equipment still assigned to a boardroom or booking).
+            try
             {
-                return NotFound();
+                var deleted = await _equipmentService.DeleteEquipmentAsync(id);
+
+                if (!deleted)
+                {
+                    return NotFound();
+                }
+
+                await LogActionAsync(
+                    AuditAction.Delete,
+                    nameof(Equipment),
+                    id.ToString(),
+                    oldValues: new { before.Name, before.Description });
+
+                return NoContent();
             }
-
-            await LogActionAsync(
-                AuditAction.Delete,
-                nameof(Equipment),
-                id.ToString(),
-                oldValues: new { before.Name, before.Description });
-
-            return NoContent();
+            catch (BusinessRuleException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
+            }
         }
 
-        // Converts an Equipment entity into a response DTO.
         private static EquipmentResponseDto MapToResponseDto(Equipment equipment)
         {
             return new EquipmentResponseDto

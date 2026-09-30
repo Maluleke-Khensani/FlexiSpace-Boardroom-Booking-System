@@ -1,12 +1,12 @@
 using FlexiSpace.API.Authorization;
 using FlexiSpace.API.Controllers.Base;
+using FlexiSpace.Core.Common;
 using FlexiSpace.Core.DTOs.Location;
 using FlexiSpace.Core.Entities;
 using FlexiSpace.Core.Enums;
 using FlexiSpace.Core.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using FlexiSpace.Core.Common;
 
 namespace FlexiSpace.API.Controllers
 {
@@ -31,10 +31,8 @@ namespace FlexiSpace.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAllLocations()
         {
-            // Retrieving all locations from the service and storing them in a variable
             var locations = await _locationService.GetAllLocationsAsync();
 
-            //Mapping the locations to LocationResponseDto
             var response = locations.Select(location => new LocationResponseDto
             {
                 Id = location.Id,
@@ -51,51 +49,54 @@ namespace FlexiSpace.API.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateLocation([FromBody] LocationCreateDto locationDto)
         {
-            // Convert the DTO received from the client into a Location entity
             var location = new Location
             {
                 Name = locationDto.Name,
                 Address = locationDto.Address
             };
 
-            // Send the entity to the service to be saved
-            var createdLocation = await _locationService.CreateLocationAsync(location);
-
-            await LogActionAsync(
-                AuditAction.Create,
-                nameof(Location),
-                createdLocation.Id.ToString(),
-                newValues: new { createdLocation.Name, createdLocation.Address });
-
-            // Convert the saved entity back into a Response DTO
-            var response = new LocationResponseDto
+            // CreateLocationAsync can throw BusinessRuleException
+            // (duplicate name) - return it as 400 instead of an
+            // unhandled 500.
+            try
             {
-                Id = createdLocation.Id,
-                Name = createdLocation.Name,
-                Address = createdLocation.Address
-            };
+                var createdLocation = await _locationService.CreateLocationAsync(location);
 
-            // Return HTTP 201 (Created)
-            return CreatedAtAction(
-                nameof(GetLocationById),
-                new { id = response.Id },
-                response);
+                await LogActionAsync(
+                    AuditAction.Create,
+                    nameof(Location),
+                    createdLocation.Id.ToString(),
+                    newValues: new { createdLocation.Name, createdLocation.Address });
+
+                var response = new LocationResponseDto
+                {
+                    Id = createdLocation.Id,
+                    Name = createdLocation.Name,
+                    Address = createdLocation.Address
+                };
+
+                return CreatedAtAction(
+                    nameof(GetLocationById),
+                    new { id = response.Id },
+                    response);
+            }
+            catch (BusinessRuleException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
+            }
         }
 
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetLocationById(int id)
         {
-            // Ask the service for the requested location
             var location = await _locationService.GetLocationByIdAsync(id);
 
-            // If no location exists, return HTTP 404
             if (location == null)
             {
                 return NotFound();
             }
 
-            // Convert the entity into a Response DTO
             var response = new LocationResponseDto
             {
                 Id = location.Id,
@@ -118,31 +119,36 @@ namespace FlexiSpace.API.Controllers
                 return NotFound();
             }
 
-            // Convert the Update DTO into a Location entity
             var location = new Location
             {
                 Name = locationDto.Name,
                 Address = locationDto.Address
             };
 
-            // Ask the service to update the location
-            var updated = await _locationService.UpdateLocationAsync(id, location);
-
-            // If the location wasn't found, return 404
-            if (!updated)
+            // Same as CreateLocation - UpdateLocationAsync can throw
+            // BusinessRuleException too.
+            try
             {
-                return NotFound();
+                var updated = await _locationService.UpdateLocationAsync(id, location);
+
+                if (!updated)
+                {
+                    return NotFound();
+                }
+
+                await LogActionAsync(
+                    AuditAction.Update,
+                    nameof(Location),
+                    id.ToString(),
+                    oldValues: new { before.Name, before.Address },
+                    newValues: new { locationDto.Name, locationDto.Address });
+
+                return NoContent();
             }
-
-            await LogActionAsync(
-                AuditAction.Update,
-                nameof(Location),
-                id.ToString(),
-                oldValues: new { before.Name, before.Address },
-                newValues: new { locationDto.Name, locationDto.Address });
-
-            // Return HTTP 204 (No Content)
-            return NoContent();
+            catch (BusinessRuleException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
+            }
         }
 
         // Administrator-only.
@@ -157,23 +163,29 @@ namespace FlexiSpace.API.Controllers
                 return NotFound();
             }
 
-            // Ask the service to delete the location
-            var deleted = await _locationService.DeleteLocationAsync(id);
-
-            // Return 404 if the location doesn't exist
-            if (!deleted)
+            // DeleteLocationAsync can throw BusinessRuleException
+            // (boardrooms still assigned to this location).
+            try
             {
-                return NotFound();
+                var deleted = await _locationService.DeleteLocationAsync(id);
+
+                if (!deleted)
+                {
+                    return NotFound();
+                }
+
+                await LogActionAsync(
+                    AuditAction.Delete,
+                    nameof(Location),
+                    id.ToString(),
+                    oldValues: new { before.Name, before.Address });
+
+                return NoContent();
             }
-
-            await LogActionAsync(
-                AuditAction.Delete,
-                nameof(Location),
-                id.ToString(),
-                oldValues: new { before.Name, before.Address });
-
-            // Return HTTP 204 (No Content)
-            return NoContent();
+            catch (BusinessRuleException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
+            }
         }
     }
 }

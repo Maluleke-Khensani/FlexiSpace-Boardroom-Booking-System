@@ -8,27 +8,23 @@ using FlexiSpace.Core.Entities;
 using FlexiSpace.Core.Enums;
 using FlexiSpace.Core.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FlexiSpace.API.Controllers
 {
-    // Ownership/role policy (agreed with Tino - CentreManager acts as the
-    // "can manage everyone's bookings" role alongside Administrator):
-    //
-    // - Any authenticated user can view bookings (shared room calendar -
-    //   seeing who's booked what is normal for this kind of system, same
-    //   as an Outlook room calendar).
-    // - Create: a booking is created for yourself. Only a CentreManager or
-    //   Administrator may create a booking on behalf of someone else by
-    //   supplying a different UserId - anyone else's UserId is ignored and
-    //   replaced with their own id, so a Client/Staff caller can't spoof
-    //   another user's id in the request body.
-    // - Update / Cancel (delete): allowed for the booking's own owner, or
-    //   a CentreManager/Administrator acting on someone else's booking.
-    //   Anyone else gets 403.
-    // - Status changes other than the owner's own cancellation (e.g.
-    //   marking a booking Completed) are a front-desk/management action -
-    //   CentreManager/Administrator only.
+    // Ownership/role policy: BookingService itself now enforces who may
+    // act on a booking (see CanManageBooking / ApplyVisibilityScope there)
+    // and throws ForbiddenException when the caller isn't allowed to -
+    // caught below as 403. The controller no longer duplicates that check:
+    // - Any authenticated user can view bookings they're allowed to see
+    //   (Administrators: all, Centre Managers: their own location,
+    //   everyone else: only their own bookings).
+    // - Create: the booker is always the authenticated caller - there is
+    //   no way to book on behalf of someone else (BookingCreateDto has no
+    //   UserId field).
+    // - Update / Cancel / change status: the booking's own owner, a
+    //   Centre Manager at that boardroom's location, or an Administrator.
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
@@ -48,7 +44,7 @@ namespace FlexiSpace.API.Controllers
             _notificationService = notificationService;
         }
 
-        // Retrieves all bookings.
+        // Retrieves all bookings the current caller is allowed to see.
         [HttpGet]
         public async Task<IActionResult> GetAllBookings()
         {
@@ -95,30 +91,16 @@ namespace FlexiSpace.API.Controllers
             return Ok(MapToResponseDto(booking));
         }
 
-        // Creates a new booking.
+        // Creates a new booking. The booker is always the authenticated
+        // caller - CreateBookingAsync resolves it internally and ignores
+        // anything on the passed-in entity, so there's nothing to set
+        // here.
         [HttpPost]
         public async Task<IActionResult> CreateBooking(BookingCreateDto dto)
         {
-            var currentUser = await CurrentUserService.GetCurrentUserAsync();
-
-            if (currentUser == null)
-            {
-                return Unauthorized(new { message = "No active account found for this token." });
-            }
-
-            // A regular caller can only ever book for themselves. Only a
-            // manager may set UserId to someone other than themselves (e.g.
-            // a CentreManager booking a room for a visiting client), which
-            // is why dto.UserId is trusted only from a manager and ignored
-            // otherwise - see class summary above.
-            var effectiveUserId = IsManagerRole(currentUser.Role) && dto.UserId != 0
-                ? dto.UserId
-                : currentUser.Id;
-
             var booking = new Booking
             {
                 BoardroomId = dto.BoardroomId,
-                UserId = effectiveUserId,
                 BookingDate = dto.BookingDate,
                 StartTime = dto.StartTime,
                 EndTime = dto.EndTime,
@@ -174,6 +156,10 @@ namespace FlexiSpace.API.Controllers
                     new { id = createdBooking.Id },
                     MapToResponseDto(createdBooking));
             }
+            catch (ForbiddenException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+            }
             catch (NotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });
@@ -184,33 +170,17 @@ namespace FlexiSpace.API.Controllers
             }
         }
 
-        // Updates an existing booking.
+        // Updates an existing booking. Only the booking's own owner, a
+        // Centre Manager at that location, or an Administrator may edit it
+        // - enforced server-side in BookingService via ForbiddenException.
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateBooking(int id, BookingUpdateDto dto)
         {
-            var currentUser = await CurrentUserService.GetCurrentUserAsync();
-
-            if (currentUser == null)
-            {
-                return Unauthorized(new { message = "No active account found for this token." });
-            }
-
             var existingBooking = await _bookingService.GetBookingByIdAsync(id);
 
             if (existingBooking == null)
             {
                 return NotFound();
-            }
-
-            // Ownership check: only the booking's own owner, or a manager
-            // acting on someone else's booking, may edit it.
-            if (existingBooking.UserId != currentUser.Id && !IsManagerRole(currentUser.Role))
-            {
-                return StatusCode(403, new
-                {
-                    message = "You can only edit your own bookings.",
-                    yourRole = currentUser.Role.ToString()
-                });
             }
 
             var booking = new Booking
@@ -238,12 +208,7 @@ namespace FlexiSpace.API.Controllers
 
             try
             {
-                var updated = await _bookingService.UpdateBookingAsync(
-                    id,
-                    booking,
-                    equipment,
-                    catering,
-                    modifiedById: currentUser.Id);
+                var updated = await _bookingService.UpdateBookingAsync(id, booking, equipment, catering);
 
                 if (!updated)
                 {
@@ -280,6 +245,10 @@ namespace FlexiSpace.API.Controllers
 
                 return NoContent();
             }
+            catch (ForbiddenException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+            }
             catch (NotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });
@@ -291,16 +260,11 @@ namespace FlexiSpace.API.Controllers
         }
 
         // Cancels an existing booking (soft delete - see IBookingService).
+        // Only the booking's own owner, a Centre Manager at that location,
+        // or an Administrator may cancel it.
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteBooking(int id)
         {
-            var currentUser = await CurrentUserService.GetCurrentUserAsync();
-
-            if (currentUser == null)
-            {
-                return Unauthorized(new { message = "No active account found for this token." });
-            }
-
             var existingBooking = await _bookingService.GetBookingByIdAsync(id);
 
             if (existingBooking == null)
@@ -308,20 +272,9 @@ namespace FlexiSpace.API.Controllers
                 return NotFound();
             }
 
-            // Ownership check: only the booking's own owner, or a manager,
-            // may cancel it.
-            if (existingBooking.UserId != currentUser.Id && !IsManagerRole(currentUser.Role))
-            {
-                return StatusCode(403, new
-                {
-                    message = "You can only cancel your own bookings.",
-                    yourRole = currentUser.Role.ToString()
-                });
-            }
-
             try
             {
-                var deleted = await _bookingService.DeleteBookingAsync(id, cancelledById: currentUser.Id);
+                var deleted = await _bookingService.DeleteBookingAsync(id);
 
                 if (!deleted)
                 {
@@ -343,17 +296,21 @@ namespace FlexiSpace.API.Controllers
 
                 return NoContent();
             }
+            catch (ForbiddenException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+            }
             catch (BusinessRuleException ex)
             {
                 return BadRequest(new { errors = ex.Errors });
             }
         }
 
-        // Updates the booking status (e.g. marking it Completed, or an
-        // administrative cancellation/override). This is a front-desk /
-        // management action, distinct from the owner's own cancel button
-        // above - restricted to CentreManager/Administrator.
-        [AuthorizeRoles(UserRole.CentreManager, UserRole.Administrator)]
+        // Updates the booking status (Cancel, mark Completed). Only the
+        // booking's own owner, a Centre Manager at that location, or an
+        // Administrator may change it - enforced server-side in
+        // BookingService, not by a role attribute here, since an owner
+        // who isn't a manager is still allowed to do this.
         [HttpPatch("{id}/status")]
         public async Task<IActionResult> UpdateBookingStatus(
             int id,
@@ -370,8 +327,7 @@ namespace FlexiSpace.API.Controllers
             {
                 var updated = await _bookingService.UpdateBookingStatusAsync(
                     id,
-                    dto.Status,
-                    dto.ApprovedById);
+                    dto.Status);
 
                 if (!updated)
                 {
@@ -383,7 +339,7 @@ namespace FlexiSpace.API.Controllers
                     nameof(Booking),
                     id.ToString(),
                     oldValues: new { Status = existingBooking.Status.ToString() },
-                    newValues: new { Status = dto.Status.ToString(), dto.ApprovedById });
+                    newValues: new { Status = dto.Status.ToString() });
 
                 if (dto.Status == BookingStatus.Cancelled)
                 {
@@ -396,6 +352,10 @@ namespace FlexiSpace.API.Controllers
                 }
 
                 return NoContent();
+            }
+            catch (ForbiddenException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
             }
             catch (NotFoundException ex)
             {
@@ -423,6 +383,10 @@ namespace FlexiSpace.API.Controllers
                 NumberOfAttendees = booking.NumberOfAttendees,
                 Notes = booking.Notes,
                 CreatedAt = booking.CreatedAt,
+                ModifiedAt = booking.ModifiedAt,
+                ModifiedById = booking.ModifiedById,
+                CancelledById = booking.CancelledById,
+                OutlookEventId = booking.OutlookEventId,
 
                 Equipment = booking.BookingEquipments.Select(e => new BookingEquipmentDto
                 {

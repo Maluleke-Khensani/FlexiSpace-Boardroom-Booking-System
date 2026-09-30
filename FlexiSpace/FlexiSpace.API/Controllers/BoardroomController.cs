@@ -1,5 +1,6 @@
 using FlexiSpace.API.Authorization;
 using FlexiSpace.API.Controllers.Base;
+using FlexiSpace.Core.Common;
 using FlexiSpace.Core.DTOs.Boardroom;
 using FlexiSpace.Core.DTOs.Equipment;
 using FlexiSpace.Core.Entities;
@@ -7,7 +8,6 @@ using FlexiSpace.Core.Enums;
 using FlexiSpace.Core.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using FlexiSpace.Core.Common;
 
 namespace FlexiSpace.API.Controllers
 {
@@ -38,7 +38,6 @@ namespace FlexiSpace.API.Controllers
         {
             var boardrooms = await _boardroomService.GetAllBoardroomsAsync();
 
-            // Convert the entities into DTOs before sending them to the client.
             var response = boardrooms.Select(MapToResponseDto);
 
             return Ok(response);
@@ -50,7 +49,6 @@ namespace FlexiSpace.API.Controllers
         {
             var boardroom = await _boardroomService.GetBoardroomByIdAsync(id);
 
-            // Return HTTP 404 if no matching boardroom exists.
             if (boardroom == null)
             {
                 return NotFound();
@@ -59,13 +57,10 @@ namespace FlexiSpace.API.Controllers
             return Ok(MapToResponseDto(boardroom));
         }
 
-        // Creates a new boardroom and assigns the selected equipment.
-        // Administrator-only: see class summary above.
-        [AuthorizeRoles(UserRole.Administrator)]
+        [AuthorizeRoles(UserRole.Administrator, UserRole.CentreManager)]
         [HttpPost]
         public async Task<IActionResult> CreateBoardroom(BoardroomCreateDto dto)
         {
-            // Convert the incoming DTO into a Boardroom entity.
             var boardroom = new Boardroom
             {
                 Name = dto.Name,
@@ -74,7 +69,6 @@ namespace FlexiSpace.API.Controllers
                 LocationId = dto.LocationId
             };
 
-            // Build the list of equipment assigned to this boardroom.
             foreach (var item in dto.Equipment)
             {
                 boardroom.BoardroomEquipments.Add(new BoardroomEquipment
@@ -85,26 +79,33 @@ namespace FlexiSpace.API.Controllers
                 });
             }
 
-            // Save the new boardroom and its equipment.
-            var createdBoardroom = await _boardroomService.CreateBoardroomAsync(boardroom);
+            // CreateBoardroomAsync can throw BusinessRuleException
+            // (duplicate name at this location, or an unknown EquipmentId).
+            try
+            {
+                var createdBoardroom = await _boardroomService.CreateBoardroomAsync(boardroom);
 
-            await LogActionAsync(
-                AuditAction.Create,
-                nameof(Boardroom),
-                createdBoardroom.Id.ToString(),
-                newValues: new
-                {
-                    createdBoardroom.Name,
-                    createdBoardroom.Capacity,
-                    Status = createdBoardroom.Status.ToString(),
-                    createdBoardroom.LocationId
-                });
+                await LogActionAsync(
+                    AuditAction.Create,
+                    nameof(Boardroom),
+                    createdBoardroom.Id.ToString(),
+                    newValues: new
+                    {
+                        createdBoardroom.Name,
+                        createdBoardroom.Capacity,
+                        Status = createdBoardroom.Status.ToString(),
+                        createdBoardroom.LocationId
+                    });
 
-            // Return HTTP 201 with the newly created resource.
-            return CreatedAtAction(
-                nameof(GetBoardroomById),
-                new { id = createdBoardroom.Id },
-                MapToResponseDto(createdBoardroom));
+                return CreatedAtAction(
+                    nameof(GetBoardroomById),
+                    new { id = createdBoardroom.Id },
+                    MapToResponseDto(createdBoardroom));
+            }
+            catch (BusinessRuleException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
+            }
         }
 
         // Updates an existing boardroom and replaces its equipment list.
@@ -122,7 +123,6 @@ namespace FlexiSpace.API.Controllers
                 return NotFound();
             }
 
-            // Create an entity containing the updated boardroom information.
             var boardroom = new Boardroom
             {
                 Name = dto.Name,
@@ -131,7 +131,6 @@ namespace FlexiSpace.API.Controllers
                 LocationId = dto.LocationId
             };
 
-            // Convert the incoming equipment DTOs into BoardroomEquipment entities.
             var equipment = dto.Equipment.Select(item => new BoardroomEquipment
             {
                 Boardroom = boardroom,
@@ -139,36 +138,41 @@ namespace FlexiSpace.API.Controllers
                 Quantity = item.Quantity
             }).ToList();
 
-            // Pass both the updated boardroom details and equipment to the service layer.
-            var updated = await _boardroomService.UpdateBoardroomAsync(id, boardroom, equipment);
-
-            // Return HTTP 404 if the boardroom could not be found.
-            if (!updated)
+            // UpdateBoardroomAsync can throw BusinessRuleException too.
+            try
             {
-                return NotFound();
+                var updated = await _boardroomService.UpdateBoardroomAsync(id, boardroom, equipment);
+
+                if (!updated)
+                {
+                    return NotFound();
+                }
+
+                await LogActionAsync(
+                    AuditAction.Update,
+                    nameof(Boardroom),
+                    id.ToString(),
+                    oldValues: new
+                    {
+                        before.Name,
+                        before.Capacity,
+                        Status = before.Status.ToString(),
+                        before.LocationId
+                    },
+                    newValues: new
+                    {
+                        dto.Name,
+                        dto.Capacity,
+                        Status = dto.Status.ToString(),
+                        dto.LocationId
+                    });
+
+                return NoContent();
             }
-
-            await LogActionAsync(
-                AuditAction.Update,
-                nameof(Boardroom),
-                id.ToString(),
-                oldValues: new
-                {
-                    before.Name,
-                    before.Capacity,
-                    Status = before.Status.ToString(),
-                    before.LocationId
-                },
-                newValues: new
-                {
-                    dto.Name,
-                    dto.Capacity,
-                    Status = dto.Status.ToString(),
-                    dto.LocationId
-                });
-
-            // HTTP 204 indicates the update completed successfully.
-            return NoContent();
+            catch (BusinessRuleException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
+            }
         }
 
         // Deletes a boardroom from the system.
@@ -185,28 +189,59 @@ namespace FlexiSpace.API.Controllers
                 return NotFound();
             }
 
-            var deleted = await _boardroomService.DeleteBoardroomAsync(id);
-
-            // Return HTTP 404 if the boardroom doesn't exist.
-            if (!deleted)
+            // DeleteBoardroomAsync can throw BusinessRuleException
+            // (existing bookings reference this boardroom).
+            try
             {
-                return NotFound();
-            }
+                var deleted = await _boardroomService.DeleteBoardroomAsync(id);
 
-            await LogActionAsync(
-                AuditAction.Delete,
-                nameof(Boardroom),
-                id.ToString(),
-                oldValues: new
+                if (!deleted)
                 {
-                    before.Name,
-                    before.Capacity,
-                    Status = before.Status.ToString(),
-                    before.LocationId
-                });
+                    return NotFound();
+                }
 
-            // HTTP 204 indicates the resource was successfully deleted.
-            return NoContent();
+                await LogActionAsync(
+                    AuditAction.Delete,
+                    nameof(Boardroom),
+                    id.ToString(),
+                    oldValues: new
+                    {
+                        before.Name,
+                        before.Capacity,
+                        Status = before.Status.ToString(),
+                        before.LocationId
+                    });
+
+                return NoContent();
+            }
+            catch (BusinessRuleException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
+            }
+        }
+
+        // Sets which boardrooms combine to form this one - e.g. linking
+        // "Thingamajik" and "Whachamacallit" as the components of a bigger
+        // conjoined room (mirrors the combination feature already shipped
+        // in the mobile app). Replaces the existing component list.
+        [HttpPut("{id}/components")]
+        public async Task<IActionResult> SetBoardroomComponents(int id, BoardroomComponentsDto dto)
+        {
+            try
+            {
+                var updated = await _boardroomService.SetBoardroomComponentsAsync(id, dto.ComponentBoardroomIds);
+
+                if (!updated)
+                {
+                    return NotFound();
+                }
+
+                return NoContent();
+            }
+            catch (BusinessRuleException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
+            }
         }
 
         // Converts a Boardroom entity into a response DTO.
@@ -227,6 +262,14 @@ namespace FlexiSpace.API.Controllers
                         EquipmentId = be.EquipmentId,
                         Quantity = be.Quantity
                     })
+                    .ToList(),
+
+                ComponentBoardroomIds = boardroom.Components
+                    .Select(c => c.ComponentBoardroomId)
+                    .ToList(),
+
+                CombinedIntoBoardroomIds = boardroom.PartOfCombinations
+                    .Select(c => c.CombinedBoardroomId)
                     .ToList()
             };
         }
