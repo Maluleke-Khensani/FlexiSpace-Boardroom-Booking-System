@@ -16,6 +16,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
     <UserSecretsId>flexispace-web-1f6a7b2c-9e3d-4a11-8c5f-2d6b9a0e7c44</UserSecretsId>
+    <!-- The .csproj file is named "FlexiSpace.Web.csproj" (capital S), which
+         MSBuild would otherwise use as the default RootNamespace. Every
+         .razor/.cs file in this project (and _Imports.razor) is written
+         against the lowercase-s "Flexispace.Web" namespace, so without this
+         override, Razor components with no explicit @namespace (Modal.razor,
+         MainLayout.razor, etc.) compile into "FlexiSpace.Web.Components.*"
+         instead, which _Imports.razor's "@using Flexispace.Web.Components.*"
+         can't find - the root cause of the CS0234/RZ9991/RZ10012 build errors. -->
+    <RootNamespace>Flexispace.Web</RootNamespace>
   </PropertyGroup>
 
 </Project>

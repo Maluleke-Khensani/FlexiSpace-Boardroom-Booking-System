@@ -903,7 +903,7 @@ namespace FlexiSpace.Tests
         // --- Centre-Manager notification on booking creation ---
 
         [Fact]
-        public async Task CreateBookingAsync_NotifiesCentreManager_ButNotTheBooker()
+        public async Task CreateBookingAsync_NotifiesCentreManager_AndSendsTheBookerTheirOwnConfirmation()
         {
             var (context, boardroom, user, centreManager, _) = await SeedAsync();
 
@@ -914,15 +914,18 @@ namespace FlexiSpace.Tests
 
             await service.CreateBookingAsync(ValidBooking(boardroom.Id));
 
+            // The Centre Manager gets the "New booking" notice...
             notificationMock.Verify(n => n.CreateNotificationAsync(
-                centreManager.Id, It.IsAny<string>(), It.IsAny<string>(), NotificationType.BookingCreated),
+                centreManager.Id, It.Is<string>(s => s.StartsWith("New booking")), It.IsAny<string>(), NotificationType.BookingCreated),
                 Times.Once);
 
             emailMock.Verify(e => e.SendEmailAsync(centreManager.Email, It.IsAny<string>(), It.IsAny<string>()), Times.Once);
 
+            // ...while the booker gets their own separate "Booking confirmed"
+            // notification (NotifyBookerAsync) rather than the manager's notice.
             notificationMock.Verify(n => n.CreateNotificationAsync(
-                user.Id, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<NotificationType>()),
-                Times.Never);
+                user.Id, "Booking confirmed", It.IsAny<string>(), NotificationType.BookingCreated),
+                Times.Once);
         }
 
         [Fact]
@@ -941,7 +944,7 @@ namespace FlexiSpace.Tests
         }
 
         [Fact]
-        public async Task CreateBookingAsync_DoesNotNotifyTheCentreManagerWhoBookedItThemself()
+        public async Task CreateBookingAsync_DoesNotDoubleNotifyTheCentreManagerWhoBookedItThemself()
         {
             var (context, boardroom, _, centreManager, _) = await SeedAsync();
 
@@ -950,8 +953,16 @@ namespace FlexiSpace.Tests
 
             await service.CreateBookingAsync(ValidBooking(boardroom.Id));
 
+            // They still get their own "Booking confirmed" notification as
+            // the booker (NotifyBookerAsync)...
             notificationMock.Verify(n => n.CreateNotificationAsync(
-                centreManager.Id, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<NotificationType>()),
+                centreManager.Id, "Booking confirmed", It.IsAny<string>(), NotificationType.BookingCreated),
+                Times.Once);
+
+            // ...but NotifyCentreManagersAsync must not also send them the
+            // separate "New booking" manager notice about their own booking.
+            notificationMock.Verify(n => n.CreateNotificationAsync(
+                centreManager.Id, It.Is<string>(s => s.StartsWith("New booking")), It.IsAny<string>(), It.IsAny<NotificationType>()),
                 Times.Never);
         }
 

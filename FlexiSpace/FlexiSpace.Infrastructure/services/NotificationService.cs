@@ -20,9 +20,21 @@ namespace FlexiSpace.Infrastructure.Services
             _pushNotificationSender = pushNotificationSender;
         }
 
+        // Kept for the tests (and any other call site) written before push
+        // notifications existed, so they don't all need a mock
+        // IPushNotificationSender just to construct this class. Falls back
+        // to a no-op sender - CreateNotificationAsync always "sends" a
+        // push, so this constructor must never leave that field null.
         public NotificationService(ApplicationDbContext context)
+            : this(context, NoOpPushNotificationSender.Instance)
         {
-            _context = context;
+        }
+
+        private sealed class NoOpPushNotificationSender : IPushNotificationSender
+        {
+            public static readonly NoOpPushNotificationSender Instance = new();
+
+            public Task SendAsync(int userId, string title, string body) => Task.CompletedTask;
         }
 
         public async Task<Notification> CreateNotificationAsync(
