@@ -112,6 +112,7 @@ namespace FlexiSpace.API.Controllers
             return NoContent();
         }
 
+        
         // Deletes equipment from the system. Administrator-only.
         [AuthorizeRoles(UserRole.Administrator)]
         [HttpDelete("{id}")]
@@ -147,6 +148,7 @@ namespace FlexiSpace.API.Controllers
             {
                 return BadRequest(new { errors = ex.Errors });
             }
+        }
         }
 
         private static EquipmentResponseDto MapToResponseDto(Equipment equipment)

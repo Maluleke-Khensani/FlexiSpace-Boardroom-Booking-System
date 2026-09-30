@@ -182,7 +182,7 @@ namespace FlexiSpace.API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteBoardroom(int id)
         {
-            var before = await _boardroomService.GetBoardroomByIdAsync(id);
+                    var before = await _boardroomService.GetBoardroomByIdAsync(id);
 
             if (before == null)
             {
@@ -219,7 +219,6 @@ namespace FlexiSpace.API.Controllers
                 return BadRequest(new { errors = ex.Errors });
             }
         }
-
         // Sets which boardrooms combine to form this one - e.g. linking
         // "Thingamajik" and "Whachamacallit" as the components of a bigger
         // conjoined room (mirrors the combination feature already shipped
