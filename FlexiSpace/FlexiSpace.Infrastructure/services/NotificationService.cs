@@ -10,6 +10,15 @@ namespace FlexiSpace.Infrastructure.Services
     public class NotificationService : INotificationService
     {
         private readonly ApplicationDbContext _context;
+        private readonly IPushNotificationSender _pushNotificationSender;
+
+        public NotificationService(
+            ApplicationDbContext context,
+            IPushNotificationSender pushNotificationSender)
+        {
+            _context = context;
+            _pushNotificationSender = pushNotificationSender;
+        }
 
         public NotificationService(ApplicationDbContext context)
         {
@@ -41,7 +50,11 @@ namespace FlexiSpace.Infrastructure.Services
 
             _context.Notifications.Add(notification);
             await _context.SaveChangesAsync();
-
+            // Push is mobile-only by construction: a user only has device tokens
+            // if the mobile app registered one, so a web-only user never receives
+            // a push here - no platform check needed. FcmPushNotificationSender
+            // never throws, so a push failure can't fail booking creation/etc.
+            await _pushNotificationSender.SendAsync(userId, title, message);
             return notification;
         }
 

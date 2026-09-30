@@ -9,15 +9,15 @@ using Microsoft.Extensions.Logging;
 
 namespace FlexiSpace.Infrastructure.Services
 {
-    // Sends the "1 hour before your booking" email + in-app reminder.
+    // Sends booking reminders at three lead times: 24 hours before, 2 hours
+    // before (in-app only), and 1 hour before (in-app + email with the full
+    // booking details). This consolidates two reminder systems that were
+    // built independently and merged here - see Booking.ReminderSentAt /
+    // Reminder24hSentAt / Reminder2hSentAt, one stamp per window, so each
+    // window fires exactly once per booking no matter how often this polls.
     //
     // Runs on a simple poll loop rather than scheduling one timer per
     // booking - far simpler, and completely fine at FlexiSpace's scale.
-    // Every PollInterval, it looks for Confirmed bookings that start
-    // within the next hour and haven't had a reminder sent yet
-    // (Booking.ReminderSentAt is null), sends the reminder, then stamps
-    // ReminderSentAt immediately so a booking is never reminded twice no
-    // matter how often this polls or how long a single pass takes.
     //
     // Registered in Program.cs as builder.Services.AddHostedService<
     // BookingReminderHostedService>() - a singleton by hosted-service
@@ -30,11 +30,13 @@ namespace FlexiSpace.Infrastructure.Services
         // saving - same reasoning as BookingService's SouthAfricaUtcOffset.
         private static readonly TimeSpan SouthAfricaUtcOffset = TimeSpan.FromHours(2);
 
-        // How often to check for bookings entering their reminder window.
-        // A booking is caught on the first poll after it enters the
-        // window and immediately marked as reminded, so this only trades
-        // off "how late can a reminder be" against DB load - it does not
-        // risk a duplicate send.
+        // How often to check for bookings entering a reminder window. A
+        // booking is caught on the first poll after it enters a window and
+        // immediately marked as reminded for that window, so this only
+        // trades off "how late can a reminder be" against DB load - it
+        // does not risk a duplicate send. 5 minutes keeps the 2-hour and
+        // 1-hour reminders accurate to within 5 minutes, which is fine for
+        // a meeting reminder.
         private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(5);
 
         private readonly IServiceScopeFactory _scopeFactory;
@@ -84,86 +86,140 @@ namespace FlexiSpace.Infrastructure.Services
             var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
 
             var nowSouthAfrica = DateTime.UtcNow + SouthAfricaUtcOffset;
-            var windowEnd = nowSouthAfrica.AddHours(1);
 
             // Narrow by date in SQL (DateOnly/TimeOnly can't be combined
             // inside the query itself - same limitation BlockedPeriodService
             // works around), then compare the exact start time in memory.
+            // The widest window we care about is 24 hours, so cast the net
+            // out to tomorrow + 1 day to be safe around midnight boundaries.
             var today = DateOnly.FromDateTime(nowSouthAfrica);
-            var tomorrow = today.AddDays(1);
+            var horizon = today.AddDays(2);
 
             var candidates = await context.Bookings
                 .Include(b => b.Boardroom)
                 .Include(b => b.User)
                 .Where(b => b.Status == BookingStatus.Confirmed
-                    && b.ReminderSentAt == null
-                    && (b.BookingDate == today || b.BookingDate == tomorrow))
+                    && b.BookingDate >= today
+                    && b.BookingDate <= horizon
+                    && (b.Reminder24hSentAt == null || b.Reminder2hSentAt == null || b.ReminderSentAt == null))
                 .ToListAsync(stoppingToken);
 
-            var due = candidates
-                .Where(b =>
-                {
-                    var startsAt = b.BookingDate.ToDateTime(b.StartTime);
-                    return startsAt > nowSouthAfrica && startsAt <= windowEnd;
-                })
-                .ToList();
+            var changed = false;
 
-            foreach (var booking in due)
+            foreach (var booking in candidates)
             {
-                if (booking.Boardroom == null || booking.User == null || !booking.User.IsActive)
+                var startsAt = booking.BookingDate.ToDateTime(booking.StartTime);
+
+                if (startsAt <= nowSouthAfrica)
                 {
-                    // Nothing sensible to send - still stamp it so a
-                    // deleted/deactivated user's stale booking doesn't get
-                    // re-evaluated on every single poll forever.
-                    booking.ReminderSentAt = DateTime.UtcNow;
+                    // Already started or passed - nothing left to remind
+                    // about. Stamp whatever's still unset so a stale
+                    // booking doesn't get re-evaluated on every poll
+                    // forever.
+                    booking.Reminder24hSentAt ??= DateTime.UtcNow;
+                    booking.Reminder2hSentAt ??= DateTime.UtcNow;
+                    booking.ReminderSentAt ??= DateTime.UtcNow;
+                    changed = true;
                     continue;
                 }
 
-                var subject = $"Reminder - your booking starts in an hour ({booking.Boardroom.Name})";
-
-                var emailBody = BookingService.BuildBookingDetailsEmailBody(
-                    booking,
-                    booking.Boardroom,
-                    "This is a reminder that your boardroom booking starts in about an hour. Here are the details:");
-
-                try
+                if (booking.Boardroom == null || booking.User == null || !booking.User.IsActive)
                 {
-                    await notificationService.CreateNotificationAsync(
-                        booking.User.Id,
-                        subject,
-                        $"Your booking for {booking.Boardroom.Name} starts at {booking.StartTime:HH\\:mm} today.",
-                        NotificationType.BookingReminder);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(
-                        ex,
-                        "Failed to create in-app reminder notification for booking {BookingId}.",
-                        booking.Id);
+                    // Nothing sensible to send - still stamp everything so
+                    // a deleted/deactivated user's stale booking doesn't
+                    // get re-evaluated on every single poll forever.
+                    booking.Reminder24hSentAt ??= DateTime.UtcNow;
+                    booking.Reminder2hSentAt ??= DateTime.UtcNow;
+                    booking.ReminderSentAt ??= DateTime.UtcNow;
+                    changed = true;
+                    continue;
                 }
 
-                try
+                if (booking.Reminder24hSentAt == null && startsAt <= nowSouthAfrica.AddHours(24))
                 {
-                    await emailService.SendEmailAsync(booking.User.Email, subject, emailBody);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(
-                        ex,
-                        "Failed to email reminder for booking {BookingId}.",
-                        booking.Id);
+                    await SendInAppReminderAsync(notificationService, booking, "24 hours");
+                    booking.Reminder24hSentAt = DateTime.UtcNow;
+                    changed = true;
                 }
 
-                // Stamped regardless of whether the send above actually
-                // succeeded - a Graph outage should mean "this reminder
-                // was missed", not "retry every 5 minutes until the
-                // meeting is over".
-                booking.ReminderSentAt = DateTime.UtcNow;
+                if (booking.Reminder2hSentAt == null && startsAt <= nowSouthAfrica.AddHours(2))
+                {
+                    await SendInAppReminderAsync(notificationService, booking, "2 hours");
+                    booking.Reminder2hSentAt = DateTime.UtcNow;
+                    changed = true;
+                }
+
+                if (booking.ReminderSentAt == null && startsAt <= nowSouthAfrica.AddHours(1))
+                {
+                    var subject = $"Reminder - your booking starts in an hour ({booking.Boardroom.Name})";
+
+                    var emailBody = BookingService.BuildBookingDetailsEmailBody(
+                        booking,
+                        booking.Boardroom,
+                        "This is a reminder that your boardroom booking starts in about an hour. Here are the details:");
+
+                    try
+                    {
+                        await notificationService.CreateNotificationAsync(
+                            booking.User.Id,
+                            subject,
+                            $"Your booking for {booking.Boardroom.Name} starts at {booking.StartTime:HH\\:mm} today.",
+                            NotificationType.BookingReminder);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(
+                            ex,
+                            "Failed to create in-app 1-hour reminder notification for booking {BookingId}.",
+                            booking.Id);
+                    }
+
+                    try
+                    {
+                        await emailService.SendEmailAsync(booking.User.Email, subject, emailBody);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(
+                            ex,
+                            "Failed to email 1-hour reminder for booking {BookingId}.",
+                            booking.Id);
+                    }
+
+                    // Stamped regardless of whether the sends above
+                    // actually succeeded - a Graph outage should mean
+                    // "this reminder was missed", not "retry every 5
+                    // minutes until the meeting is over".
+                    booking.ReminderSentAt = DateTime.UtcNow;
+                    changed = true;
+                }
             }
 
-            if (due.Count > 0)
+            if (changed)
             {
                 await context.SaveChangesAsync(stoppingToken);
+            }
+        }
+
+        // The 24h/2h reminders are in-app only - the 1-hour one above is
+        // the richer email + in-app reminder with full booking details.
+        private async Task SendInAppReminderAsync(INotificationService notificationService, Booking booking, string window)
+        {
+            try
+            {
+                await notificationService.CreateNotificationAsync(
+                    booking.User!.Id,
+                    "Upcoming booking reminder",
+                    $"Your booking for {booking.Boardroom!.Name} on {booking.BookingDate:yyyy-MM-dd} at {booking.StartTime:HH\\:mm} is coming up in {window}.",
+                    NotificationType.BookingReminder);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to create in-app {Window} reminder notification for booking {BookingId}.",
+                    window,
+                    booking.Id);
             }
         }
     }

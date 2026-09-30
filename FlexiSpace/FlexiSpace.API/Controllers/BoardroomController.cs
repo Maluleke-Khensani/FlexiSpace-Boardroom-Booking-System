@@ -219,7 +219,6 @@ namespace FlexiSpace.API.Controllers
                 return BadRequest(new { errors = ex.Errors });
             }
         }
-
         // Sets which boardrooms combine to form this one - e.g. linking
         // "Thingamajik" and "Whachamacallit" as the components of a bigger
         // conjoined room (mirrors the combination feature already shipped

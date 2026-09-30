@@ -43,12 +43,14 @@ public class Booking
     public int? CancelledById { get; set; }
     public User? CancelledBy { get; set; }
 
-    // Set by BookingReminderHostedService the moment the "1 hour before"
-    // reminder email/notification goes out for this booking, so the
-    // background job never sends it twice no matter how often it polls.
-    // Null means no reminder has been sent yet (including for bookings
-    // that are cancelled before their reminder window - the job skips
-    // those, see BookingReminderHostedService).
+    // Each field is set by BookingReminderHostedService the moment the
+    // corresponding reminder goes out for this booking, so the background
+    // job never sends the same window's reminder twice no matter how
+    // often it polls. Null means that window's reminder hasn't been sent
+    // yet (including for bookings cancelled before the window - the job
+    // skips those, see BookingReminderHostedService).
+    public DateTime? Reminder24hSentAt { get; set; }
+    public DateTime? Reminder2hSentAt { get; set; }
     public DateTime? ReminderSentAt { get; set; }
 
     // One Booking -> Many BookingEquipment
