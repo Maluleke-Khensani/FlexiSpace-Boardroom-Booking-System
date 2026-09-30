@@ -38,6 +38,15 @@
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
 		<PackageReference Include="Microsoft.Maui.Controls" Version="10.0.60" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+
+		<!-- Real backend wiring: MSAL.NET for Entra sign-in (see
+		     Services/Real/MsalTokenProvider.cs) and IHttpClientFactory for
+		     the named "FlexiSpaceApi" HttpClient (see MauiProgram.cs /
+		     Services/Real/FlexiSpaceApiClient.cs). Versions kept aligned
+		     with the other Microsoft.Extensions.* packages already above
+		     to avoid a NuGet "package downgrade" restore error. -->
+		<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
+		<PackageReference Include="Microsoft.Identity.Client" Version="4.66.2" />
 	</ItemGroup>
 
 </Project>

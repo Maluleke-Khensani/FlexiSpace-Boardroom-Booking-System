@@ -10,10 +10,31 @@ namespace FlexiSpace.Infrastructure.Services
     public class NotificationService : INotificationService
     {
         private readonly ApplicationDbContext _context;
+        private readonly IPushNotificationSender _pushNotificationSender;
 
-        public NotificationService(ApplicationDbContext context)
+        public NotificationService(
+            ApplicationDbContext context,
+            IPushNotificationSender pushNotificationSender)
         {
             _context = context;
+            _pushNotificationSender = pushNotificationSender;
+        }
+
+        // Kept for the tests (and any other call site) written before push
+        // notifications existed, so they don't all need a mock
+        // IPushNotificationSender just to construct this class. Falls back
+        // to a no-op sender - CreateNotificationAsync always "sends" a
+        // push, so this constructor must never leave that field null.
+        public NotificationService(ApplicationDbContext context)
+            : this(context, NoOpPushNotificationSender.Instance)
+        {
+        }
+
+        private sealed class NoOpPushNotificationSender : IPushNotificationSender
+        {
+            public static readonly NoOpPushNotificationSender Instance = new();
+
+            public Task SendAsync(int userId, string title, string body) => Task.CompletedTask;
         }
 
         public async Task<Notification> CreateNotificationAsync(
@@ -41,7 +62,11 @@ namespace FlexiSpace.Infrastructure.Services
 
             _context.Notifications.Add(notification);
             await _context.SaveChangesAsync();
-
+            // Push is mobile-only by construction: a user only has device tokens
+            // if the mobile app registered one, so a web-only user never receives
+            // a push here - no platform check needed. FcmPushNotificationSender
+            // never throws, so a push failure can't fail booking creation/etc.
+            await _pushNotificationSender.SendAsync(userId, title, message);
             return notification;
         }
 

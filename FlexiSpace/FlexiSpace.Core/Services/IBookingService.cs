@@ -35,11 +35,14 @@ namespace FlexiSpace.Core.Services
 
         // Update an existing booking. Only the booking's own owner, a
         // Centre Manager at that boardroom's location, or an Administrator
-        // may edit it. The "booking in the past" check only applies when
-        // the date/time is actually changing, so editing a booking that
-        // has already started (e.g. fixing a typo in the notes) doesn't
-        // get rejected for that reason. If the boardroom moves to a
-        // different location, that location's Centre Managers are notified.
+        // may edit it. Who performed the edit is resolved internally from
+        // the current caller and recorded on Booking.ModifiedById - not
+        // taken as a parameter, so it can't be spoofed. The "booking in
+        // the past" check only applies when the date/time is actually
+        // changing, so editing a booking that has already started (e.g.
+        // fixing a typo in the notes) doesn't get rejected for that
+        // reason. If the boardroom moves to a different location, that
+        // location's Centre Managers are notified.
         // Returns false if the booking does not exist.
         // Throws ForbiddenException if the caller isn't allowed to edit this booking.
         // Throws NotFoundException if BoardroomId does not exist.
@@ -55,7 +58,8 @@ namespace FlexiSpace.Core.Services
         // Cancels a booking (soft delete - the row is kept and Status is set
         // to Cancelled so booking history is preserved). Only the booking's
         // own owner, a Centre Manager at that location, or an Administrator
-        // may cancel it.
+        // may cancel it. Who cancelled it is resolved internally from the
+        // current caller and recorded on Booking.CancelledById.
         // Returns false if the booking does not exist.
         // Throws ForbiddenException if the caller isn't allowed to cancel this booking.
         // Throws BusinessRuleException if the booking is already Completed.

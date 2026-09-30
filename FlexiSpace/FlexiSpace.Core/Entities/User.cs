@@ -44,5 +44,7 @@ namespace FlexiSpace.Core.Entities
 
         public ICollection<AuditLog> AuditLogs { get; set; }
     = new List<AuditLog>();
+        public ICollection<DeviceToken> DeviceTokens { get; set; }
+    = new List<DeviceToken>();
     }
 }

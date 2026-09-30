@@ -11,21 +11,25 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace FlexiSpace.API.Controllers
 {
-    // Admin user-management controller.
+    // Admin user-management controller, plus a self-lookup endpoint any
+    // signed-in user can call.
     //
-    // Only authenticated Administrators can access this controller.
-    // RBAC is enforced through the AuthorizeRoles attribute below.
+    // Everything except GetMyProfile is Administrator-only. RBAC for those
+    // is enforced with [AuthorizeRoles] on each action individually (rather
+    // than once at the controller level) specifically so GetMyProfile can
+    // stay open to any authenticated user - see its comment below for why
+    // it needs to exist at all.
     //
     // This controller supports:
-    // - Viewing all provisioned FlexiSpace users
-    // - Viewing an individual user
-    // - Provisioning an existing Microsoft Entra user
-    // - Updating a user's profile/role/location
-    // - Activating/deactivating a user
+    // - A signed-in user fetching their own FlexiSpace profile (NEW)
+    // - Viewing all provisioned FlexiSpace users (Administrator)
+    // - Viewing an individual user (Administrator)
+    // - Provisioning an existing Microsoft Entra user (Administrator)
+    // - Updating a user's profile/role/location (Administrator)
+    // - Activating/deactivating a user (Administrator)
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    [AuthorizeRoles(UserRole.Administrator)]
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
@@ -42,9 +46,46 @@ namespace FlexiSpace.API.Controllers
             _currentUserService = currentUserService;
         }
 
+        // NEW: lets a signed-in user fetch their own FlexiSpace profile
+        // (Id, Role, LocationId, etc.) without needing Administrator
+        // rights.
+        //
+        // Why this needs to exist: every RBAC check in this API resolves
+        // "who is this?" server-side via ICurrentUserService (the caller's
+        // Entra object id -> a row in our own Users table). Nothing about
+        // that is visible to the caller's own access token - a client app
+        // (Web/Mobile) that just finished signing a user in via Entra has
+        // no way to find out its own local Id/Role/LocationId, which it
+        // needs immediately to decide what UI to show (can this person
+        // book? manage? see the admin console?). Without this endpoint,
+        // the only "who am I" the front end could see is the Entra token
+        // itself, which deliberately isn't what RBAC is keyed on here.
+        //
+        // 404 covers two states deliberately collapsed together: "never
+        // provisioned" and "provisioned but deactivated" - either way, the
+        // client's correct response is the same "ask your Administrator"
+        // message, not two different codepaths.
+        [HttpGet("me")]
+        public async Task<IActionResult> GetMyProfile()
+        {
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+
+            if (currentUser == null)
+            {
+                return NotFound(new
+                {
+                    message = "No FlexiSpace account is linked to this sign-in yet. " +
+                        "Ask an Administrator to provision your account."
+                });
+            }
+
+            return Ok(MapToResponseDto(currentUser));
+        }
+
         // Retrieves all users that have been provisioned
         // into the FlexiSpace database.
         [HttpGet]
+        [AuthorizeRoles(UserRole.Administrator)]
         public async Task<IActionResult> GetAllUsers()
         {
             var users = await _userService.GetAllUsersAsync();
@@ -57,6 +98,7 @@ namespace FlexiSpace.API.Controllers
         // Retrieves a specific FlexiSpace user using
         // their local database ID.
         [HttpGet("{id}")]
+        [AuthorizeRoles(UserRole.Administrator)]
         public async Task<IActionResult> GetUserById(int id)
         {
             var user = await _userService.GetUserByIdAsync(id);
@@ -74,12 +116,12 @@ namespace FlexiSpace.API.Controllers
         //
         // The administrator supplies:
         // - The Entra Object ID of the selected user
-        // - The FlexiSpace role
         // - The optional FlexiSpace location
         //
-        // The user's name and email are retrieved from
+        // The user's name, email, and FlexiSpace role are retrieved from
         // Microsoft Entra ID by the UserService.
         [HttpPost("provision")]
+        [AuthorizeRoles(UserRole.Administrator)]
         public async Task<IActionResult> ProvisionUser(
             UserProvisionDto dto)
         {
@@ -133,6 +175,7 @@ namespace FlexiSpace.API.Controllers
 
         // Updates an existing user's information.
         [HttpPut("{id}")]
+        [AuthorizeRoles(UserRole.Administrator)]
         public async Task<IActionResult> UpdateUser(
             int id,
             UserUpdateDto dto)
@@ -198,6 +241,7 @@ namespace FlexiSpace.API.Controllers
         // This changes the user's status inside FlexiSpace.
         // It does not disable the user's Microsoft Entra account.
         [HttpPatch("{id}/status")]
+        [AuthorizeRoles(UserRole.Administrator)]
         public async Task<IActionResult> UpdateUserStatus(
             int id,
             UserStatusDto dto)
@@ -286,4 +330,3 @@ namespace FlexiSpace.API.Controllers
         }
     }
 }
-

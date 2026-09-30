@@ -1,5 +1,6 @@
-﻿using FlexiSpace.Core.Common;
+using FlexiSpace.Core.Common;
 using FlexiSpace.Core.Entities;
+using FlexiSpace.Core.Enums;
 using FlexiSpace.Core.Services;
 using FlexiSpace.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -9,10 +10,12 @@ namespace FlexiSpace.Infrastructure.Services
     public class BoardroomService : IBoardroomService
     {
         private readonly ApplicationDbContext _context;
+        private readonly ICurrentUserService _currentUserService;
 
-        public BoardroomService(ApplicationDbContext context)
+        public BoardroomService(ApplicationDbContext context, ICurrentUserService currentUserService)
         {
             _context = context;
+            _currentUserService = currentUserService;
         }
 
         public async Task<IEnumerable<Boardroom>> GetAllBoardroomsAsync()
@@ -51,6 +54,10 @@ namespace FlexiSpace.Infrastructure.Services
             {
                 return false;
             }
+
+            // CentreManagers may only combine rooms at their own
+            // location; Administrators can combine anything.
+            await EnsureCanManageLocationAsync(combinedBoardroom.LocationId);
 
             var distinctIds = componentBoardroomIds.Distinct().ToList();
 
@@ -122,12 +129,34 @@ namespace FlexiSpace.Infrastructure.Services
 
         public async Task<Boardroom> CreateBoardroomAsync(Boardroom boardroom)
         {
-            // NEW: collects every violation into one list, same pattern
+            // A CentreManager can only ever create a boardroom at
+            // their own location - whatever LocationId was submitted is
+            // overridden rather than trusted, the same way a non-manager's
+            // submitted UserId is overridden on booking creation.
+            // Administrators are unrestricted.
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+
+            if (currentUser == null)
+            {
+                throw new ForbiddenException("You must be signed in to create a boardroom.");
+            }
+
+            if (currentUser.Role == UserRole.CentreManager)
+            {
+                if (currentUser.LocationId == null)
+                {
+                    throw new ForbiddenException("Your account has no assigned location, so you can't create boardrooms.");
+                }
+
+                boardroom.LocationId = currentUser.LocationId.Value;
+            }
+
+            // Collects every violation into one list, same pattern
             // SetBoardroomComponentsAsync above already uses, so the
             // caller sees all of them in one response.
             var errors = new List<string>();
 
-            // NEW: duplicate-name guard, scoped to this boardroom's own
+            // Duplicate-name guard, scoped to this boardroom's own
             // location.
             var nameTaken = await _context.Boardrooms
                 .AnyAsync(b => b.LocationId == boardroom.LocationId
@@ -138,7 +167,7 @@ namespace FlexiSpace.Infrastructure.Services
                 errors.Add($"A boardroom named '{boardroom.Name}' already exists at this location.");
             }
 
-            // NEW: equipment-ID validation - every EquipmentId attached
+            // Equipment-ID validation - every EquipmentId attached
             // must actually exist.
             errors.AddRange(await ValidateEquipmentIdsExistAsync(boardroom.BoardroomEquipments));
 
@@ -153,6 +182,7 @@ namespace FlexiSpace.Infrastructure.Services
 
             return boardroom;
         }
+
         public async Task<bool> UpdateBoardroomAsync(int id, Boardroom updatedBoardroom, List<BoardroomEquipment> equipment)
         {
             var existingBoardroom = await _context.Boardrooms
@@ -164,7 +194,28 @@ namespace FlexiSpace.Infrastructure.Services
                 return false;
             }
 
-            // NEW: same two guards as CreateBoardroomAsync above.
+            // A CentreManager may only update a boardroom that's
+            // already at their own location, and can't move it to a
+            // different one - whatever LocationId was submitted is
+            // overridden to their own, same as on create.
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+
+            if (currentUser == null)
+            {
+                throw new ForbiddenException("You must be signed in to update a boardroom.");
+            }
+
+            if (currentUser.Role == UserRole.CentreManager)
+            {
+                if (currentUser.LocationId == null || existingBoardroom.LocationId != currentUser.LocationId)
+                {
+                    throw new ForbiddenException("You can only manage boardrooms at your own location.");
+                }
+
+                updatedBoardroom.LocationId = currentUser.LocationId.Value;
+            }
+
+            // Same two guards as CreateBoardroomAsync above.
             var errors = new List<string>();
 
             var nameTaken = await _context.Boardrooms
@@ -210,7 +261,11 @@ namespace FlexiSpace.Infrastructure.Services
                 return false;
             }
 
-            // NEW: delete guard. A boardroom with existing bookings can't
+            // CentreManagers can only delete boardrooms at their own
+            // location; Administrators can delete any.
+            await EnsureCanManageLocationAsync(boardroom.LocationId);
+
+            // Delete guard. A boardroom with existing bookings can't
             // be removed outright, since that would delete booking
             // history along with it.
             var hasBookings = await _context.Bookings
@@ -230,7 +285,34 @@ namespace FlexiSpace.Infrastructure.Services
             return true;
         }
 
-        // NEW: shared helper used by both CreateBoardroomAsync and
+        // Shared location-scoping check. Administrator: always
+        // allowed. CentreManager: only for boardrooms at their own
+        // LocationId. Anyone else: never (they shouldn't be hitting these
+        // methods at all - the controller's [AuthorizeRoles] already
+        // blocks them, this is defence in depth).
+        private async Task EnsureCanManageLocationAsync(int locationId)
+        {
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+
+            if (currentUser == null)
+            {
+                throw new ForbiddenException("You must be signed in to manage boardrooms.");
+            }
+
+            if (currentUser.Role == UserRole.Administrator)
+            {
+                return;
+            }
+
+            if (currentUser.Role == UserRole.CentreManager && currentUser.LocationId == locationId)
+            {
+                return;
+            }
+
+            throw new ForbiddenException("You can only manage boardrooms at your own location.");
+        }
+
+        // Shared helper used by both CreateBoardroomAsync and
         // UpdateBoardroomAsync so the equipment-ID check stays identical
         // in both places.
         private async Task<List<string>> ValidateEquipmentIdsExistAsync(

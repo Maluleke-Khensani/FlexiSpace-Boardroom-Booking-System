@@ -1,4 +1,4 @@
-﻿@* Authenticated app shell: sidebar navigation, page header, and content area. *@
+@* Authenticated app shell: sidebar navigation, page header, and content area. *@
 @inherits LayoutComponentBase
 @inject IAuthService Auth
 @inject AuthStateNotifier AuthNotifier
@@ -43,7 +43,14 @@
                 {
                     <FloatingDecor Variant="dashboard" />
                 }
-                @Body
+                @if (_authInitialized)
+                {
+                    @Body
+                }
+                else
+                {
+                    <p class="fs-muted" style="padding:24px">Loading your account…</p>
+                }
             </div>
             @if (ShowAppShell && !IsConfirmationRoute)
             {
@@ -59,6 +66,15 @@ else
 
 @code {
     [Parameter] public RenderFragment? HeaderActions { get; set; }
+
+    // Gates @Body specifically (not the shell/sidebar, which only needs
+    // the synchronous Auth.IsAuthenticated) until the signed-in user's
+    // FlexiSpace profile has actually been fetched - see
+    // RealAuthService.EnsureInitializedAsync's comment for why this can't
+    // just rely on Blazor's usual OnInitializedAsync render ordering.
+    // MockAuthService has nothing async to do, so this is true
+    // immediately when running against the mocks.
+    private bool _authInitialized;
 
     private bool ShowAppShell =>
         Auth.IsAuthenticated &&
@@ -131,6 +147,18 @@ else
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
+
+        if (Auth is Flexispace.Web.Services.Real.IAsyncAuthInitializer initializer)
+        {
+            await initializer.EnsureInitializedAsync();
+            _authInitialized = true;
+            StateHasChanged();
+        }
+        else
+        {
+            _authInitialized = true;
+        }
+
         if (Auth.IsAuthenticated && !IsAuthRoute && !await Consent.HasAcceptedAsync())
             Navigation.NavigateTo("/");
     }

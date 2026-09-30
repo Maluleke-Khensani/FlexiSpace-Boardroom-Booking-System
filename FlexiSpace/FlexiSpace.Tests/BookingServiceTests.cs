@@ -51,6 +51,25 @@ namespace FlexiSpace.Tests
                 Mock.Of<ILogger<BookingService>>());
         }
 
+        // BoardroomService now also needs ICurrentUserService (CentreManager
+        // location-scoping - see EnsureCanManageLocationAsync). Tests that
+        // exercise its own business rules (not RBAC) act as an
+        // Administrator so location-scoping never gets in the way.
+        private static BoardroomService CreateBoardroomService(ApplicationDbContext context)
+        {
+            var currentUserService = new Mock<ICurrentUserService>();
+            currentUserService.Setup(s => s.GetCurrentUserAsync()).ReturnsAsync(new User
+            {
+                FirstName = "Test",
+                LastName = "Admin",
+                Email = "admin@flexispace.net.za",
+                Role = UserRole.Administrator,
+                EntraObjectId = Guid.NewGuid()
+            });
+
+            return new BoardroomService(context, currentUserService.Object);
+        }
+
         // Seeds one Location, one Boardroom, one ordinary User, one Centre
         // Manager and one Administrator, all at that same location.
         private static async Task<(ApplicationDbContext Context, Boardroom Boardroom, User User, User CentreManager, User Administrator)> SeedAsync(
@@ -851,7 +870,7 @@ namespace FlexiSpace.Tests
         public async Task SetBoardroomComponentsAsync_Throws_WhenComponentIsAlreadyPartOfAnotherCombination()
         {
             var (context, _, componentA, _, _) = await SeedCombinedBoardroomsAsync();
-            var boardroomService = new BoardroomService(context);
+            var boardroomService = CreateBoardroomService(context);
 
             var otherCombined = new Boardroom { Name = "Confuzzled + Fiddlestix", Capacity = 12, LocationId = componentA.LocationId };
             context.Boardrooms.Add(otherCombined);
@@ -868,7 +887,7 @@ namespace FlexiSpace.Tests
         public async Task SetBoardroomComponentsAsync_Throws_WhenComponentIsItselfACombinedRoom()
         {
             var (context, _, componentA, _, combined) = await SeedCombinedBoardroomsAsync();
-            var boardroomService = new BoardroomService(context);
+            var boardroomService = CreateBoardroomService(context);
 
             var thirdRoom = new Boardroom { Name = "Meeting Room", Capacity = 4, LocationId = componentA.LocationId };
             context.Boardrooms.Add(thirdRoom);
@@ -884,7 +903,7 @@ namespace FlexiSpace.Tests
         // --- Centre-Manager notification on booking creation ---
 
         [Fact]
-        public async Task CreateBookingAsync_NotifiesCentreManager_ButNotTheBooker()
+        public async Task CreateBookingAsync_NotifiesCentreManager_AndSendsTheBookerTheirOwnConfirmation()
         {
             var (context, boardroom, user, centreManager, _) = await SeedAsync();
 
@@ -895,15 +914,18 @@ namespace FlexiSpace.Tests
 
             await service.CreateBookingAsync(ValidBooking(boardroom.Id));
 
+            // The Centre Manager gets the "New booking" notice...
             notificationMock.Verify(n => n.CreateNotificationAsync(
-                centreManager.Id, It.IsAny<string>(), It.IsAny<string>(), NotificationType.BookingCreated),
+                centreManager.Id, It.Is<string>(s => s.StartsWith("New booking")), It.IsAny<string>(), NotificationType.BookingCreated),
                 Times.Once);
 
             emailMock.Verify(e => e.SendEmailAsync(centreManager.Email, It.IsAny<string>(), It.IsAny<string>()), Times.Once);
 
+            // ...while the booker gets their own separate "Booking confirmed"
+            // notification (NotifyBookerAsync) rather than the manager's notice.
             notificationMock.Verify(n => n.CreateNotificationAsync(
-                user.Id, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<NotificationType>()),
-                Times.Never);
+                user.Id, "Booking confirmed", It.IsAny<string>(), NotificationType.BookingCreated),
+                Times.Once);
         }
 
         [Fact]
@@ -922,7 +944,7 @@ namespace FlexiSpace.Tests
         }
 
         [Fact]
-        public async Task CreateBookingAsync_DoesNotNotifyTheCentreManagerWhoBookedItThemself()
+        public async Task CreateBookingAsync_DoesNotDoubleNotifyTheCentreManagerWhoBookedItThemself()
         {
             var (context, boardroom, _, centreManager, _) = await SeedAsync();
 
@@ -931,8 +953,16 @@ namespace FlexiSpace.Tests
 
             await service.CreateBookingAsync(ValidBooking(boardroom.Id));
 
+            // They still get their own "Booking confirmed" notification as
+            // the booker (NotifyBookerAsync)...
             notificationMock.Verify(n => n.CreateNotificationAsync(
-                centreManager.Id, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<NotificationType>()),
+                centreManager.Id, "Booking confirmed", It.IsAny<string>(), NotificationType.BookingCreated),
+                Times.Once);
+
+            // ...but NotifyCentreManagersAsync must not also send them the
+            // separate "New booking" manager notice about their own booking.
+            notificationMock.Verify(n => n.CreateNotificationAsync(
+                centreManager.Id, It.Is<string>(s => s.StartsWith("New booking")), It.IsAny<string>(), It.IsAny<NotificationType>()),
                 Times.Never);
         }
 

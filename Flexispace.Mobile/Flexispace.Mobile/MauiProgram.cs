@@ -1,5 +1,5 @@
 using Flexispace.Mobile.Services;
-using Flexispace.Mobile.Services.Mock;
+using Flexispace.Mobile.Services.Real;
 using Flexispace.Mobile.ViewModels;
 using Flexispace.Mobile.Views;
 using Microsoft.Extensions.Logging;
@@ -36,12 +36,27 @@ public static class MauiProgram
         // login/role switch instead of mutating one long-lived instance — see ShellReloader.
         builder.Services.AddTransient<AppShell>();
 
-        builder.Services.AddSingleton<MockDataStore>();
-        builder.Services.AddSingleton<IAuthService, MockAuthService>();
-        builder.Services.AddSingleton<INotificationService, MockNotificationService>();
-        builder.Services.AddSingleton<IRoomService, MockRoomService>();
-        builder.Services.AddSingleton<IBookingService, MockBookingService>();
-        builder.Services.AddSingleton<IAdminService, MockAdminService>();
+        // Real, API-backed services (replacing the Mock* registrations -
+        // see Services/Real/ for the FlexiSpace.API wiring, and
+        // ApiConfig.cs for the Azure Portal step this still needs from
+        // whoever owns the Entra app registration before sign-in works
+        // end to end). All Singleton, same lifetime the Mock services
+        // used - this is a single-user device app, unlike Flexispace.Web
+        // which needs one instance per browser circuit.
+        builder.Services.AddHttpClient("FlexiSpaceApi", client =>
+            {
+                client.BaseAddress = new Uri(ApiConfig.ApiBaseUrl);
+            })
+            .AddHttpMessageHandler<BearerTokenHandler>();
+        builder.Services.AddTransient<BearerTokenHandler>();
+        builder.Services.AddSingleton<MsalTokenProvider>();
+        builder.Services.AddSingleton<FlexiSpaceApiClient>();
+
+        builder.Services.AddSingleton<IAuthService, RealAuthService>();
+        builder.Services.AddSingleton<INotificationService, RealNotificationService>();
+        builder.Services.AddSingleton<IRoomService, RealRoomService>();
+        builder.Services.AddSingleton<IBookingService, RealBookingService>();
+        builder.Services.AddSingleton<IAdminService, RealAdminService>();
 
         builder.Services.AddTransient<WelcomeViewModel>();
         builder.Services.AddTransient<LoginViewModel>();

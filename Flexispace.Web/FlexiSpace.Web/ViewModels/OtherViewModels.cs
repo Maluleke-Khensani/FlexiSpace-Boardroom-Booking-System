@@ -196,7 +196,12 @@ public partial class ProfileViewModel(IAuthService auth, INavigationService nav,
     private async Task LogoutAsync()
     {
         await auth.LogoutAsync();
-        nav.NavigateTo("/", forceLoad: true);
+        // Redirects through Microsoft.Identity.Web's own sign-out
+        // endpoint (real Entra sign-out + clearing this app's auth
+        // cookie), not just back to "/" - navigating to "/" alone would
+        // leave the Entra session cookie valid, so the very next visit
+        // would silently sign the same person straight back in.
+        nav.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
     }
 
     [RelayCommand]
