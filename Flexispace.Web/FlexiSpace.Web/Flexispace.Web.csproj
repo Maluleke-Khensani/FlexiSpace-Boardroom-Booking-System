@@ -6,6 +6,8 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Identity.Web" Version="4.14.2" />
+    <PackageReference Include="Microsoft.Identity.Web.UI" Version="4.14.2" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -13,6 +15,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <UserSecretsId>flexispace-web-1f6a7b2c-9e3d-4a11-8c5f-2d6b9a0e7c44</UserSecretsId>
   </PropertyGroup>
 
 </Project>

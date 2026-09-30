@@ -51,6 +51,25 @@ namespace FlexiSpace.Tests
                 Mock.Of<ILogger<BookingService>>());
         }
 
+        // BoardroomService now also needs ICurrentUserService (CentreManager
+        // location-scoping - see EnsureCanManageLocationAsync). Tests that
+        // exercise its own business rules (not RBAC) act as an
+        // Administrator so location-scoping never gets in the way.
+        private static BoardroomService CreateBoardroomService(ApplicationDbContext context)
+        {
+            var currentUserService = new Mock<ICurrentUserService>();
+            currentUserService.Setup(s => s.GetCurrentUserAsync()).ReturnsAsync(new User
+            {
+                FirstName = "Test",
+                LastName = "Admin",
+                Email = "admin@flexispace.net.za",
+                Role = UserRole.Administrator,
+                EntraObjectId = Guid.NewGuid()
+            });
+
+            return new BoardroomService(context, currentUserService.Object);
+        }
+
         // Seeds one Location, one Boardroom, one ordinary User, one Centre
         // Manager and one Administrator, all at that same location.
         private static async Task<(ApplicationDbContext Context, Boardroom Boardroom, User User, User CentreManager, User Administrator)> SeedAsync(
@@ -851,7 +870,7 @@ namespace FlexiSpace.Tests
         public async Task SetBoardroomComponentsAsync_Throws_WhenComponentIsAlreadyPartOfAnotherCombination()
         {
             var (context, _, componentA, _, _) = await SeedCombinedBoardroomsAsync();
-            var boardroomService = new BoardroomService(context);
+            var boardroomService = CreateBoardroomService(context);
 
             var otherCombined = new Boardroom { Name = "Confuzzled + Fiddlestix", Capacity = 12, LocationId = componentA.LocationId };
             context.Boardrooms.Add(otherCombined);
@@ -868,7 +887,7 @@ namespace FlexiSpace.Tests
         public async Task SetBoardroomComponentsAsync_Throws_WhenComponentIsItselfACombinedRoom()
         {
             var (context, _, componentA, _, combined) = await SeedCombinedBoardroomsAsync();
-            var boardroomService = new BoardroomService(context);
+            var boardroomService = CreateBoardroomService(context);
 
             var thirdRoom = new Boardroom { Name = "Meeting Room", Capacity = 4, LocationId = componentA.LocationId };
             context.Boardrooms.Add(thirdRoom);

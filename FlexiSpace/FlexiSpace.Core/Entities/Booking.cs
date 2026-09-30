@@ -1,4 +1,4 @@
-﻿using FlexiSpace.Core.Enums;
+using FlexiSpace.Core.Enums;
 
 namespace FlexiSpace.Core.Entities;
 
@@ -10,7 +10,7 @@ public class Booking
     // Boardroom Relationship
     public int BoardroomId { get; set; }
     public Boardroom? Boardroom { get; set; }
-    
+
 
     // Booker Relationship
     public int UserId { get; set; }
@@ -43,6 +43,13 @@ public class Booking
     public int? CancelledById { get; set; }
     public User? CancelledBy { get; set; }
 
+    // Set by BookingReminderHostedService the moment the "1 hour before"
+    // reminder email/notification goes out for this booking, so the
+    // background job never sends it twice no matter how often it polls.
+    // Null means no reminder has been sent yet (including for bookings
+    // that are cancelled before their reminder window - the job skips
+    // those, see BookingReminderHostedService).
+    public DateTime? ReminderSentAt { get; set; }
 
     // One Booking -> Many BookingEquipment
     public ICollection<BookingEquipment> BookingEquipments { get; set; }

@@ -1,10 +1,10 @@
 @* Sign-in page. Requires privacy-policy acceptance first. *@
 @page "/login"
 @rendermode InteractiveServer
-@inject LoginViewModel Vm
 @inject IAuthService Auth
 @inject INavigationService Nav
 @inject PrivacyConsentService Consent
+@inject NavigationManager Navigation
 
 <PageTitle>Sign in · Flexispace</PageTitle>
 
@@ -21,26 +21,13 @@ else
         </div>
 
         <div class="fs-login-form fs-stack">
-            <div>
-                <label class="fs-label" for="login-email">Email</label>
-                <input id="login-email" class="fs-field" type="email" @bind="Vm.Email" autocomplete="username" />
-            </div>
-            <div>
-                <label class="fs-label" for="login-password">Password</label>
-                <input id="login-password" class="fs-field" type="password" @bind="Vm.Password" autocomplete="current-password" />
-            </div>
-
-            @if (!string.IsNullOrEmpty(Vm.ErrorMessage))
-            {
-                <p class="fs-error">@Vm.ErrorMessage</p>
-            }
-
-            <button type="button" class="fs-btn fs-btn--gold fs-btn--block" disabled="@Vm.IsBusy" @onclick="SignIn">Sign in</button>
-            @if (Vm.IsBusy) { <p class="fs-muted">Signing in…</p> }
-
-            <div class="fs-login-divider" role="separator"><span>or</span></div>
-
-            <button type="button" class="fs-btn fs-btn--microsoft fs-btn--block">
+            @* Real sign-in is Microsoft Entra ID only - the prototype's
+               email/password form is gone, since there's no backend for
+               it any more (see IAuthService.LoginAsync's comment). This
+               button does a real full-page navigation rather than a
+               Blazor NavigateTo, because leaving the SignalR circuit is
+               what lets the OpenID Connect redirect to Microsoft happen. *@
+            <button type="button" class="fs-btn fs-btn--microsoft fs-btn--block" @onclick="SignInWithMicrosoft">
                 <svg class="fs-ms-logo" viewBox="0 0 21 21" aria-hidden="true" focusable="false">
                     <rect x="1" y="1" width="9" height="9" fill="#F25022" />
                     <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
@@ -78,5 +65,6 @@ else
         StateHasChanged();
     }
 
-    private Task SignIn() => Vm.LoginCommand.ExecuteAsync(null);
+    private void SignInWithMicrosoft() =>
+        Navigation.NavigateTo("MicrosoftIdentity/Account/SignIn?redirectUri=/home", forceLoad: true);
 }

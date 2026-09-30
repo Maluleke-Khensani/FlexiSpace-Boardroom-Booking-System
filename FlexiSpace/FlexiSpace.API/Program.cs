@@ -115,13 +115,18 @@ namespace FlexiSpace.API
                 builder.Services.AddScoped<ICalendarService, NullCalendarService>();
             }
 
-            // Sends outbound email (e.g. "booking created" alerts to Centre
-            // Managers) via the same app-only Graph credentials used for
-            // calendar sync above. Needs the Mail.Send Application
-            // permission granted on that app registration, plus a
-            // MicrosoftGraph:SenderEmail mailbox to send from (a shared
-            // mailbox like notifications@flexispace.net.za, not a specific
-            // person's inbox).
+            // Sends outbound email - booking confirmations/updates/
+            // cancellations and the 1-hour-before reminder to the booker
+            // (BookingService, BookingReminderHostedService), "room
+            // blocked" alerts to affected bookers (BoardroomService), and
+            // "booking created"/"booking moved here" alerts to Centre
+            // Managers (BookingService) - via the same app-only Graph
+            // credentials used for calendar sync above. Needs the
+            // Mail.Send Application permission granted on that app
+            // registration, plus a MicrosoftGraph:SenderEmail mailbox to
+            // send from (a shared mailbox, not a specific person's inbox -
+            // currently configured as testuser@yourtenant.omnimicrosoft.com,
+            // see appsettings.json).
             if (graphAppCredentialsConfigured && !string.IsNullOrWhiteSpace(graphSenderEmail))
             {
                 builder.Services.AddScoped<IEmailService>(sp =>
@@ -162,6 +167,14 @@ namespace FlexiSpace.API
             builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
             builder.Services.AddScoped<IAuditService, AuditService>();
             builder.Services.AddScoped<INotificationService, NotificationService>();
+
+            // Background job: sends the "your booking starts in about an
+            // hour" email + in-app reminder. Polls every 5 minutes - see
+            // BookingReminderHostedService for how it avoids double-
+            // sending. A hosted service is a singleton by convention, so
+            // it resolves its own DI scope per pass rather than taking any
+            // Scoped service directly in its constructor.
+            builder.Services.AddHostedService<BookingReminderHostedService>();
 
 
             // Register Swagger services to generate API documentation and allow endpoint testing during development.

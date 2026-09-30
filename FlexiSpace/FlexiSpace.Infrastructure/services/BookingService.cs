@@ -224,6 +224,22 @@ namespace FlexiSpace.Infrastructure.Services
             await SyncOutlookEventOnCreateAsync(booking, boardroom, currentUser);
             await NotifyCentreManagersAsync(booking, boardroom, currentUser, isLocationChange: false);
 
+            // Tell the booker themselves - in-app (unchanged) plus an
+            // email with the full booking details, sent immediately after
+            // the booking is created, per the team's notification spec.
+            await NotifyBookerAsync(
+                currentUser,
+                boardroom,
+                booking,
+                inAppTitle: "Booking confirmed",
+                inAppMessage: BuildShortSummary(booking, boardroom, "Your booking for"),
+                emailSubject: $"Booking confirmed - {boardroom.Name}",
+                emailBody: BuildBookingDetailsEmailBody(
+                    booking,
+                    boardroom,
+                    "Your boardroom booking has been confirmed. Here are the details:"),
+                type: NotificationType.BookingCreated);
+
             return booking;
         }
 
@@ -322,6 +338,15 @@ namespace FlexiSpace.Infrastructure.Services
                 existingBooking.ModifiedAt = DateTime.UtcNow;
                 existingBooking.ModifiedById = currentUser.Id;
 
+                // The time/room changed, so any reminder already queued
+                // against the old slot no longer applies - let the
+                // reminder job re-evaluate this booking against its new
+                // time.
+                if (dateOrTimeChanging)
+                {
+                    existingBooking.ReminderSentAt = null;
+                }
+
                 existingBooking.BookingEquipments.Clear();
 
                 foreach (var item in equipment)
@@ -350,6 +375,27 @@ namespace FlexiSpace.Infrastructure.Services
             if (isMovingLocation)
             {
                 await NotifyCentreManagersAsync(existingBooking, newBoardroom, currentUser, isLocationChange: true);
+            }
+
+            // Tell the booking's owner it changed - in-app plus email,
+            // regardless of who made the edit (the owner themself, a
+            // Centre Manager, or an Administrator).
+            var owner = await _context.Users.FindAsync(existingBooking.UserId);
+
+            if (owner != null)
+            {
+                await NotifyBookerAsync(
+                    owner,
+                    newBoardroom,
+                    existingBooking,
+                    inAppTitle: "Booking updated",
+                    inAppMessage: BuildShortSummary(existingBooking, newBoardroom, "Your booking has been changed to"),
+                    emailSubject: $"Booking updated - {newBoardroom.Name}",
+                    emailBody: BuildBookingDetailsEmailBody(
+                        existingBooking,
+                        newBoardroom,
+                        "Your boardroom booking has been updated. Here are the current details:"),
+                    type: NotificationType.BookingModified);
             }
 
             return true;
@@ -396,6 +442,24 @@ namespace FlexiSpace.Infrastructure.Services
             await _context.SaveChangesAsync();
 
             await SyncOutlookEventOnCancelAsync(booking, boardroom);
+
+            var owner = await _context.Users.FindAsync(booking.UserId);
+
+            if (owner != null)
+            {
+                await NotifyBookerAsync(
+                    owner,
+                    boardroom,
+                    booking,
+                    inAppTitle: "Booking cancelled",
+                    inAppMessage: BuildShortSummary(booking, boardroom, "Your booking for"),
+                    emailSubject: $"Booking cancelled - {boardroom.Name}",
+                    emailBody: BuildBookingDetailsEmailBody(
+                        booking,
+                        boardroom,
+                        "Your boardroom booking has been cancelled. It was for:"),
+                    type: NotificationType.BookingCancelled);
+            }
 
             return true;
         }
@@ -468,6 +532,24 @@ namespace FlexiSpace.Infrastructure.Services
             if (status == BookingStatus.Cancelled)
             {
                 await SyncOutlookEventOnCancelAsync(booking, boardroom);
+
+                var owner = await _context.Users.FindAsync(booking.UserId);
+
+                if (owner != null)
+                {
+                    await NotifyBookerAsync(
+                        owner,
+                        boardroom,
+                        booking,
+                        inAppTitle: "Booking cancelled",
+                        inAppMessage: BuildShortSummary(booking, boardroom, "Your booking for"),
+                        emailSubject: $"Booking cancelled - {boardroom.Name}",
+                        emailBody: BuildBookingDetailsEmailBody(
+                            booking,
+                            boardroom,
+                            "Your boardroom booking has been cancelled. It was for:"),
+                        type: NotificationType.BookingCancelled);
+                }
             }
 
             return true;
@@ -977,6 +1059,93 @@ namespace FlexiSpace.Infrastructure.Services
                         booking.Id);
                 }
             }
+        }
+
+        // Notifies the booking's own owner (the person who actually holds
+        // the room) - in-app plus email - for create/update/cancel and the
+        // 1-hour-before reminder (see BookingReminderHostedService, which
+        // calls the same email-body builder directly). Best-effort, same
+        // as NotifyCentreManagersAsync above: a failure here is logged,
+        // never allowed to fail the booking operation itself.
+        private async Task NotifyBookerAsync(
+            User booker,
+            Boardroom boardroom,
+            Booking booking,
+            string inAppTitle,
+            string inAppMessage,
+            string emailSubject,
+            string emailBody,
+            NotificationType type)
+        {
+            try
+            {
+                await _notificationService.CreateNotificationAsync(
+                    booker.Id,
+                    inAppTitle,
+                    inAppMessage,
+                    type);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to create in-app notification for booker {UserId} for booking {BookingId}.",
+                    booker.Id,
+                    booking.Id);
+            }
+
+            try
+            {
+                await _emailService.SendEmailAsync(booker.Email, emailSubject, emailBody);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to email booker {UserId} for booking {BookingId}.",
+                    booker.Id,
+                    booking.Id);
+            }
+        }
+
+        // Short one-line summary used for the in-app notification, which
+        // doesn't have room for the full detail dump the email gets.
+        private static string BuildShortSummary(Booking booking, Boardroom boardroom, string leadIn)
+        {
+            return $"{leadIn} {boardroom.Name} on {booking.BookingDate:yyyy-MM-dd} " +
+                   $"{booking.StartTime:HH\\:mm}-{booking.EndTime:HH\\:mm}.";
+        }
+
+        // Builds the full "necessary info about their booking" email body:
+        // room, date/time, company and attendee count, and any notes -
+        // shared by create/update/cancel notifications above and by
+        // BookingReminderHostedService's 1-hour-before reminder.
+        internal static string BuildBookingDetailsEmailBody(Booking booking, Boardroom boardroom, string leadLine)
+        {
+            var lines = new List<string>
+            {
+                leadLine,
+                string.Empty,
+                $"Room: {boardroom.Name}",
+                $"Date: {booking.BookingDate:yyyy-MM-dd}",
+                $"Time: {booking.StartTime:HH\\:mm} - {booking.EndTime:HH\\:mm}",
+                $"Attendees: {booking.NumberOfAttendees}"
+            };
+
+            if (!string.IsNullOrWhiteSpace(booking.Company))
+            {
+                lines.Add($"Company: {booking.Company}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(booking.Notes))
+            {
+                lines.Add($"Notes: {booking.Notes}");
+            }
+
+            lines.Add(string.Empty);
+            lines.Add($"Booking reference: #{booking.Id}");
+
+            return string.Join(Environment.NewLine, lines);
         }
     }
 }

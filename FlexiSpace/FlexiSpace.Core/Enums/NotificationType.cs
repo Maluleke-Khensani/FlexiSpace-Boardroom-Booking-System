@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -11,6 +11,13 @@ namespace FlexiSpace.Core.Enums
         BookingCreated,
         BookingCancelled,
         BookingReminder,
-        BookingModified
+        BookingModified,
+
+        // A boardroom the user already has a confirmed booking on was
+        // marked Maintenance/Unavailable (see
+        // BoardroomService.NotifyAffectedBookersAsync) - distinct from
+        // BookingCancelled because the booking itself hasn't actually
+        // been cancelled, just potentially affected.
+        BookingBlocked
     }
 }

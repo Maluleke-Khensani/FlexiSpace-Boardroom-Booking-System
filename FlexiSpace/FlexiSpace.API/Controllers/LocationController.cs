@@ -1,18 +1,29 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using FlexiSpace.API.Authorization;
+using FlexiSpace.API.Controllers.Base;
 using FlexiSpace.Core.Common;
 using FlexiSpace.Core.DTOs.Location;
-using FlexiSpace.Core.Services;
 using FlexiSpace.Core.Entities;
+using FlexiSpace.Core.Enums;
+using FlexiSpace.Core.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace FlexiSpace.API.Controllers
 {
+    // Any authenticated user can read locations (branches). Creating,
+    // editing or deleting a branch is Administrator-only.
     [ApiController]
     [Route("api/[controller]")]
-    public class LocationController : ControllerBase
+    [Authorize]
+    public class LocationController : AuditableControllerBase
     {
         private readonly ILocationService _locationService;
 
-        public LocationController(ILocationService locationService)
+        public LocationController(
+            ILocationService locationService,
+            IAuditService auditService,
+            ICurrentUserService currentUserService)
+            : base(auditService, currentUserService)
         {
             _locationService = locationService;
         }
@@ -33,6 +44,8 @@ namespace FlexiSpace.API.Controllers
             return Ok(response);
         }
 
+        // Administrator-only.
+        [AuthorizeRoles(UserRole.Administrator)]
         [HttpPost]
         public async Task<IActionResult> CreateLocation([FromBody] LocationCreateDto locationDto)
         {
@@ -42,12 +55,18 @@ namespace FlexiSpace.API.Controllers
                 Address = locationDto.Address
             };
 
-            // NEW: CreateLocationAsync can now throw BusinessRuleException
+            // CreateLocationAsync can throw BusinessRuleException
             // (duplicate name) - return it as 400 instead of an
             // unhandled 500.
             try
             {
                 var createdLocation = await _locationService.CreateLocationAsync(location);
+
+                await LogActionAsync(
+                    AuditAction.Create,
+                    nameof(Location),
+                    createdLocation.Id.ToString(),
+                    newValues: new { createdLocation.Name, createdLocation.Address });
 
                 var response = new LocationResponseDto
                 {
@@ -66,7 +85,6 @@ namespace FlexiSpace.API.Controllers
                 return BadRequest(new { errors = ex.Errors });
             }
         }
-
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetLocationById(int id)
@@ -88,17 +106,26 @@ namespace FlexiSpace.API.Controllers
             return Ok(response);
         }
 
+        // Administrator-only.
+        [AuthorizeRoles(UserRole.Administrator)]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateLocation(int id, [FromBody] LocationUpdateDto locationDto)
         {
+            var before = await _locationService.GetLocationByIdAsync(id);
+
+            if (before == null)
+            {
+                return NotFound();
+            }
+
             var location = new Location
             {
                 Name = locationDto.Name,
                 Address = locationDto.Address
             };
 
-            // NEW: same as CreateLocation - UpdateLocationAsync can now
-            // throw BusinessRuleException too.
+            // Same as CreateLocation - UpdateLocationAsync can throw
+            // BusinessRuleException too.
             try
             {
                 var updated = await _locationService.UpdateLocationAsync(id, location);
@@ -108,6 +135,13 @@ namespace FlexiSpace.API.Controllers
                     return NotFound();
                 }
 
+                await LogActionAsync(
+                    AuditAction.Update,
+                    nameof(Location),
+                    id.ToString(),
+                    oldValues: new { before.Name, before.Address },
+                    newValues: new { locationDto.Name, locationDto.Address });
+
                 return NoContent();
             }
             catch (BusinessRuleException ex)
@@ -116,10 +150,19 @@ namespace FlexiSpace.API.Controllers
             }
         }
 
+        // Administrator-only.
+        [AuthorizeRoles(UserRole.Administrator)]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteLocation(int id)
         {
-            // NEW: DeleteLocationAsync can now throw BusinessRuleException
+            var before = await _locationService.GetLocationByIdAsync(id);
+
+            if (before == null)
+            {
+                return NotFound();
+            }
+
+            // DeleteLocationAsync can throw BusinessRuleException
             // (boardrooms still assigned to this location).
             try
             {
@@ -130,6 +173,12 @@ namespace FlexiSpace.API.Controllers
                     return NotFound();
                 }
 
+                await LogActionAsync(
+                    AuditAction.Delete,
+                    nameof(Location),
+                    id.ToString(),
+                    oldValues: new { before.Name, before.Address });
+
                 return NoContent();
             }
             catch (BusinessRuleException ex)
@@ -137,7 +186,5 @@ namespace FlexiSpace.API.Controllers
                 return BadRequest(new { errors = ex.Errors });
             }
         }
-
-
     }
 }
