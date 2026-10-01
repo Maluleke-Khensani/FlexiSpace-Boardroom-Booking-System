@@ -14,5 +14,11 @@ public interface IBookingService
     Task<bool> UpdateBookingAsync(Guid bookingId, DateTime start, DateTime end, int attendees, string notes);
     Task<bool> BlockRoomAsync(string roomId, DateTime start, DateTime end, string reason);
     Task<IReadOnlyList<Booking>> GetTodaysBookingsAsync();
+
+    // Equipment and catering the booking form can offer. These come from the
+    // real catalogue (GET api/equipment / api/catering), not a canned list,
+    // so the form never offers something the API can't book.
+    Task<IReadOnlyList<string>> GetEquipmentOptionsAsync() => Task.FromResult<IReadOnlyList<string>>([]);
+    Task<IReadOnlyList<string>> GetCateringOptionsAsync() => Task.FromResult<IReadOnlyList<string>>([]);
 }
 

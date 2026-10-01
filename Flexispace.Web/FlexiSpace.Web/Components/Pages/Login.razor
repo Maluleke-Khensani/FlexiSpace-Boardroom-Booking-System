@@ -66,5 +66,7 @@ else
     }
 
     private void SignInWithMicrosoft() =>
-        Navigation.NavigateTo("MicrosoftIdentity/Account/SignIn?redirectUri=/home", forceLoad: true);
+        // signedIn=1 tells MainLayout to record this sign-in in the audit log
+        // (login history) once, then it drops the flag from the address.
+        Navigation.NavigateTo("MicrosoftIdentity/Account/SignIn?redirectUri=%2Fhome%3FsignedIn%3D1", forceLoad: true);
 }

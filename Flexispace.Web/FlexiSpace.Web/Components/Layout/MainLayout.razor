@@ -12,6 +12,7 @@
         <aside class="fs-sidebar">
             <div class="fs-sidebar__brand">
                 <a href="/home"><img class="fs-sidebar__logo" src="/images/flexispace_logo.png" alt="Flexispace" /></a>
+                <p class="fs-sidebar__tagline">Work outside of the box</p>
             </div>
             <nav class="fs-sidebar__nav">
                 @foreach (var tab in VisibleTabs)
@@ -47,6 +48,13 @@
                 {
                     @Body
                 }
+                else if (_authInitError is not null)
+                {
+                    <div class="fs-muted" style="padding:24px">
+                        <p>Couldn't load your account: @_authInitError</p>
+                        <button type="button" class="fs-btn fs-btn--ghost-light" @onclick="RetryInitializationAsync">Retry</button>
+                    </div>
+                }
                 else
                 {
                     <p class="fs-muted" style="padding:24px">Loading your account…</p>
@@ -69,12 +77,31 @@ else
 
     // Gates @Body specifically (not the shell/sidebar, which only needs
     // the synchronous Auth.IsAuthenticated) until the signed-in user's
-    // FlexiSpace profile has actually been fetched - see
-    // RealAuthService.EnsureInitializedAsync's comment for why this can't
-    // just rely on Blazor's usual OnInitializedAsync render ordering.
-    // MockAuthService has nothing async to do, so this is true
-    // immediately when running against the mocks.
+    // FlexiSpace profile has actually been fetched.
+    //
+    // This MUST be driven from OnInitializedAsync, not OnAfterRenderAsync.
+    // OnAfterRenderAsync never runs during Blazor Server's prerendering
+    // pass (the synchronous HTML that's actually sent back for the very
+    // first GET /home, /book, etc. after signing in) - only once the
+    // interactive SignalR circuit attaches afterwards. RealAuthService's
+    // IsAuthenticated is false until EnsureInitializedAsync populates it,
+    // so gating it behind OnAfterRenderAsync meant IsAuthenticated was
+    // *always* false during that prerendered response - Home.razor (and
+    // Live.razor/Notifications.razor) check Auth.IsAuthenticated directly
+    // and render <RedirectToLogin/> when it's false, which is exactly why
+    // signing in successfully still bounced straight back to /login:
+    // the redirect fired during prerender, before the interactive circuit
+    // ever got a chance to correct the flag. OnInitializedAsync, by
+    // contrast, *is* awaited during prerendering (Blazor blocks the
+    // prerendered response on it), so running EnsureInitializedAsync here
+    // makes IsAuthenticated correct for that very first render too.
     private bool _authInitialized;
+
+    // Set when EnsureInitializedAsync throws or times out, so the person
+    // sees *something* instead of "Loading your account..." spinning
+    // forever with nothing in the browser console or the dotnet run
+    // terminal (e.g. the FlexiSpace API being unreachable).
+    private string? _authInitError;
 
     private bool ShowAppShell =>
         Auth.IsAuthenticated &&
@@ -116,6 +143,7 @@ else
         "book" => "Book a boardroom",
         "live" => "Live availability",
         "manage" => "Manage bookings",
+        "reports" => "Reports & audit",
         "notifications" => "Alerts",
         "profile" => "My profile",
         "my-bookings" => "My bookings",
@@ -136,6 +164,8 @@ else
                 yield return new("live", "Live availability", "/live", NavLinkMatch.Prefix);
             if (role is null || RolePermissions.CanAccessManageHub(role.Value))
                 yield return new("manage", "Manage", "/manage", NavLinkMatch.Prefix);
+            if (role is not null && RolePermissions.CanViewReports(role.Value))
+                yield return new("reports", "Reports", "/reports", NavLinkMatch.Prefix);
             yield return new("alerts", "Alerts", "/notifications", NavLinkMatch.Prefix);
             yield return new("profile", "Profile", "/profile", NavLinkMatch.Prefix);
         }
@@ -144,23 +174,74 @@ else
     protected override void OnInitialized() =>
         AuthNotifier.StateChanged += OnAuthChanged;
 
+    protected override Task OnInitializedAsync() => InitializeAuthAsync();
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
 
-        if (Auth is Flexispace.Web.Services.Real.IAsyncAuthInitializer initializer)
+        // Just back from Microsoft sign-in (Login.razor sends people to
+        // /home?signedIn=1): record it for the login history, then drop the
+        // flag so a refresh doesn't record it again.
+        if (Auth.IsAuthenticated && Navigation.Uri.Contains("signedIn=1"))
         {
-            await initializer.EnsureInitializedAsync();
-            _authInitialized = true;
-            StateHasChanged();
-        }
-        else
-        {
-            _authInitialized = true;
+            if (Auth is Flexispace.Web.Services.Real.RealAuthService realAuth)
+                await realAuth.RecordSignInAsync();
+
+            Navigation.NavigateTo("/home", replace: true);
         }
 
+        // Consent lives in browser localStorage, which needs JS interop -
+        // unavailable during prerendering, so this part (unlike auth init
+        // above) has to stay here, after the interactive circuit attaches.
         if (Auth.IsAuthenticated && !IsAuthRoute && !await Consent.HasAcceptedAsync())
             Navigation.NavigateTo("/");
+    }
+
+    private async Task InitializeAuthAsync()
+    {
+        if (Auth is not Flexispace.Web.Services.Real.IAsyncAuthInitializer initializer)
+        {
+            _authInitialized = true;
+            return;
+        }
+
+        _authInitError = null;
+
+        try
+        {
+            // Was an unbounded await: if EnsureInitializedAsync's call to
+            // GET api/user/me hung (API not running, TLS trust failure,
+            // network issue) this never returned, _authInitialized never
+            // became true, and the page spun on "Loading your account..."
+            // forever with nothing printed anywhere. The 15s timeout turns
+            // that silent hang into a visible, retryable error instead.
+            var initializeTask = initializer.EnsureInitializedAsync();
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(15));
+            var completed = await Task.WhenAny(initializeTask, timeoutTask);
+
+            if (completed == timeoutTask)
+            {
+                _authInitError = "Timed out contacting the FlexiSpace API. Is it running?";
+                return;
+            }
+
+            // Re-await so a real exception (not just a timeout) propagates
+            // here instead of being silently dropped.
+            await initializeTask;
+            _authInitialized = true;
+        }
+        catch (Exception ex)
+        {
+            _authInitError = ex.Message;
+        }
+    }
+
+    private Task RetryInitializationAsync()
+    {
+        var task = InitializeAuthAsync();
+        StateHasChanged();
+        return task;
     }
 
     private void OnAuthChanged() => InvokeAsync(StateHasChanged);

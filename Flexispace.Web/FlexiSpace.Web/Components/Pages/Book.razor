@@ -16,7 +16,9 @@
 else
 {
     <div class="fs-content-wide">
-        <p class="fs-muted" style="margin-bottom:24px">@GetStepHint(Vm.Step)</p>
+        <p class="fs-eyebrow">Meeting room / boardroom</p>
+        <h2 class="fs-section-title">Make the right impression</h2>
+        <p class="fs-muted" style="margin-bottom:24px">Fully equipped rooms with uncapped fibre, backup power, conference calling, tea &amp; coffee, and secure parking — from R150 per hour.</p>
 
         <div class="fs-steps">
             @for (var s = 1; s <= 4; s++)
@@ -106,7 +108,7 @@ else
 
             <div class="fs-choice-section">
                 <p class="fs-choice-section__label">Start time</p>
-                <TimeChoiceGrid Selected="Vm.StartTime" OnSelect="OnStartSelected" />
+                <TimeChoiceGrid Selected="Vm.StartTime" Earliest="EarliestStart" OnSelect="OnStartSelected" />
             </div>
 
             <div class="fs-choice-section">
@@ -137,6 +139,10 @@ else
                 </div>
                 <div>
                     <p class="fs-label">Equipment</p>
+                    @if (Vm.EquipmentOptions.Count == 0)
+                    {
+                        <p class="fs-muted" style="font-size:12px">None set up yet.</p>
+                    }
                     @foreach (var opt in Vm.EquipmentOptions)
                     {
                         <label style="display:flex; justify-content:space-between; padding:6px 0">
@@ -147,6 +153,10 @@ else
                 </div>
                 <div>
                     <p class="fs-label">Catering</p>
+                    @if (Vm.CateringOptions.Count == 0)
+                    {
+                        <p class="fs-muted" style="font-size:12px">None set up yet.</p>
+                    }
                     @foreach (var opt in Vm.CateringOptions)
                     {
                         <label style="display:flex; justify-content:space-between; padding:6px 0">
@@ -226,7 +236,9 @@ else
             await Vm.SelectLocationCommand.ExecuteAsync(Vm.SelectedLocation);
     }
 
-    private void ConfirmLocation() => _ = ConfirmLocationAsync();
+    // Returning the Task (instead of fire-and-forget) lets Blazor re-render
+    // once the rooms for the chosen location have loaded.
+    private Task ConfirmLocation() => ConfirmLocationAsync();
 
     private void OnRoomTileSelected(RoomMapTile tile)
     {
@@ -240,13 +252,45 @@ else
         return Task.CompletedTask;
     }
 
-    private void ContinueToDateTime() => Vm.ContinueToScheduleCommand.Execute(null);
+    private void ContinueToDateTime()
+    {
+        Vm.ContinueToScheduleCommand.Execute(null);
+        MoveStartPastNow();
+    }
+
+    // Booking slots run 07:00-19:00 in 30-minute steps (TimeChoiceGrid).
+    private static readonly TimeSpan LastStartSlot = new(18, 30, 0);
+
+    // For today, the first start slot that hasn't passed yet (rounded up to
+    // the next half hour); null for future dates. The API rejects bookings
+    // that start in the past, and the form used to default to 09:00 today
+    // regardless of the time - the cause of the "Request failed (400)".
+    private TimeSpan? EarliestStart
+    {
+        get
+        {
+            if (Vm.SelectedDate.Date != DateTime.Today) return null;
+            var minutes = Math.Ceiling(DateTime.Now.TimeOfDay.TotalMinutes / 30) * 30;
+            return TimeSpan.FromMinutes(minutes);
+        }
+    }
+
+    private void MoveStartPastNow()
+    {
+        if (EarliestStart is not { } earliest || Vm.StartTime >= earliest) return;
+        if (earliest > LastStartSlot) return; // nothing left today - Continue will say so
+
+        var length = Vm.EndTime > Vm.StartTime ? Vm.EndTime - Vm.StartTime : TimeSpan.FromHours(1);
+        Vm.StartTime = earliest;
+        Vm.EndTime = earliest + length;
+    }
 
     private void ToggleConjoin() => Vm.SetConjoin(!Vm.ConjoinEnabled);
 
     private Task OnDateSelected(DateOnly date)
     {
         Vm.SelectedDate = date.ToDateTime(TimeOnly.MinValue);
+        MoveStartPastNow();
         return Task.CompletedTask;
     }
 
@@ -265,6 +309,24 @@ else
     }
 
     private void Back() => Vm.BackCommand.Execute(null);
-    private void Continue() => Vm.NextToDetailsCommand.Execute(null);
+    private void Continue()
+    {
+        if (EarliestStart is { } earliest)
+        {
+            if (earliest > LastStartSlot)
+            {
+                Vm.ErrorMessage = "There are no booking times left today - please choose another date.";
+                return;
+            }
+            if (Vm.StartTime < earliest)
+            {
+                Vm.ErrorMessage = "That start time has already passed - please choose a later time.";
+                return;
+            }
+        }
+
+        Vm.ErrorMessage = null;
+        Vm.NextToDetailsCommand.Execute(null);
+    }
     private Task Submit() => Vm.SubmitCommand.ExecuteAsync(null);
 }

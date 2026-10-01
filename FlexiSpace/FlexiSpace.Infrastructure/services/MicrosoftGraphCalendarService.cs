@@ -3,7 +3,7 @@ using Microsoft.Graph;
 using Microsoft.Graph.Models;
 using FlexiSpace.Core.Services;
 
-namespace FlexiSpace.Infrastructure.services
+namespace FlexiSpace.Infrastructure.Services
 {
     public class MicrosoftGraphCalendarService : ICalendarService
     {

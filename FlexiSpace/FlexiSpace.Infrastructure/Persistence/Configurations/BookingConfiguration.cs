@@ -44,6 +44,16 @@ namespace FlexiSpace.Infrastructure.Persistence.Configurations
 
             builder.Property(b => b.ModifiedAt);
 
+            // Reminder stamps: set by BookingReminderHostedService when the
+            // 24-hour, 2-hour and 1-hour reminders go out, so each is sent
+            // once. Null = not sent yet. Columns added by the migrations
+            // AddBookingReminderTracking and AddDeviceTokensAndReminderWindows.
+            builder.Property(b => b.Reminder24hSentAt);
+
+            builder.Property(b => b.Reminder2hSentAt);
+
+            builder.Property(b => b.ReminderSentAt);
+
             // Relationships
 
 // Booking -> User (the person who made the booking)

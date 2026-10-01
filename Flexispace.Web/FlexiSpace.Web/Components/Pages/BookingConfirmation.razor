@@ -49,7 +49,7 @@ else
 @code {
     [Parameter] public Guid BookingId { get; set; }
 
-    protected override void OnParametersSet() =>
+    protected override Task OnParametersSetAsync() =>
         Vm.SetBookingId(BookingId.ToString());
 
     private void Done() => Vm.DoneCommand.Execute(null);

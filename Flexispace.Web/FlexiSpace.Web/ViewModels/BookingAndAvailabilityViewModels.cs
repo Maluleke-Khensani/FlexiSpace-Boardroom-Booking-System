@@ -70,11 +70,11 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
             Locations.Add(loc);
         }
 
-        if (EquipmentOptions.Count == 0)
+        if (EquipmentOptions.Count == 0 && CateringOptions.Count == 0)
         {
-            foreach (var e in SeedData.EquipmentOptions)
+            foreach (var e in await bookings.GetEquipmentOptionsAsync())
                 EquipmentOptions.Add(new SelectableOption { Label = e });
-            foreach (var c in SeedData.CateringOptions)
+            foreach (var c in await bookings.GetCateringOptionsAsync())
                 CateringOptions.Add(new SelectableOption { Label = c });
         }
 
@@ -162,7 +162,7 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
 
         var partnerId = combo.CombinedRoomIds.First(id => id != SelectedRoom!.Id);
         ConjoinPartnerName = Rooms.FirstOrDefault(r => r.Id == partnerId)?.Name
-                             ?? SeedData.Rooms.FirstOrDefault(r => r.Id == partnerId)?.Name;
+                             ?? RoomCombinations.FindRoom(partnerId)?.Name;
         ConjoinCapacity = combo.Capacity;
         OnPropertyChanged(nameof(BookingRoomLabel));
     }

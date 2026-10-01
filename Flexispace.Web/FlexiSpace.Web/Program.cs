@@ -3,17 +3,14 @@ using Flexispace.Web.Components;
 using Flexispace.Web.Services;
 using Flexispace.Web.Services.Real;
 using Flexispace.Web.ViewModels;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
 
 // Flexispace.Web entry point: registers Blazor Server, real Entra ID auth,
-// the API-backed services, ViewModels, and routes.
-//
-// This replaces the previous Mock*-backed setup entirely - see
-// FlexiSpace-Web-Wiring-README.md for what changed and why, and for the
-// Azure App Registration steps this needs from Khensani before sign-in
-// will actually work end to end.
+// the API-backed services, ViewModels, and routes. Setup (user secrets,
+// Azure app registration) is in Flexispace.Web/README.md.
 var builder = WebApplication.CreateBuilder(args);
 
 var apiOptions = builder.Configuration
@@ -33,13 +30,25 @@ builder.Services
     .AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
     .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("AzureAd"))
     // Lets this app silently exchange the user's sign-in for an access
-    // token scoped to the FlexiSpace API (what BearerTokenHandler uses) -
+    // token scoped to the FlexiSpace API (what AccessTokenProvider uses) -
     // without this, ITokenAcquisition has nothing to acquire against.
     .EnableTokenAcquisitionToCallDownstreamApi(new[] { apiOptions.Scope })
     .AddInMemoryTokenCaches();
 
+// The token cache above is in-memory, so it's wiped on every restart while
+// the browser's sign-in cookie survives - leaving a "signed in but no
+// token" state where every API call 401s. This rejects the cookie when its
+// account is missing from the cache, forcing a clean re-sign-in. See
+// RejectSessionCookieWhenAccountNotInCacheEvents for details.
+builder.Services.Configure<CookieAuthenticationOptions>(
+    CookieAuthenticationDefaults.AuthenticationScheme,
+    options => options.Events = new RejectSessionCookieWhenAccountNotInCacheEvents(apiOptions.Scope));
+
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
+// Flows the real signed-in ClaimsPrincipal into every Blazor circuit via
+// a cascading AuthenticationState - this is what AccessTokenProvider
+// reads (HttpContext isn't reliable inside an interactive circuit).
 builder.Services.AddCascadingAuthenticationState();
 
 // Microsoft.Identity.Web's sign-in/sign-out endpoints
@@ -53,19 +62,19 @@ builder.Services.AddControllersWithViews()
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// --- Real, API-backed services (replacing the Mock* registrations) ---
+// --- API-backed services ---
 // Scoped, not Singleton: Blazor Server gives each circuit (each signed-in
 // browser tab) its own DI scope, and every one of these reads the current
-// HttpContext/user or calls the API on that specific person's behalf.
-// Registering them Singleton - the way the Mock services were, since mock
-// demo data is deliberately shared - would leak one user's session and
-// CurrentUser into every other user's circuit.
+// user or calls the API on that person's behalf. Singleton would leak one
+// user's session into every other user's circuit.
 builder.Services.AddHttpClient("FlexiSpaceApi", client =>
     {
         client.BaseAddress = new Uri(apiOptions.BaseUrl);
-    })
-    .AddHttpMessageHandler<BearerTokenHandler>();
-builder.Services.AddTransient<BearerTokenHandler>();
+    });
+// No DelegatingHandler for the token: IHttpClientFactory pools handlers
+// outside the circuit's scope, so they can't see the signed-in user.
+// FlexiSpaceApiClient attaches the token itself via AccessTokenProvider.
+builder.Services.AddScoped<IAccessTokenProvider, AccessTokenProvider>();
 builder.Services.AddScoped<FlexiSpaceApiClient>();
 
 builder.Services.AddScoped<IAuthService, RealAuthService>();
@@ -73,6 +82,8 @@ builder.Services.AddScoped<IRoomService, RealRoomService>();
 builder.Services.AddScoped<IBookingService, RealBookingService>();
 builder.Services.AddScoped<IAdminService, RealAdminService>();
 builder.Services.AddScoped<INotificationService, RealNotificationService>();
+// Reports & audit page (/reports) - booking stats, CSV export, audit log.
+builder.Services.AddScoped<ReportsApiService>();
 
 builder.Services.AddScoped<INavigationService, NavigationService>();
 builder.Services.AddScoped<PrivacyConsentService>();
@@ -95,6 +106,7 @@ builder.Services.AddTransient<ProfileViewModel>();
 builder.Services.AddTransient<LocationDetailViewModel>();
 builder.Services.AddTransient<LocationsViewModel>();
 builder.Services.AddTransient<ManageViewModel>();
+builder.Services.AddTransient<ReportsViewModel>();
 
 var app = builder.Build();
 

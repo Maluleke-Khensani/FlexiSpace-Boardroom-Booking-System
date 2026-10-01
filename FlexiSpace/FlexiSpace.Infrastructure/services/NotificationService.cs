@@ -64,7 +64,7 @@ namespace FlexiSpace.Infrastructure.Services
             await _context.SaveChangesAsync();
             // Push is mobile-only by construction: a user only has device tokens
             // if the mobile app registered one, so a web-only user never receives
-            // a push here - no platform check needed. FcmPushNotificationSender
+            // a push here - no platform check needed. AzureNotificationHubPushSender
             // never throws, so a push failure can't fail booking creation/etc.
             await _pushNotificationSender.SendAsync(userId, title, message);
             return notification;

@@ -5,7 +5,7 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Flexispace.Web", "FlexiSpace.Web\Flexispace.Web.csproj", "{86A33E4D-BD35-4E23-9CDD-DFB5EE3B3CDC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Flexispace.Prototype.Core", "FlexiSpace.Prototype.Core\FlexiSpace.Core.csproj", "{65CD396E-9E0A-4642-9721-F4C2315FE70C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlexiSpace.Prototype.Core", "FlexiSpace.Prototype.Core\FlexiSpace.Prototype.Core.csproj", "{65CD396E-9E0A-4642-9721-F4C2315FE70C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

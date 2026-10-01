@@ -70,7 +70,7 @@ else
 @code {
     [Parameter] public string LocationId { get; set; } = string.Empty;
 
-    protected override void OnParametersSet() =>
+    protected override Task OnParametersSetAsync() =>
         Vm.SetLocationId(LocationId);
 
     private void Book(Boardroom room) => Vm.BookRoomCommand.Execute(room);

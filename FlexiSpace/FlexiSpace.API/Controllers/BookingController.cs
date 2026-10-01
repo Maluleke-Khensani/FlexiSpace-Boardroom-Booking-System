@@ -25,23 +25,23 @@ namespace FlexiSpace.API.Controllers
     //   UserId field).
     // - Update / Cancel / change status: the booking's own owner, a
     //   Centre Manager at that boardroom's location, or an Administrator.
+    // - Notifications: BookingService tells the booker (in-app + email) on
+    //   create/update/cancel. The controller used to send its own extra
+    //   in-app notification as well, so every booker got two.
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
     public class BookingController : AuditableControllerBase
     {
         private readonly IBookingService _bookingService;
-        private readonly INotificationService _notificationService;
 
         public BookingController(
             IBookingService bookingService,
             IAuditService auditService,
-            ICurrentUserService currentUserService,
-            INotificationService notificationService)
+            ICurrentUserService currentUserService)
             : base(auditService, currentUserService)
         {
             _bookingService = bookingService;
-            _notificationService = notificationService;
         }
 
         // Retrieves all bookings the current caller is allowed to see.
@@ -144,13 +144,6 @@ namespace FlexiSpace.API.Controllers
                         createdBooking.EndTime
                     });
 
-                await _notificationService.CreateNotificationAsync(
-                    createdBooking.UserId,
-                    "Booking confirmed",
-                    $"Your booking for {createdBooking.BookingDate:yyyy-MM-dd} " +
-                    $"{createdBooking.StartTime:HH:mm}-{createdBooking.EndTime:HH:mm} has been created.",
-                    NotificationType.BookingCreated);
-
                 return CreatedAtAction(
                     nameof(GetBookingById),
                     new { id = createdBooking.Id },
@@ -236,13 +229,6 @@ namespace FlexiSpace.API.Controllers
                         dto.NumberOfAttendees
                     });
 
-                await _notificationService.CreateNotificationAsync(
-                    existingBooking.UserId,
-                    "Booking updated",
-                    $"Your booking for {dto.BookingDate:yyyy-MM-dd} " +
-                    $"{dto.StartTime:HH:mm}-{dto.EndTime:HH:mm} has been changed.",
-                    NotificationType.BookingModified);
-
                 return NoContent();
             }
             catch (ForbiddenException ex)
@@ -286,13 +272,6 @@ namespace FlexiSpace.API.Controllers
                     nameof(Booking),
                     id.ToString(),
                     oldValues: new { existingBooking.BookingDate, existingBooking.StartTime, existingBooking.EndTime });
-
-                await _notificationService.CreateNotificationAsync(
-                    existingBooking.UserId,
-                    "Booking cancelled",
-                    $"Your booking for {existingBooking.BookingDate:yyyy-MM-dd} " +
-                    $"{existingBooking.StartTime:HH:mm}-{existingBooking.EndTime:HH:mm} has been cancelled.",
-                    NotificationType.BookingCancelled);
 
                 return NoContent();
             }
@@ -340,16 +319,6 @@ namespace FlexiSpace.API.Controllers
                     id.ToString(),
                     oldValues: new { Status = existingBooking.Status.ToString() },
                     newValues: new { Status = dto.Status.ToString() });
-
-                if (dto.Status == BookingStatus.Cancelled)
-                {
-                    await _notificationService.CreateNotificationAsync(
-                        existingBooking.UserId,
-                        "Booking cancelled",
-                        $"Your booking for {existingBooking.BookingDate:yyyy-MM-dd} " +
-                        $"{existingBooking.StartTime:HH:mm}-{existingBooking.EndTime:HH:mm} has been cancelled.",
-                        NotificationType.BookingCancelled);
-                }
 
                 return NoContent();
             }

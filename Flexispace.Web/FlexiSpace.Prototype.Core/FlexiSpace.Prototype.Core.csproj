@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Shared models, interfaces and helpers for the Blazor web app.
+       This used to be called FlexiSpace.Core.csproj, which produced a
+       FlexiSpace.Core.dll - the same assembly name as the API's real
+       FlexiSpace/FlexiSpace.Core project. The code namespaces
+       (Flexispace.Core.*) are unchanged. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>FlexiSpace.Prototype.Core</AssemblyName>
+    <RootNamespace>Flexispace.Core</RootNamespace>
+  </PropertyGroup>
+
+</Project>

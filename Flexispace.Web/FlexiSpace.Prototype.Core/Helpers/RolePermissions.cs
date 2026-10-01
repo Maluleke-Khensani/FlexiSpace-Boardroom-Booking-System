@@ -43,7 +43,13 @@ public static class RolePermissions
     public static bool CanManageUsers(UserRole role) =>
         role is UserRole.Administrator;
 
+    // Matches the API: booking stats and the CSV export are open to Centre
+    // Managers (their own location) and Administrators.
     public static bool CanViewReports(UserRole role) =>
+        role is UserRole.CentreManager or UserRole.Administrator;
+
+    // The audit log (who changed what, when) is Administrator-only on the API.
+    public static bool CanViewAuditLog(UserRole role) =>
         role is UserRole.Administrator;
 
     public static bool CanAccessManageHub(UserRole role) =>
