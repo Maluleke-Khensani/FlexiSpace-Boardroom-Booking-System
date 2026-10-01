@@ -85,10 +85,14 @@ public partial class BookingDetailViewModel(IAuthService auth, IBookingService b
     [ObservableProperty] private TimeSpan editStart = new(9, 0, 0);
     [ObservableProperty] private TimeSpan editEnd = new(10, 0, 0);
 
-    public void SetBookingId(string id)
+    // Returns the load Task so the page can await it (in
+    // OnParametersSetAsync) and re-render when the booking arrives. It used
+    // to fire-and-forget, which only worked against the instant mock data -
+    // with the real API the page stayed on "Loading…" forever.
+    public Task SetBookingId(string id)
     {
         BookingId = id;
-        _ = LoadAsync();
+        return LoadAsync();
     }
 
     [RelayCommand]
@@ -181,10 +185,12 @@ public partial class BookingConfirmationViewModel(IBookingService bookings, INav
     [ObservableProperty] private Booking? booking;
     [ObservableProperty] private bool isPending;
 
-    public void SetBookingId(string id)
+    // Awaited by the page - see BookingDetailViewModel.SetBookingId. This
+    // fire-and-forget was why the screen after booking sat on "Loading…".
+    public Task SetBookingId(string id)
     {
         BookingId = id;
-        _ = LoadAsync();
+        return LoadAsync();
     }
 
     private async Task LoadAsync()

@@ -78,7 +78,7 @@ else
 @code {
     [Parameter] public Guid BookingId { get; set; }
 
-    protected override void OnParametersSet() =>
+    protected override Task OnParametersSetAsync() =>
         Vm.SetBookingId(BookingId.ToString());
 
     private DateOnly EditDateOnly
@@ -89,13 +89,13 @@ else
 
     private string EditStartString
     {
-        get => Vm.EditStart.ToString(@"HH\:mm");
+        get => Vm.EditStart.ToString(@"hh\:mm");
         set { if (TimeSpan.TryParse(value, out var t)) Vm.EditStart = t; }
     }
 
     private string EditEndString
     {
-        get => Vm.EditEnd.ToString(@"HH\:mm");
+        get => Vm.EditEnd.ToString(@"hh\:mm");
         set { if (TimeSpan.TryParse(value, out var t)) Vm.EditEnd = t; }
     }
 

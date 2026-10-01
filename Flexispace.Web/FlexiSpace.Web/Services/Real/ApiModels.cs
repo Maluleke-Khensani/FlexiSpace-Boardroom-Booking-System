@@ -176,9 +176,34 @@ public class ApiBookingStats
     public List<ApiBookingCountBreakdown> ByBoardroom { get; set; } = new();
 }
 
+// Mirrors FlexiSpace.Core.Common.PagedResult<T> - the shape of
+// GET /api/booking/search (a page of results, not a bare array).
+public class ApiPagedResult<T>
+{
+    public List<T> Items { get; set; } = new();
+    public int TotalCount { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+}
+
 // Generic envelope for the handful of endpoints that return a plain
 // { message: "..." } body on error (BadRequest/NotFound with a string,
 // or the RBAC filter's structured 401/403 bodies).
+// One row of GET api/auditlog/recent or api/auditlog/entity/{name}/{id}.
+// Timestamp is UTC (the API stores DateTime.UtcNow).
+public class ApiAuditLog
+{
+    public int Id { get; set; }
+    public int ActingUserId { get; set; }
+    public string? ActingUserName { get; set; }
+    public string Action { get; set; } = string.Empty;
+    public string EntityName { get; set; } = string.Empty;
+    public string EntityId { get; set; } = string.Empty;
+    public DateTime Timestamp { get; set; }
+    public string? OldValues { get; set; }
+    public string? NewValues { get; set; }
+}
+
 public class ApiErrorBody
 {
     public string? Message { get; set; }

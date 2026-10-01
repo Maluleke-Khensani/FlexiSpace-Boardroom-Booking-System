@@ -222,10 +222,12 @@ public partial class LocationDetailViewModel(IAuthService auth, IRoomService roo
 
     public ObservableCollection<Boardroom> Rooms { get; } = [];
 
-    public void SetLocationId(string id)
+    // Awaited by the page so it re-renders once the location and rooms
+    // arrive from the API (fire-and-forget only worked with mock data).
+    public Task SetLocationId(string id)
     {
         LocationId = id;
-        _ = LoadAsync();
+        return LoadAsync();
     }
 
     [RelayCommand]

@@ -1,6 +1,8 @@
 using System.Text;
+using FlexiSpace.Core.Common;
 using FlexiSpace.Core.DTOs.Reporting;
 using FlexiSpace.Core.Entities;
+using FlexiSpace.Core.Enums;
 using FlexiSpace.Core.Services;
 using FlexiSpace.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -10,10 +12,12 @@ namespace FlexiSpace.Infrastructure.Services
     public class ReportingService : IReportingService
     {
         private readonly ApplicationDbContext _context;
+        private readonly ICurrentUserService _currentUserService;
 
-        public ReportingService(ApplicationDbContext context)
+        public ReportingService(ApplicationDbContext context, ICurrentUserService currentUserService)
         {
             _context = context;
+            _currentUserService = currentUserService;
         }
 
         public async Task<BookingStatsResponseDto> GetBookingStatsAsync(
@@ -21,7 +25,9 @@ namespace FlexiSpace.Infrastructure.Services
             DateOnly? toDate,
             int? locationId)
         {
-            var bookings = await FilteredBookingsQuery(fromDate, toDate, locationId)
+            var query = await FilteredBookingsQueryAsync(fromDate, toDate, locationId);
+
+            var bookings = await query
                 .Select(b => new
                 {
                     b.Status,
@@ -69,7 +75,9 @@ namespace FlexiSpace.Infrastructure.Services
             DateOnly? toDate,
             int? locationId)
         {
-            var bookings = await FilteredBookingsQuery(fromDate, toDate, locationId)
+            var query = await FilteredBookingsQueryAsync(fromDate, toDate, locationId);
+
+            var bookings = await query
                 .OrderBy(b => b.BookingDate)
                 .ThenBy(b => b.StartTime)
                 .Select(b => new
@@ -114,11 +122,22 @@ namespace FlexiSpace.Infrastructure.Services
             return Encoding.UTF8.GetBytes(csv.ToString());
         }
 
-        private IQueryable<Booking> FilteredBookingsQuery(
+        // A Centre Manager only ever gets their own location's numbers,
+        // whatever locationId they asked for - the same rule booking
+        // visibility uses. Administrators can pick any location, or all.
+        private async Task<IQueryable<Booking>> FilteredBookingsQueryAsync(
             DateOnly? fromDate,
             DateOnly? toDate,
             int? locationId)
         {
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+
+            if (currentUser?.Role == UserRole.CentreManager)
+            {
+                // No assigned location -> nothing to report on.
+                locationId = currentUser.LocationId ?? -1;
+            }
+
             var query = _context.Bookings
                 .Include(b => b.Boardroom)
                     .ThenInclude(bo => bo!.Location)
@@ -149,6 +168,13 @@ namespace FlexiSpace.Infrastructure.Services
         // free-text and can contain commas.
         private static string CsvEscape(string value)
         {
+            // A cell starting with = + - or @ is run as a formula when the
+            // file is opened in Excel - prefix it so it's shown as text.
+            if (value.Length > 0 && "=+-@".Contains(value[0]))
+            {
+                value = "'" + value;
+            }
+
             if (value.Contains(',') || value.Contains('"') || value.Contains('\n'))
             {
                 return "\"" + value.Replace("\"", "\"\"") + "\"";

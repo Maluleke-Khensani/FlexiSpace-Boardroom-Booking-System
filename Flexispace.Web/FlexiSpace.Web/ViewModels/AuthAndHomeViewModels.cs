@@ -52,7 +52,8 @@ public partial class LoginViewModel(IAuthService auth, INavigationService nav) :
 public partial class HomeViewModel(IAuthService auth, IBookingService bookings, IRoomService rooms, INotificationService notifications, INavigationService nav) : ObservableObject
 {
     [ObservableProperty] private string greeting = "Welcome";
-    [ObservableProperty] private string subtitle = "Book and manage your meeting rooms.";
+    [ObservableProperty] private string subtitle = "You run your business — we run the rest.";
+    [ObservableProperty] private string roleBanner = string.Empty;
     [ObservableProperty] private int unreadCount;
     [ObservableProperty] private bool isEmpty;
     [ObservableProperty] private bool isBusy;
@@ -76,20 +77,22 @@ public partial class HomeViewModel(IAuthService auth, IBookingService bookings, 
                 CanBook = RolePermissions.CanBookRooms(user.Role);
                 CanViewAvailability = RolePermissions.CanViewAvailability(user.Role);
                 CanAccessManage = RolePermissions.CanAccessManageHub(user.Role);
+                RoleBanner = $"{RolePermissions.DisplayName(user.Role)} · {RolePermissions.Describe(user.Role)}";
                 var locationName = user.LocationId is null
                     ? null
                     : (await rooms.GetLocationAsync(user.LocationId))?.Name;
                 Subtitle = user.Role switch
                 {
-                    UserRole.Administrator => "All Flexispace locations",
+                    UserRole.Administrator => "All locations · rooms, users & reports",
                     UserRole.CentreManager => $"Managing {locationName ?? "your centre"}",
-                    UserRole.Client => "Book a room at any Flexispace location",
-                    _ => "Book and manage your meeting rooms"
+                    UserRole.Client => "Self-service booking across Flexispace",
+                    _ => "You run your business — we run the rest."
                 };
             }
             else
             {
                 CanBook = CanViewAvailability = CanAccessManage = false;
+                RoleBanner = string.Empty;
             }
 
             UnreadCount = await notifications.GetUnreadCountAsync();

@@ -10,15 +10,35 @@
     <link rel="stylesheet" href="@Assets["flexispace.css"]" />
     <link rel="stylesheet" href="@Assets["Flexispace.Web.styles.css"]" />
     <ImportMap />
-    <HeadOutlet />
+    <HeadOutlet @rendermode="PageRenderMode" />
 </head>
 
 <body>
     <div class="fs-scroll-progress" aria-hidden="true"><div class="fs-scroll-progress__bar"></div></div>
-    <Routes />
+    <Routes @rendermode="PageRenderMode" />
     <ReconnectModal />
     <script src="@Assets["flexispace.js"]"></script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 
 </html>
+
+@code {
+    // The whole app (router + MainLayout + pages) runs interactively in ONE
+    // Blazor Server circuit. Previously <Routes /> had no render mode, so
+    // only the individual pages were interactive and MainLayout rendered
+    // statically - which meant (a) MainLayout's OnAfterRenderAsync never ran
+    // (the endless "Loading your account..." hang) and (b) MainLayout and
+    // the page each got their *own* RealAuthService instance, so the one the
+    // page used was never initialized and the page redirected to /login
+    // right after a successful sign-in (the sign-in loop).
+    //
+    // Pages opt out of interactivity with [ExcludeFromInteractiveRouting]
+    // (only Error.razor, which needs the real HttpContext) - this is the
+    // standard .NET global-interactivity template pattern.
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    private IComponentRenderMode? PageRenderMode =>
+        HttpContext.AcceptsInteractiveRouting() ? InteractiveServer : null;
+}

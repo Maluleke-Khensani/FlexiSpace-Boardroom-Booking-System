@@ -24,6 +24,12 @@ public class RealBookingService : IBookingService
     private async Task<List<ApiCatering>> GetCateringCatalogueAsync() =>
         _cateringCatalogue ??= await _api.GetAsync<List<ApiCatering>>("api/catering") ?? new();
 
+    public async Task<IReadOnlyList<string>> GetEquipmentOptionsAsync() =>
+        (await GetEquipmentCatalogueAsync()).Where(e => e.IsActive).Select(e => e.Name).ToList();
+
+    public async Task<IReadOnlyList<string>> GetCateringOptionsAsync() =>
+        (await GetCateringCatalogueAsync()).Where(c => c.IsActive).Select(c => c.Name).ToList();
+
     public async Task<IReadOnlyList<Booking>> GetBookingsAsync(
         string? locationId = null, Guid? userId = null, DateTime? day = null)
     {
@@ -39,10 +45,9 @@ public class RealBookingService : IBookingService
         // with a real userId expecting it to filter.
         var query = new List<string>();
         if (!string.IsNullOrWhiteSpace(locationId)) query.Add($"locationId={locationId}");
-        if (day.HasValue) query.Add($"fromDate={DateOnly.FromDateTime(day.Value):O}&toDate={DateOnly.FromDateTime(day.Value):O}");
+        if (day.HasValue) query.Add(DayFilter(day.Value));
 
-        var path = "api/booking/search" + (query.Count > 0 ? "?" + string.Join("&", query) : "");
-        var bookings = await _api.GetAsync<List<ApiBooking>>(path) ?? new();
+        var bookings = await SearchAllAsync(string.Join("&", query));
         return await MapAllAsync(bookings);
     }
 
@@ -54,18 +59,46 @@ public class RealBookingService : IBookingService
         // sees their own bookings - via BookingService.ApplyVisibilityScope
         // on the backend. So the client doesn't need to pass anything
         // extra here; whatever comes back IS "my scope".
-        var path = day.HasValue
-            ? $"api/booking/search?fromDate={DateOnly.FromDateTime(day.Value):O}&toDate={DateOnly.FromDateTime(day.Value):O}"
-            : "api/booking";
-        var bookings = await _api.GetAsync<List<ApiBooking>>(path) ?? new();
+        var bookings = day.HasValue
+            ? await SearchAllAsync(DayFilter(day.Value))
+            : (await _api.GetAsync<List<ApiBooking>>("api/booking") ?? new List<ApiBooking>());
         return await MapAllAsync(bookings);
+    }
+
+    // GET /api/booking/search returns one page ({ items, totalCount, page,
+    // pageSize }), not a bare array - reading it as List<ApiBooking> was
+    // the JsonException on My bookings (and why the dashboard's "Today"
+    // section silently came back empty). This walks every page so callers
+    // still get the full list. The API caps pageSize at 100.
+    private async Task<List<ApiBooking>> SearchAllAsync(string filters)
+    {
+        const int pageSize = 100;
+        const int maxPages = 50; // safety stop: 5,000 bookings
+        var prefix = string.IsNullOrEmpty(filters) ? string.Empty : filters + "&";
+        var all = new List<ApiBooking>();
+
+        for (var page = 1; page <= maxPages; page++)
+        {
+            var result = await _api.GetAsync<ApiPagedResult<ApiBooking>>(
+                $"api/booking/search?{prefix}page={page}&pageSize={pageSize}");
+            if (result is null || result.Items.Count == 0) break;
+
+            all.AddRange(result.Items);
+            if (all.Count >= result.TotalCount) break;
+        }
+
+        return all;
+    }
+
+    private static string DayFilter(DateTime day)
+    {
+        var date = DateOnly.FromDateTime(day);
+        return $"fromDate={date:yyyy-MM-dd}&toDate={date:yyyy-MM-dd}";
     }
 
     public async Task<IReadOnlyList<Booking>> GetTodaysBookingsAsync()
     {
-        var today = DateOnly.FromDateTime(DateTime.Today);
-        var bookings = await _api.GetAsync<List<ApiBooking>>(
-            $"api/booking/search?fromDate={today:O}&toDate={today:O}") ?? new();
+        var bookings = await SearchAllAsync(DayFilter(DateTime.Today));
         return await MapAllAsync(bookings);
     }
 
@@ -170,14 +203,10 @@ public class RealBookingService : IBookingService
         };
     }
 
-    // Same name-matching approach as RealRoomService for showing
-    // equipment names - here it's the reverse direction, turning the
-    // booking form's chosen equipment/catering *names* back into the ids
-    // the real API needs. A name that doesn't match anything in the
-    // catalogue (typo, or the booking form's canned list drifting from
-    // what's actually seeded) is silently dropped rather than failing the
-    // whole booking - flagged in the handover notes as a rough edge to
-    // replace with real catalogue-driven pickers later.
+    // Turns the booking form's chosen equipment/catering *names* back into
+    // the ids the real API needs. The form's options come from these same
+    // catalogues (GetEquipmentOptionsAsync/GetCateringOptionsAsync), so
+    // every name matches.
     private async Task<List<ApiBookingEquipment>> ResolveEquipmentAsync(List<string> names)
     {
         if (names.Count == 0) return new();

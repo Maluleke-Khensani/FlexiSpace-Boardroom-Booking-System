@@ -3,8 +3,12 @@
     @foreach (var slot in Slots)
     {
         var selected = slot == Selected;
+        var unavailable = Earliest.HasValue && slot < Earliest.Value;
         <button type="button"
                 class="fs-time-btn @(selected ? "fs-time-btn--selected" : "")"
+                disabled="@unavailable"
+                style="@(unavailable ? "opacity:.35; cursor:not-allowed" : null)"
+                title="@(unavailable ? "This time has already passed" : null)"
                 @onclick="() => OnSelect.InvokeAsync(slot)">
             @Format(slot)
         </button>
@@ -16,6 +20,10 @@
     [Parameter] public TimeSpan Start { get; set; } = new(7, 0, 0);
     [Parameter] public TimeSpan End { get; set; } = new(19, 0, 0);
     [Parameter] public int StepMinutes { get; set; } = 30;
+
+    // Slots before this are shown but disabled (e.g. times already past
+    // when booking for today). Null = everything selectable.
+    [Parameter] public TimeSpan? Earliest { get; set; }
     [Parameter] public EventCallback<TimeSpan> OnSelect { get; set; }
 
     private IEnumerable<TimeSpan> Slots

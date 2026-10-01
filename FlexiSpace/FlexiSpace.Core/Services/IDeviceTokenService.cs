@@ -13,5 +13,11 @@ namespace FlexiSpace.Core.Services
         Task<bool> RemoveTokenAsync(string token);
 
         Task<IReadOnlyList<string>> GetTokensForUserAsync(int userId);
+
+        // Token + platform ("android" / "ios"), so the push sender can
+        // format each notification for the right service.
+        Task<IReadOnlyList<RegisteredDevice>> GetDevicesForUserAsync(int userId);
     }
+
+    public sealed record RegisteredDevice(string Token, string Platform);
 }

@@ -23,10 +23,10 @@ else
     <div class="fs-content-narrow" style="padding:28px 32px 48px">
         <div class="fs-filter-bar" style="margin-bottom:24px">
             <a href="/my-bookings" class="fs-btn fs-btn--pill">My bookings</a>
-            <a href="/locations" class="fs-btn fs-btn--pill">Locations</a>
+            <a href="/locations" class="fs-btn fs-btn--pill">All locations</a>
             @if (Vm.CanAccessManage)
             {
-                <button type="button" class="fs-btn fs-btn--pill" @onclick="Manage">Manage</button>
+                <button type="button" class="fs-btn fs-btn--pill" @onclick="Manage">Manage console</button>
             }
         </div>
 
@@ -34,7 +34,7 @@ else
             <div style="display:flex">
                 <div class="fs-card__accent" style="background:var(--fs-gold)"></div>
                 <div class="fs-card__body">
-                    <p class="fs-eyebrow" style="font-size:10px">Permissions</p>
+                    <p class="fs-eyebrow" style="font-size:10px">What you can do</p>
                     <p style="font-size:14px; margin:8px 0">@Vm.RoleDescription</p>
                     <hr style="border:none; border-top:1px solid var(--fs-line); margin:12px 0" />
                     <p class="fs-muted" style="font-size:13px; margin:0">Home location · @Vm.Location</p>

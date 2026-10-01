@@ -31,6 +31,9 @@ namespace FlexiSpace.API.Controllers
         [HttpGet("recent")]
         public async Task<IActionResult> GetRecentLogs([FromQuery] int count = 50)
         {
+            // Keep the page and the response a sensible size.
+            count = Math.Clamp(count, 1, 500);
+
             var logs = await _auditService.GetRecentLogsAsync(count);
 
             return Ok(logs.Select(MapToResponseDto));

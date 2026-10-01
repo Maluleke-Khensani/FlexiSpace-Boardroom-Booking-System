@@ -1,0 +1,333 @@
+@* Reports & audit: booking stats with CSV export (Centre Managers, Administrators) and the audit log (Administrators). *@
+@page "/reports"
+@rendermode InteractiveServer
+@inject ReportsViewModel Vm
+@inject IAuthService Auth
+@inject IJSRuntime JS
+@using Flexispace.Web.Services.Real
+
+<PageTitle>Reports · Flexispace</PageTitle>
+
+@if (!Auth.IsAuthenticated)
+{
+    <RedirectToLogin />
+}
+else if (!_ready)
+{
+    <p class="fs-muted">Loading reports…</p>
+}
+else if (!Vm.CanViewReports)
+{
+    <div class="fs-content-wide">
+        <div class="fs-card"><p class="fs-muted" style="margin:0">Reports are available to Centre Managers and Administrators.</p></div>
+    </div>
+}
+else
+{
+    <div class="fs-content-wide">
+        <div class="fs-toolbar" style="margin-bottom:20px">
+            <p class="fs-subheading">
+                @(Vm.Tab == "audit"
+                    ? "Every sign-in and sign-out, and every create, edit and delete made through FlexiSpace: who, when, and what changed."
+                    : Vm.IsAdministrator
+                        ? "Booking numbers across FlexiSpace. Filter by date and location, then download the bookings as a CSV."
+                        : $"Booking numbers for {Vm.OwnLocationName}. Filter by date, then download the bookings as a CSV.")
+            </p>
+            @if (Vm.CanViewAuditLog)
+            {
+                <div class="fs-view-toggle" role="tablist">
+                    <button type="button" role="tab" class="@(Vm.Tab == "bookings" ? "active" : "")" @onclick='() => SwitchTab("bookings")'>Bookings report</button>
+                    <button type="button" role="tab" class="@(Vm.Tab == "audit" ? "active" : "")" @onclick='() => SwitchTab("audit")'>Audit log</button>
+                </div>
+            }
+        </div>
+
+        @if (Vm.Tab == "bookings")
+        {
+            <div class="fs-card" style="margin-bottom:24px">
+                <div class="fs-report-filters">
+                    <div>
+                        <label class="fs-label" for="report-from">From</label>
+                        <input id="report-from" type="date" class="fs-field" @bind="Vm.FromDate" />
+                    </div>
+                    <div>
+                        <label class="fs-label" for="report-to">To</label>
+                        <input id="report-to" type="date" class="fs-field" @bind="Vm.ToDate" />
+                    </div>
+                    <div>
+                        <label class="fs-label" for="report-location">Location</label>
+                        @if (Vm.IsAdministrator)
+                        {
+                            <select id="report-location" class="fs-field" @bind="Vm.LocationId">
+                                <option value="">All locations</option>
+                                @foreach (var location in Vm.Locations)
+                                {
+                                    <option value="@location.Id">@location.Name</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <div class="fs-field fs-report-filters__fixed">@Vm.OwnLocationName</div>
+                        }
+                    </div>
+                    <div class="fs-report-filters__actions">
+                        <button type="button" class="fs-btn fs-btn--gold fs-btn--sm" disabled="@Vm.IsLoadingStats" @onclick="ApplyFilters">
+                            @(Vm.IsLoadingStats ? "Loading…" : "Apply")
+                        </button>
+                        <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" disabled="@Vm.IsExporting" @onclick="DownloadBookings">
+                            @(Vm.IsExporting ? "Preparing…" : "Download CSV")
+                        </button>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(Vm.ReportError))
+                {
+                    <p class="fs-error" style="margin:12px 0 0">@Vm.ReportError</p>
+                }
+            </div>
+
+            @if (Vm.Stats is { } stats)
+            {
+                <div class="fs-stat-grid">
+                    <div class="fs-stat">
+                        <span class="fs-stat__value">@stats.TotalBookings</span>
+                        <span class="fs-stat__label">Total bookings</span>
+                    </div>
+                    <div class="fs-stat">
+                        <span class="fs-stat__value">@StatusCount(stats, "Confirmed")</span>
+                        <span class="fs-stat__label">Confirmed</span>
+                    </div>
+                    <div class="fs-stat">
+                        <span class="fs-stat__value">@StatusCount(stats, "Cancelled")</span>
+                        <span class="fs-stat__label">Cancelled</span>
+                    </div>
+                    <div class="fs-stat">
+                        <span class="fs-stat__value">@StatusCount(stats, "Completed")</span>
+                        <span class="fs-stat__label">Completed</span>
+                    </div>
+                    <div class="fs-stat">
+                        <span class="fs-stat__value">@stats.AverageAttendees.ToString("0.#")</span>
+                        <span class="fs-stat__label">Average attendees</span>
+                    </div>
+                </div>
+
+                @if (stats.TotalBookings == 0)
+                {
+                    <div class="fs-card" style="text-align:center; padding:40px"><p class="fs-muted" style="margin:0">No bookings in this period.</p></div>
+                }
+                else
+                {
+                    <div class="fs-grid-3">
+                        @Breakdown("By location", stats.ByLocation)
+                        @Breakdown("By room", stats.ByBoardroom)
+                        @Breakdown("By status", stats.ByStatus)
+                    </div>
+                }
+            }
+        }
+        else
+        {
+            <div class="fs-card" style="margin-bottom:24px">
+                <div class="fs-report-filters">
+                    <div style="flex:2 1 260px">
+                        <label class="fs-label" for="audit-search">Search</label>
+                        <input id="audit-search" class="fs-field" placeholder="Name, action, or record, e.g. Booking #12" @bind="Vm.AuditSearch" @bind:event="oninput" />
+                    </div>
+                    <div>
+                        <label class="fs-label" for="audit-count">Show</label>
+                        <select id="audit-count" class="fs-field" @bind="Vm.AuditCount" @bind:after="Vm.LoadAuditAsync">
+                            <option value="50">Last 50</option>
+                            <option value="100">Last 100</option>
+                            <option value="250">Last 250</option>
+                            <option value="500">Last 500</option>
+                        </select>
+                    </div>
+                    <div class="fs-report-filters__actions">
+                        <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" disabled="@Vm.IsLoadingAudit" @onclick="Vm.LoadAuditAsync">
+                            @(Vm.IsLoadingAudit ? "Loading…" : "Refresh")
+                        </button>
+                        <button type="button" class="fs-btn fs-btn--gold fs-btn--sm" disabled="@(!Vm.FilteredAudit.Any())" @onclick="DownloadAudit">Download CSV</button>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(Vm.AuditError))
+                {
+                    <p class="fs-error" style="margin:12px 0 0">@Vm.AuditError</p>
+                }
+            </div>
+
+            @if (Vm.HistoryTitle is not null)
+            {
+                <div class="fs-card" style="margin-bottom:24px">
+                    <div class="fs-toolbar">
+                        <strong>History of @Vm.HistoryTitle</strong>
+                        <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="Vm.CloseHistory">Close</button>
+                    </div>
+                    @if (Vm.IsLoadingHistory)
+                    {
+                        <p class="fs-muted" style="margin:0">Loading…</p>
+                    }
+                    else if (Vm.History.Count == 0)
+                    {
+                        <p class="fs-muted" style="margin:0">No history found for this record.</p>
+                    }
+                    else
+                    {
+                        @foreach (var entry in Vm.History)
+                        {
+                            <div class="fs-history-item">
+                                <div class="fs-history-item__head">
+                                    <span class="fs-pill" style="background:@ActionColour(entry.Action)">@entry.Action</span>
+                                    <span>@ReportsViewModel.ToLocal(entry.Timestamp).ToString("dd MMM yyyy, HH:mm")</span>
+                                    <span class="fs-muted">by @(entry.ActingUserName ?? $"user {entry.ActingUserId}")</span>
+                                </div>
+                                @Changes(entry)
+                            </div>
+                        }
+                    }
+                </div>
+            }
+
+            @if (Vm.IsLoadingAudit && !Vm.AuditLoaded)
+            {
+                <p class="fs-muted">Loading the audit log…</p>
+            }
+            else if (!Vm.FilteredAudit.Any())
+            {
+                <div class="fs-card" style="text-align:center; padding:40px">
+                    <p class="fs-muted" style="margin:0">@(Vm.AuditEntries.Count == 0 ? "Nothing has been recorded yet." : "No entries match your search.")</p>
+                </div>
+            }
+            else
+            {
+                <div class="fs-card" style="padding:0; overflow-x:auto">
+                    <table class="fs-table">
+                        <thead>
+                            <tr>
+                                <th>When</th>
+                                <th>Who</th>
+                                <th>Action</th>
+                                <th>Record</th>
+                                <th><span class="fs-visually-hidden">Details</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var entry in Vm.FilteredAudit)
+                            {
+                                var expanded = Vm.ExpandedEntryId == entry.Id;
+                                <tr>
+                                    <td style="white-space:nowrap">@ReportsViewModel.ToLocal(entry.Timestamp).ToString("dd MMM yyyy, HH:mm")</td>
+                                    <td>@(entry.ActingUserName ?? $"User {entry.ActingUserId}")</td>
+                                    <td><span class="fs-pill" style="background:@ActionColour(entry.Action)">@entry.Action</span></td>
+                                    <td>@($"{entry.EntityName} #{entry.EntityId}")</td>
+                                    <td class="fs-table__actions">
+                                        <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="() => ToggleDetails(entry)">@(expanded ? "Hide changes" : "Changes")</button>
+                                        <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="() => Vm.ShowHistoryAsync(entry)">History</button>
+                                    </td>
+                                </tr>
+                                @if (expanded)
+                                {
+                                    <tr class="fs-table__detail">
+                                        <td colspan="5">@Changes(entry)</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    </div>
+}
+
+@code {
+    private bool _ready;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Vm.InitializeAsync();
+        _ready = true;
+    }
+
+    private async Task SwitchTab(string tab)
+    {
+        Vm.Tab = tab;
+        if (tab == "audit" && !Vm.AuditLoaded)
+            await Vm.LoadAuditAsync();
+    }
+
+    private Task ApplyFilters() => Vm.LoadStatsAsync();
+
+    private async Task DownloadBookings()
+    {
+        var (content, fileName) = await Vm.ExportBookingsAsync();
+        if (content is not null)
+            await JS.InvokeVoidAsync("flexispaceDownload", fileName, "text/csv", content);
+    }
+
+    private async Task DownloadAudit()
+    {
+        var (content, fileName) = Vm.BuildAuditCsv();
+        await JS.InvokeVoidAsync("flexispaceDownload", fileName, "text/csv", content);
+    }
+
+    private void ToggleDetails(ApiAuditLog entry) =>
+        Vm.ExpandedEntryId = Vm.ExpandedEntryId == entry.Id ? null : entry.Id;
+
+    private static int StatusCount(ApiBookingStats stats, string status) =>
+        stats.ByStatus.FirstOrDefault(s => string.Equals(s.Label, status, StringComparison.OrdinalIgnoreCase))?.Count ?? 0;
+
+    private static string ActionColour(string action) => action switch
+    {
+        "Create" => "var(--fs-success)",
+        "Update" => "var(--fs-steel)",
+        "Delete" => "var(--fs-danger)",
+        "Login" => "var(--fs-teal)",
+        "Logout" => "var(--fs-clay)",
+        _ => "var(--fs-muted)"
+    };
+
+    private RenderFragment Breakdown(string title, List<ApiBookingCountBreakdown> rows) => __builder =>
+    {
+        var max = rows.Count == 0 ? 1 : Math.Max(1, rows.Max(r => r.Count));
+        <div class="fs-card">
+            <p class="fs-label" style="margin-bottom:14px">@title</p>
+            @foreach (var row in rows)
+            {
+                <div class="fs-bar-row">
+                    <div class="fs-bar-row__text">
+                        <span>@row.Label</span>
+                        <strong>@row.Count</strong>
+                    </div>
+                    <div class="fs-bar-track"><div class="fs-bar-fill" style="width:@(Math.Round(row.Count * 100.0 / max))%"></div></div>
+                </div>
+            }
+        </div>
+    };
+
+    private RenderFragment Changes(ApiAuditLog entry) => __builder =>
+    {
+        var changes = ReportsViewModel.DescribeChanges(entry);
+        if (changes.Count == 0)
+        {
+            <p class="fs-muted" style="margin:0; font-size:13px">No field values were recorded for this change.</p>
+        }
+        else
+        {
+            <table class="fs-table fs-table--compact">
+                <thead>
+                    <tr><th>Field</th><th>Before</th><th>After</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var change in changes)
+                    {
+                        <tr>
+                            <td>@change.Field</td>
+                            <td class="fs-muted">@(change.Before ?? "—")</td>
+                            <td>@(change.After ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    };
+}

@@ -64,5 +64,13 @@ namespace FlexiSpace.Infrastructure.Services
                 .Select(d => d.Token)
                 .ToListAsync();
         }
+
+        public async Task<IReadOnlyList<RegisteredDevice>> GetDevicesForUserAsync(int userId)
+        {
+            return await _context.DeviceTokens
+                .Where(d => d.UserId == userId)
+                .Select(d => new RegisteredDevice(d.Token, d.Platform))
+                .ToListAsync();
+        }
     }
 }

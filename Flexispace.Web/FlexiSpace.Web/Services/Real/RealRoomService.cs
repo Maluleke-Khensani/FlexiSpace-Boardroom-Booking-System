@@ -1,3 +1,4 @@
+using Flexispace.Core.Helpers;
 using Flexispace.Core.Models;
 using Flexispace.Core.Services;
 
@@ -16,6 +17,10 @@ public class RealRoomService : IRoomService
     private readonly FlexiSpaceApiClient _api;
     private List<ApiEquipment>? _equipmentCatalogue;
 
+    // Location id -> name, used to pick room photos (room names repeat
+    // across sites, e.g. "Training Room"). Fetched once per circuit.
+    private Dictionary<int, string>? _locationNames;
+
     public RealRoomService(FlexiSpaceApiClient api)
     {
         _api = api;
@@ -24,6 +29,7 @@ public class RealRoomService : IRoomService
     public async Task<IReadOnlyList<OfficeLocation>> GetLocationsAsync()
     {
         var locations = await _api.GetAsync<List<ApiLocation>>("api/location") ?? new();
+        _locationNames = locations.ToDictionary(l => l.Id, l => l.Name);
         return locations.Select(MapLocation).ToList();
     }
 
@@ -40,12 +46,18 @@ public class RealRoomService : IRoomService
     {
         var boardrooms = await _api.GetAsync<List<ApiBoardroom>>("api/boardroom") ?? new();
         await EnsureEquipmentCatalogueAsync();
+        await EnsureLocationNamesAsync();
 
-        var filtered = string.IsNullOrWhiteSpace(locationId)
-            ? boardrooms
-            : boardrooms.Where(b => b.LocationId.ToString() == locationId).ToList();
+        var all = boardrooms.Select(MapBoardroom).ToList();
+        RoomCombinations.UseRooms(all);
 
-        return filtered.Select(MapBoardroom).ToList();
+        // A combined room (e.g. "Thingamajik + Whachamacallit") isn't listed
+        // as its own choice: users pick one half and tick "conjoin", the same
+        // way the prototype worked. It's still returned by GetRoomAsync.
+        return all
+            .Where(r => !r.IsCombined)
+            .Where(r => string.IsNullOrWhiteSpace(locationId) || r.LocationId == locationId)
+            .ToList();
     }
 
     public async Task<Boardroom?> GetRoomAsync(string roomId)
@@ -56,6 +68,7 @@ public class RealRoomService : IRoomService
         if (!found || boardroom is null) return null;
 
         await EnsureEquipmentCatalogueAsync();
+        await EnsureLocationNamesAsync();
         return MapBoardroom(boardroom);
     }
 
@@ -66,7 +79,7 @@ public class RealRoomService : IRoomService
     // HasBlockConflictAsync). Until/unless a real availability endpoint is
     // added, this returns every room at the location, all reported as
     // whatever their current Status is - it does NOT compute "booked
-    // during that date" the way MockRoomService's demo data faked it.
+    // during that date" the way the old prototype mock data faked it.
     // Good enough for browsing "what rooms exist here", not exact for
     // "is this room free on this specific day" - the booking form's own
     // conflict check on submit is still the real source of truth for that.
@@ -76,6 +89,13 @@ public class RealRoomService : IRoomService
     private async Task EnsureEquipmentCatalogueAsync()
     {
         _equipmentCatalogue ??= await _api.GetAsync<List<ApiEquipment>>("api/equipment") ?? new();
+    }
+
+    private async Task EnsureLocationNamesAsync()
+    {
+        if (_locationNames is not null) return;
+        var locations = await _api.GetAsync<List<ApiLocation>>("api/location") ?? new();
+        _locationNames = locations.ToDictionary(l => l.Id, l => l.Name);
     }
 
     private Boardroom MapBoardroom(ApiBoardroom b) => new()
@@ -90,15 +110,22 @@ public class RealRoomService : IRoomService
             .Select(name => name!)
             .ToList(),
         Status = MapStatus(b.Status),
-        CombinedRoomIds = b.ComponentBoardroomIds.Select(id => id.ToString()).ToList()
+        CombinedRoomIds = b.ComponentBoardroomIds.Select(id => id.ToString()).ToList(),
+        ImageKey = LocationPresentation.RoomImage(
+            _locationNames?.GetValueOrDefault(b.LocationId), b.Name)
     };
 
-    private static OfficeLocation MapLocation(ApiLocation l) => new()
+    private static OfficeLocation MapLocation(ApiLocation l)
     {
-        Id = l.Id.ToString(),
-        Name = l.Name,
-        Address = l.Address
-    };
+        var location = new OfficeLocation
+        {
+            Id = l.Id.ToString(),
+            Name = l.Name,
+            Address = l.Address
+        };
+        LocationPresentation.Apply(location);
+        return location;
+    }
 
     private static RoomStatus MapStatus(ApiBoardroomStatus status) => status switch
     {

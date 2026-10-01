@@ -224,21 +224,30 @@ namespace FlexiSpace.Infrastructure.Services
             await SyncOutlookEventOnCreateAsync(booking, boardroom, currentUser);
             await NotifyCentreManagersAsync(booking, boardroom, currentUser, isLocationChange: false);
 
-            // Tell the booker themselves - in-app (unchanged) plus an
-            // email with the full booking details, sent immediately after
-            // the booking is created, per the team's notification spec.
+            // Tell the booker themselves - in-app plus the formatted HTML
+            // confirmation email (with the location's name and address),
+            // sent immediately after the booking is created.
+            var location = await _context.Locations.FindAsync(boardroom.LocationId);
+
             await NotifyBookerAsync(
                 currentUser,
                 boardroom,
                 booking,
                 inAppTitle: "Booking confirmed",
                 inAppMessage: BuildShortSummary(booking, boardroom, "Your booking for"),
-                emailSubject: $"Booking confirmed - {boardroom.Name}",
-                emailBody: BuildBookingDetailsEmailBody(
-                    booking,
-                    boardroom,
-                    "Your boardroom booking has been confirmed. Here are the details:"),
-                type: NotificationType.BookingCreated);
+                type: NotificationType.BookingCreated,
+                sendEmail: () => _emailService.SendBookingConfirmationAsync(
+                    currentUser.Email,
+                    $"{currentUser.FirstName} {currentUser.LastName}".Trim(),
+                    boardroom.Name,
+                    location?.Name ?? string.Empty,
+                    location?.Address ?? string.Empty,
+                    booking.BookingDate,
+                    booking.StartTime,
+                    booking.EndTime,
+                    booking.NumberOfAttendees,
+                    booking.Company,
+                    booking.Notes));
 
             return booking;
         }
@@ -338,12 +347,14 @@ namespace FlexiSpace.Infrastructure.Services
                 existingBooking.ModifiedAt = DateTime.UtcNow;
                 existingBooking.ModifiedById = currentUser.Id;
 
-                // The time/room changed, so any reminder already queued
-                // against the old slot no longer applies - let the
-                // reminder job re-evaluate this booking against its new
-                // time.
+                // The time/room changed, so reminders already sent for the
+                // old slot no longer apply - clear all three windows (24h,
+                // 2h, 1h) so the reminder job re-evaluates this booking
+                // against its new time.
                 if (dateOrTimeChanging)
                 {
+                    existingBooking.Reminder24hSentAt = null;
+                    existingBooking.Reminder2hSentAt = null;
                     existingBooking.ReminderSentAt = null;
                 }
 
@@ -1073,9 +1084,10 @@ namespace FlexiSpace.Infrastructure.Services
             Booking booking,
             string inAppTitle,
             string inAppMessage,
-            string emailSubject,
-            string emailBody,
-            NotificationType type)
+            NotificationType type,
+            string? emailSubject = null,
+            string? emailBody = null,
+            Func<Task>? sendEmail = null)
         {
             try
             {
@@ -1096,7 +1108,16 @@ namespace FlexiSpace.Infrastructure.Services
 
             try
             {
-                await _emailService.SendEmailAsync(booker.Email, emailSubject, emailBody);
+                // A caller can supply its own email (e.g. the HTML booking
+                // confirmation); otherwise the plain-text subject/body is sent.
+                if (sendEmail != null)
+                {
+                    await sendEmail();
+                }
+                else if (emailSubject != null && emailBody != null)
+                {
+                    await _emailService.SendEmailAsync(booker.Email, emailSubject, emailBody);
+                }
             }
             catch (Exception ex)
             {

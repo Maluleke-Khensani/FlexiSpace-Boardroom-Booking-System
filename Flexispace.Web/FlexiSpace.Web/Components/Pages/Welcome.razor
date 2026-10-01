@@ -6,7 +6,7 @@
 @inject INavigationService Nav
 @inject PrivacyConsentService Consent
 
-<PageTitle>Flexispace — Meeting rooms</PageTitle>
+<PageTitle>Flexispace — Flexible office solutions</PageTitle>
 
 @if (!Ready)
 {
@@ -26,13 +26,14 @@ else
         <div class="fs-welcome__bg"></div>
         <div class="fs-welcome__content">
             <img class="fs-welcome__logo" src="/images/flexispace_logo.png" alt="Flexispace" />
-            <p class="fs-eyebrow fs-eyebrow--gold">Meeting rooms</p>
-            <h1>Book a professionally appointed <em>boardroom</em></h1>
+            <p class="fs-eyebrow fs-eyebrow--gold">Work outside of the box</p>
+            <h1>Meet your new <em>super flexible</em> private office solution</h1>
             <p class="fs-welcome__lede">
-                Centurion, Houghton Estate, and Eagle Canyon.
+                You run your business — we run the rest. Book professionally appointed meeting rooms across Centurion, Houghton &amp; Eagle Canyon.
             </p>
-            <div class="fs-stack" style="margin-top:36px; max-width:320px; margin-left:auto; margin-right:auto">
-                <button type="button" class="fs-btn fs-btn--gold fs-btn--block" @onclick="GetStarted">Sign in</button>
+            <div class="fs-stack" style="margin-top:36px; max-width:380px; margin-left:auto; margin-right:auto">
+                <button type="button" class="fs-btn fs-btn--gold fs-btn--block" @onclick="GetStarted">Get a quote · Book a room</button>
+                <p class="fs-muted" style="font-size:12px; text-align:center; color:#8a847c">Rent daily, weekly or monthly · No lease</p>
                 <a class="fs-welcome__privacy-link" href="/privacy">Privacy policy</a>
             </div>
         </div>

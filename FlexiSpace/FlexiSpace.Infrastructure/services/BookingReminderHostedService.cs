@@ -9,9 +9,10 @@ using Microsoft.Extensions.Logging;
 
 namespace FlexiSpace.Infrastructure.Services
 {
-    // Sends booking reminders at three lead times: 24 hours before, 2 hours
-    // before (in-app only), and 1 hour before (in-app + email with the full
-    // booking details). This consolidates two reminder systems that were
+    // Sends booking reminders at three lead times: 24 hours before (in-app +
+    // email), 2 hours before (in-app only), and 1 hour before (in-app + email).
+    // The two emails are the project plan's "Reminder (24 hrs)" and
+    // "Reminder (1 hr)"; both carry the full booking details. This consolidates two reminder systems that were
     // built independently and merged here - see Booking.ReminderSentAt /
     // Reminder24hSentAt / Reminder2hSentAt, one stamp per window, so each
     // window fires exactly once per booking no matter how often this polls.
@@ -138,6 +139,21 @@ namespace FlexiSpace.Infrastructure.Services
                 if (booking.Reminder24hSentAt == null && startsAt <= nowSouthAfrica.AddHours(24))
                 {
                     await SendInAppReminderAsync(notificationService, booking, "24 hours");
+
+                    // A booking made less than 2 hours ahead is already inside the
+                    // 2-hour window too; it gets the 1-hour email shortly, so skip
+                    // a second email here that would land at almost the same time.
+                    if (startsAt > nowSouthAfrica.AddHours(2))
+                    {
+                        await SendReminderEmailAsync(
+                            emailService,
+                            booking,
+                            $"Reminder - your booking is tomorrow ({booking.Boardroom.Name})",
+                            "This is a reminder that you have a boardroom booking in about 24 hours. Here are the details:");
+                    }
+
+                    // Stamped even if the email failed - same reasoning as the
+                    // 1-hour reminder below.
                     booking.Reminder24hSentAt = DateTime.UtcNow;
                     changed = true;
                 }
@@ -201,8 +217,27 @@ namespace FlexiSpace.Infrastructure.Services
             }
         }
 
-        // The 24h/2h reminders are in-app only - the 1-hour one above is
-        // the richer email + in-app reminder with full booking details.
+        // Emails a reminder with the full booking details. Never throws: a
+        // failed send is logged and the reminder counts as missed.
+        private async Task SendReminderEmailAsync(IEmailService emailService, Booking booking, string subject, string leadLine)
+        {
+            try
+            {
+                var body = BookingService.BuildBookingDetailsEmailBody(booking, booking.Boardroom!, leadLine);
+                await emailService.SendEmailAsync(booking.User!.Email, subject, body);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to email reminder '{Subject}' for booking {BookingId}.",
+                    subject,
+                    booking.Id);
+            }
+        }
+
+        // In-app reminder used by the 24-hour and 2-hour windows (the
+        // 1-hour one above builds its own in-app message).
         private async Task SendInAppReminderAsync(INotificationService notificationService, Booking booking, string window)
         {
             try

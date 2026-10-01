@@ -82,6 +82,56 @@ namespace FlexiSpace.API.Controllers
             return Ok(MapToResponseDto(currentUser));
         }
 
+        // Login history (project plan, Security: "Audit logs for ... login
+        // history"). The web and mobile apps call these right after a
+        // Microsoft sign-in completes and just before signing out, so each
+        // shows up in the audit log as a Login / Logout entry against the
+        // user. Any signed-in user can record their own; nobody can record
+        // one for someone else.
+        [HttpPost("me/sign-in")]
+        public Task<IActionResult> RecordSignIn([FromQuery] string? client) =>
+            RecordSessionEventAsync(AuditAction.Login, client);
+
+        [HttpPost("me/sign-out")]
+        public Task<IActionResult> RecordSignOut([FromQuery] string? client) =>
+            RecordSessionEventAsync(AuditAction.Logout, client);
+
+        private async Task<IActionResult> RecordSessionEventAsync(AuditAction action, string? client)
+        {
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+
+            if (currentUser == null)
+            {
+                return NotFound(new
+                {
+                    message = "No FlexiSpace account is linked to this sign-in yet."
+                });
+            }
+
+            // A page refresh straight after signing in can report the same
+            // sign-in twice - one entry per two minutes is plenty.
+            var recent = await _auditService.GetLogsForEntityAsync(nameof(User), currentUser.Id.ToString());
+            var cutoff = DateTime.UtcNow.AddMinutes(-2);
+
+            if (recent.Any(l => l.Action == action && l.UserId == currentUser.Id && l.Timestamp > cutoff))
+            {
+                return NoContent();
+            }
+
+            var clientName = string.IsNullOrWhiteSpace(client)
+                ? "Unknown"
+                : client.Trim()[..Math.Min(client.Trim().Length, 20)];
+
+            await _auditService.LogAsync(
+                currentUser.Id,
+                action,
+                entityName: nameof(User),
+                entityId: currentUser.Id.ToString(),
+                newValues: JsonSerializer.Serialize(new { Client = clientName, currentUser.Email }));
+
+            return NoContent();
+        }
+
         // Retrieves all users that have been provisioned
         // into the FlexiSpace database.
         [HttpGet]

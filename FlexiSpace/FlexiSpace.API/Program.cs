@@ -2,7 +2,6 @@ using FlexiSpace.Core.Common;
 using FlexiSpace.Core.Services;
 using FlexiSpace.Infrastructure.Persistence;
 using FlexiSpace.Infrastructure.Seed;
-using FlexiSpace.Infrastructure.services;
 using FlexiSpace.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Identity.Web;
@@ -57,10 +56,21 @@ namespace FlexiSpace.API
             });
 
             // Register the database context and configure SQL Server
-            // as the database provider.
+            // as the database provider. The connection string is NOT kept in
+            // appsettings (see DATABASE_BACKEND_HANDOVER.md, section 15):
+            // each developer sets their own in user secrets, and Azure sets
+            // it in App Service configuration.
+            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException(
+                    "ConnectionStrings:DefaultConnection is not set. Run (from the repo root): " +
+                    "dotnet user-secrets set \"ConnectionStrings:DefaultConnection\" \"<your connection string>\" " +
+                    "--project FlexiSpace/FlexiSpace.API");
+            }
+
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseSqlServer(
-                    builder.Configuration.GetConnectionString("DefaultConnection")));
+                options.UseSqlServer(connectionString));
 
             builder.Services.AddScoped<IEntraUserService>(sp =>
             {
@@ -124,9 +134,12 @@ namespace FlexiSpace.API
             // credentials used for calendar sync above. Needs the
             // Mail.Send Application permission granted on that app
             // registration, plus a MicrosoftGraph:SenderEmail mailbox to
-            // send from (a shared mailbox, not a specific person's inbox -
-            // currently configured as testuser@yourtenant.omnimicrosoft.com,
-            // see appsettings.json).
+            // send from (a real, licensed mailbox in the tenant - ideally a
+            // shared one). SenderEmail is deliberately blank in
+            // appsettings.json: set it in user secrets / App Service
+            // settings. Until it's set, emails are skipped and a warning is
+            // logged at startup (it used to hold a placeholder address,
+            // which turned email ON and made every send fail).
             if (graphAppCredentialsConfigured && !string.IsNullOrWhiteSpace(graphSenderEmail))
             {
                 builder.Services.AddScoped<IEmailService>(sp =>
@@ -175,19 +188,19 @@ namespace FlexiSpace.API
             // throws on the very first notification (booking created, etc.)
             // - this was present in code but missing here.
             builder.Services.AddScoped<IDeviceTokenService, DeviceTokenService>();
-            builder.Services.AddScoped<IPushNotificationSender, FcmPushNotificationSender>();
+            // Azure Notification Hubs (replaced the direct Firebase sender -
+            // the client's architecture is Azure-only). A no-op until
+            // NotificationHubs:ConnectionString and :HubName are set.
+            builder.Services.AddScoped<IPushNotificationSender, AzureNotificationHubPushSender>();
 
-            // Scans for bookings needing a 24h/2h reminder push - see
-            // BookingReminderHostedService for why this has to be a timer
-            // rather than triggered from a controller.
-            builder.Services.AddHostedService<BookingReminderHostedService>();
-
-            // Background job: sends the "your booking starts in about an
-            // hour" email + in-app reminder. Polls every 5 minutes - see
+            // Background job for all booking reminders: 24 hours and 2
+            // hours before (in-app/push), and 1 hour before (email +
+            // in-app). Polls every 5 minutes - see
             // BookingReminderHostedService for how it avoids double-
             // sending. A hosted service is a singleton by convention, so
             // it resolves its own DI scope per pass rather than taking any
-            // Scoped service directly in its constructor.
+            // Scoped service directly in its constructor. (This used to be
+            // registered twice after a merge.)
             builder.Services.AddHostedService<BookingReminderHostedService>();
 
 
@@ -223,14 +236,41 @@ namespace FlexiSpace.API
             // I've finished configuring everything. Now build the application.
             var app = builder.Build();
 
-            // Seed database
-            using (var scope = app.Services.CreateScope())
+            // Say clearly at startup which outbound channels are off, instead
+            // of failing quietly on every booking.
+            if (!graphAppCredentialsConfigured || string.IsNullOrWhiteSpace(graphSenderEmail))
             {
+                app.Logger.LogWarning(
+                    "Email notifications are OFF: set MicrosoftGraph:TenantId, ClientId, ClientSecret and SenderEmail " +
+                    "(user secrets or App Service settings). The app registration also needs the Mail.Send application permission.");
+            }
+
+            if (string.IsNullOrWhiteSpace(app.Configuration["NotificationHubs:ConnectionString"])
+                || string.IsNullOrWhiteSpace(app.Configuration["NotificationHubs:HubName"]))
+            {
+                app.Logger.LogWarning(
+                    "Mobile push notifications are OFF: set NotificationHubs:ConnectionString and NotificationHubs:HubName.");
+            }
+
+            // Seed the database - Development only, as the backend handover
+            // (section 16) requires. In Azure, real reference data and the
+            // first administrator are set up by hand instead.
+            if (app.Environment.IsDevelopment())
+            {
+                using var scope = app.Services.CreateScope();
                 var context = scope.ServiceProvider
                     .GetRequiredService<ApplicationDbContext>();
 
+                // Real sites, boardrooms, equipment and catering first, so the seeded
+                // users are attached to a real location. Only adds what's
+                // missing.
+                await FlexiSpace.Infrastructure.Seed.ReferenceDataSeeder
+                    .SeedLocationsAndBoardroomsAsync(context);
+
+                // Seeded people come from configuration (SeedUsers:*), not
+                // code - see DatabaseSeeder.
                 await FlexiSpace.Infrastructure.Seed.DatabaseSeeder
-                    .SeedUsersAsync(context);
+                    .SeedUsersAsync(context, app.Configuration);
             }
 
             // Configure the HTTP request pipeline.

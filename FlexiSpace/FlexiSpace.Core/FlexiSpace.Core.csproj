@@ -6,11 +6,4 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-   <Folder Include="Common\" />
-    <Folder Include="DTOs\Catering\" />
-    <Folder Include="DTOs\Notification\" />
-    <Folder Include="Validators\" />
-  </ItemGroup>
-
 </Project>

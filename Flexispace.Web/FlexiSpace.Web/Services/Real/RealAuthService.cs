@@ -1,6 +1,6 @@
 using Flexispace.Core.Models;
 using Flexispace.Core.Services;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Components.Authorization;
 
 namespace Flexispace.Web.Services.Real;
 
@@ -21,7 +21,7 @@ namespace Flexispace.Web.Services.Real;
 // folder that reads HttpContext or calls the API on the user's behalf.
 public class RealAuthService : IAuthService, IAsyncAuthInitializer
 {
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly AuthenticationStateProvider _authenticationStateProvider;
     private readonly FlexiSpaceApiClient _api;
 
     private bool _initialized;
@@ -29,17 +29,46 @@ public class RealAuthService : IAuthService, IAsyncAuthInitializer
 
     public event EventHandler? AuthStateChanged;
 
-    public RealAuthService(IHttpContextAccessor httpContextAccessor, FlexiSpaceApiClient api)
+    public RealAuthService(AuthenticationStateProvider authenticationStateProvider, FlexiSpaceApiClient api)
     {
-        _httpContextAccessor = httpContextAccessor;
+        _authenticationStateProvider = authenticationStateProvider;
         _api = api;
     }
 
     // True the moment Entra sign-in succeeded, even if this person hasn't
     // been provisioned into FlexiSpace's Users table yet - see CurrentUser
     // below for how those two states are told apart.
-    public bool IsAuthenticated =>
-        _httpContextAccessor.HttpContext?.User.Identity?.IsAuthenticated ?? false;
+    //
+    // Read straight from AuthenticationStateProvider (the circuit-safe
+    // source Program.cs's AddCascadingAuthenticationState() populates for
+    // both prerendering and the interactive circuit) rather than
+    // IHttpContextAccessor, which isn't reliable inside a circuit.
+    //
+    // It's read synchronously on every access - NOT cached from
+    // EnsureInitializedAsync - so it's correct from the very first render,
+    // before anything has awaited anything. (An earlier version cached it
+    // in EnsureInitializedAsync, which made it read false until that ran;
+    // pages that checked it first then redirected a signed-in user to
+    // /login.) On Blazor Server the provider's task is already completed
+    // by the time any component renders, so this doesn't block.
+    public bool IsAuthenticated
+    {
+        get
+        {
+            try
+            {
+                var task = _authenticationStateProvider.GetAuthenticationStateAsync();
+                return task.IsCompletedSuccessfully
+                    && task.Result.User.Identity?.IsAuthenticated == true;
+            }
+            catch (InvalidOperationException)
+            {
+                // ServerAuthenticationStateProvider throws if asked before
+                // the framework has set the state - treat as signed out.
+                return false;
+            }
+        }
+    }
 
     // Null in two cases the UI is expected to treat the same way (see
     // UserController.GetMyProfile's comment on the API side): not signed
@@ -53,23 +82,41 @@ public class RealAuthService : IAuthService, IAsyncAuthInitializer
         if (_initialized) return;
         _initialized = true;
 
-        if (!IsAuthenticated) return;
+        var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated != true) return;
 
+        // Deliberately not wrapped in try/catch: a genuine failure here
+        // (API unreachable, TLS trust issue, etc.) should surface as a
+        // visible circuit error rather than leaving MainLayout's "Loading
+        // your account..." spinning forever with nothing in the logs - see
+        // MainLayout.OnAfterRenderAsync, which now has a timeout specifically
+        // to turn a hang like that into a visible failure instead.
         var (found, apiUser) = await _api.TryGetAsync<ApiUser>("api/user/me");
         _currentUser = found && apiUser is not null ? MapUser(apiUser) : null;
     }
 
     // Real sign-in doesn't take an email/password - it's the "Sign in
-    // with Microsoft" redirect on Login.razor. This stays implemented
-    // (rather than removed from the interface, which MockAuthService also
-    // implements) so nothing that references IAuthService.LoginAsync
-    // elsewhere fails to compile; it simply isn't the real entry point
-    // any more.
+    // with Microsoft" redirect on Login.razor. LoginAsync is still on the
+    // shared IAuthService interface (the mobile app uses it), so it's
+    // implemented here as a no-op.
     public Task<bool> LoginAsync(string email, string password) =>
         Task.FromResult(false);
 
-    public Task LogoutAsync()
+    // Login history: tells the API a sign-in just completed (see
+    // MainLayout, which calls this once after the Microsoft redirect lands
+    // on /home?signedIn=1). Best effort - never blocks or breaks the page.
+    public async Task RecordSignInAsync()
     {
+        try { await _api.PostAsync("api/user/me/sign-in?client=web", new { }); }
+        catch { /* the audit entry is nice to have, not worth an error */ }
+    }
+
+    public async Task LogoutAsync()
+    {
+        // Recorded before the session is cleared, while the token still works.
+        try { await _api.PostAsync("api/user/me/sign-out?client=web", new { }); }
+        catch { /* best effort, as above */ }
+
         _currentUser = null;
         _initialized = false;
         AuthStateChanged?.Invoke(this, EventArgs.Empty);
@@ -77,7 +124,6 @@ public class RealAuthService : IAuthService, IAsyncAuthInitializer
         // not just this app's cookie) is triggered separately - see
         // Profile.razor / ProfileViewModel.LogoutAsync, which does a
         // forceLoad navigate to MicrosoftIdentity/Account/SignOut.
-        return Task.CompletedTask;
     }
 
     // Demo-user switching was a prototype-only convenience for trying

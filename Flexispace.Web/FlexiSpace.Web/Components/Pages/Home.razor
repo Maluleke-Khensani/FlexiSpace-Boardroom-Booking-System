@@ -16,17 +16,18 @@ else
     <div class="fs-hero-band">
         <FloatingDecor Variant="welcome" />
         <div class="fs-hero-band__inner">
-            <p class="fs-eyebrow fs-eyebrow--gold">Dashboard</p>
+            <p class="fs-eyebrow fs-eyebrow--gold">Meeting rooms</p>
             <h1 class="fs-heading" style="color:var(--fs-ivory)">@Vm.Greeting</h1>
             <p class="fs-hero-band__subtitle">@Vm.Subtitle</p>
-            @if (Vm.UnreadCount > 0)
+            @if (!string.IsNullOrEmpty(Vm.RoleBanner))
             {
-                <a class="fs-hero-band__meta" href="/notifications">@Vm.UnreadCount unread @(Vm.UnreadCount == 1 ? "alert" : "alerts")</a>
+                <p class="fs-hero-band__meta">@Vm.RoleBanner</p>
             }
+            <a class="fs-hero-band__meta" href="/notifications">@Vm.UnreadCount unread @(Vm.UnreadCount == 1 ? "alert" : "alerts")</a>
             <div class="fs-flex" style="margin-top:20px">
                 @if (Vm.CanBook)
                 {
-                    <button type="button" class="fs-btn fs-btn--gold" @onclick="Book">Book a room</button>
+                    <button type="button" class="fs-btn fs-btn--gold" @onclick="Book">Book a boardroom</button>
                 }
                 @if (Vm.CanAccessManage)
                 {
@@ -39,8 +40,14 @@ else
 
     <div class="fs-content-wide" style="padding:32px">
         <section class="fs-section-block">
-            <h2 class="fs-section-title">Included with every room</h2>
-            <div class="fs-perk-grid" style="margin-top:20px">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px">
+                <span class="fs-section-num">01</span>
+                <div>
+                    <h2 class="fs-section-title">Brilliant office solutions</h2>
+                    <p class="fs-muted" style="font-size:13px; margin:4px 0 0">Professionally appointed meeting rooms with the Flexispace essentials.</p>
+                </div>
+            </div>
+            <div class="fs-perk-grid">
                 @foreach (var perk in Perks)
                 {
                     <div class="fs-perk-card">
@@ -54,14 +61,17 @@ else
         </section>
 
         <section class="fs-section-block">
-            <h2 class="fs-section-title">Today</h2>
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px">
+                <span class="fs-section-num">02</span>
+                <h2 class="fs-section-title">Today at Flexispace</h2>
+            </div>
             @if (Vm.IsEmpty)
             {
-                <p class="fs-muted" style="margin-top:12px">No bookings scheduled for today.</p>
+                <p class="fs-muted">No bookings for today yet. Reserve a room to get started.</p>
             }
             else
             {
-                <div class="fs-grid-2" style="margin-top:16px">
+                <div class="fs-grid-2">
                     @foreach (var booking in Vm.TodaysBookings)
                     {
                         <div class="fs-card--elevated fs-card--clickable" @onclick="() => OpenBooking(booking)">
@@ -86,10 +96,14 @@ else
         </section>
 
         <section class="fs-section-block">
-            <h2 class="fs-section-title">Locations</h2>
-            <div style="margin-top:16px">
-                <LocationCarousel Items="Vm.Locations" OnSelect="OpenLocationAsync" />
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px">
+                <span class="fs-section-num">03</span>
+                <div>
+                    <h2 class="fs-section-title">Our spaces</h2>
+                    <p class="fs-muted" style="font-size:13px; margin:4px 0 0">Use arrow keys, chevrons, or click a location to explore.</p>
+                </div>
             </div>
+            <LocationCarousel Items="Vm.Locations" OnSelect="OpenLocationAsync" />
         </section>
     </div>
 }
@@ -97,12 +111,13 @@ else
 @code {
     private static readonly (string Label, string Icon, string Tone)[] Perks =
     [
+        ("24/7 Access", "building", "gold"),
         ("Uncapped Wi-Fi", "wifi", "gold"),
         ("Backup power", "bolt", "teal"),
         ("Tea & coffee", "coffee", "clay"),
         ("Secure parking", "parking", "steel"),
-        ("Conference calling", "calendar", "success"),
-        ("From R150 / hour", "building", "gold")
+        ("From R150 / hour", "calendar", "success"),
+        ("No lease", "building", "gold")
     ];
 
     protected override async Task OnInitializedAsync() =>
