@@ -47,6 +47,8 @@
 		     to avoid a NuGet "package downgrade" restore error. -->
 		<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
 		<PackageReference Include="Microsoft.Identity.Client" Version="4.66.2" />
+		<!-- Windows account broker (WAM) sign-in - see MsalTokenProvider. Keep in step with Microsoft.Identity.Client. -->
+		<PackageReference Include="Microsoft.Identity.Client.Broker" Version="4.66.2" />
 	</ItemGroup>
 
 </Project>

@@ -2,21 +2,12 @@ using Flexispace.Mobile.Models;
 
 namespace Flexispace.Mobile.Services.Real;
 
-// Real sign-in is Microsoft Entra ID via MSAL.NET (MsalTokenProvider) -
-// LoginAsync pops the interactive sign-in window regardless of what's
-// typed into the Email/Password fields on LoginPage (those stay in the
-// UI only so the "Use demo account" buttons and layout don't need
-// touching; tapping either now just triggers the same real sign-in).
-// Once MSAL confirms who signed in, GET /api/user/me resolves that
-// person's FlexiSpace identity (Id, Role, LocationId) - not every Entra
-// user is necessarily provisioned into FlexiSpace's Users table yet, see
-// CurrentUser below for how that's told apart from "not signed in at
-// all".
+// Sign-in is Microsoft Entra ID via MSAL.NET (MsalTokenProvider). Once MSAL
+// confirms who signed in, GET api/user/me resolves that person's FlexiSpace
+// identity (role, location). An Entra account that isn't in FlexiSpace's
+// Users table gets a clear message instead of a half-signed-in app.
 //
-// Registered Singleton in MauiProgram.cs - this is a single-user device
-// app (unlike Flexispace.Web, which needs one instance per browser
-// circuit), so one shared CurrentUser for the app's lifetime is correct,
-// matching how MockAuthService was already registered.
+// Singleton (see MauiProgram.cs): one signed-in person per device.
 public class RealAuthService : IAuthService
 {
     private readonly MsalTokenProvider _tokenProvider;
@@ -36,52 +27,65 @@ public class RealAuthService : IAuthService
 
     public bool IsAuthenticated => _currentUser is not null;
 
-    // email/password are ignored - see the class comment. Returns true
-    // only once both the Entra sign-in AND the /api/user/me lookup
-    // succeed, so "logged in but nobody's provisioned you yet" correctly
-    // shows the same "couldn't log in" error LoginViewModel already
-    // displays for bad demo credentials, rather than pretending to be
-    // signed in with a null profile.
-    public async Task<bool> LoginAsync(string email, string password)
+    public async Task<SignInResult> SignInAsync()
     {
-        var result = await _tokenProvider.AcquireTokenInteractiveAsync();
-        if (result is null)
+        var signIn = await _tokenProvider.AcquireTokenInteractiveAsync();
+        if (signIn.Cancelled)
+            return SignInResult.Cancelled;
+        if (signIn.Result is null)
+            return SignInResult.Failed($"Microsoft sign-in didn't complete. {signIn.Error}".Trim());
+
+        bool found;
+        ApiUser? apiUser;
+        try
         {
-            return false;
+            (found, apiUser) = await _api.TryGetAsync<ApiUser>("api/user/me");
+        }
+        catch (HttpRequestException)
+        {
+            await _tokenProvider.SignOutAsync();
+            return SignInResult.Failed(
+                $"Signed in, but the FlexiSpace API at {ApiConfig.ApiBaseUrl} isn't reachable. Make sure it's running.");
         }
 
-        var (found, apiUser) = await _api.TryGetAsync<ApiUser>("api/user/me");
-        _currentUser = found && apiUser is not null ? MapUser(apiUser) : null;
+        if (!found || apiUser is null)
+        {
+            // Clear the MSAL account so the next attempt can pick a different one.
+            await _tokenProvider.SignOutAsync();
+            return SignInResult.Failed(
+                $"{signIn.Result.Account.Username} isn't set up in FlexiSpace yet. Ask an administrator to add you.");
+        }
 
+        _currentUser = MapUser(apiUser);
         AuthStateChanged?.Invoke(this, EventArgs.Empty);
-        return _currentUser is not null;
+
+        await RecordAsync("api/user/me/sign-in?client=mobile");
+        return SignInResult.Success;
     }
 
     public async Task LogoutAsync()
     {
+        // Recorded before the token is cleared - the call needs it.
+        if (_currentUser is not null)
+            await RecordAsync("api/user/me/sign-out?client=mobile");
+
         _currentUser = null;
         await _tokenProvider.SignOutAsync();
         AuthStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    // Demo-user switching was a prototype-only convenience for trying
-    // different roles without real accounts. There's no equivalent with
-    // real Entra sign-in - switching roles now means an Administrator
-    // changing your role via the website's admin dashboard (PUT
-    // /api/user/{id}) and you signing in again.
-    public Task SwitchDemoUserAsync(string email) => Task.CompletedTask;
-
-    public IReadOnlyList<User> GetDemoUsers() => Array.Empty<User>();
+    // Login history for the audit log. Best effort: never blocks sign-in/out.
+    private async Task RecordAsync(string path)
+    {
+        try { await _api.PostAsync(path, new { }); }
+        catch { /* the audit entry is nice to have, not worth an error */ }
+    }
 
     private static User MapUser(ApiUser api) => new()
     {
-        // The prototype's User.Id is a Guid; the real backend's is an
-        // int. There's no lossless int->Guid mapping, and nothing in the
-        // UI does arithmetic on User.Id (it's only ever compared/
-        // displayed), so EntraObjectId - which the API already returns
-        // and which uniquely and stably identifies this person - is used
-        // here instead of fabricating a Guid from the int id. Same
-        // approach as Flexispace.Web's RealAuthService.
+        // The app's User.Id is a Guid and the API's is an int, so the
+        // Entra object id (stable and unique per person) is used instead.
+        // Same approach as Flexispace.Web's RealAuthService.
         Id = api.EntraObjectId,
         Name = $"{api.FirstName} {api.LastName}".Trim(),
         Email = api.Email,

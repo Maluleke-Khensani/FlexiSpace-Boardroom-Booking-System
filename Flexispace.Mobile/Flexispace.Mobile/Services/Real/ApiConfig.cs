@@ -4,37 +4,37 @@ namespace Flexispace.Mobile.Services.Real;
 // don't belong hardcoded inside individual services. MAUI has no
 // appsettings.json/IConfiguration pipeline wired up by default the way
 // ASP.NET does (see Flexispace.Web's appsettings.json for the web
-// equivalent of these same values) - these are plain constants instead,
-// same spirit as the mock services' own SeedData.cs.
+// equivalent of these same values) - these are plain constants instead.
 //
-// IMPORTANT - two things must be true in Azure before sign-in works:
-// 1. TenantId/ClientId below are the SAME Entra app registration the API
-//    and Web already use (see Flexispace.Web/appsettings.json's AzureAd
-//    section) - reused here because it's one registration serving several
-//    "platforms" (the TestClient's SPA platform, Web's confidential Web
-//    platform, and now this one).
-// 2. That registration needs a "Mobile and desktop applications" platform
-//    added (Azure Portal -> App registrations -> this app -> Authentication
-//    -> Add a platform), with the redirect URI MSAL.NET's
-//    PublicClientApplicationBuilder.WithDefaultRedirectUri() expects
-//    (currently "http://localhost") added under it, and "Allow public
-//    client flows" switched to Yes. Until Khensani (or whoever owns the
-//    app registration) does that one-time step, MsalTokenProvider's
-//    interactive sign-in will fail with AADSTS7000218/9002326-style
-//    errors - that's a config gap, not a bug in this code.
+// Entra app registrations (Khensani owns them): the API, the Web app and
+// this Mobile app each have their own. This app signs in as the Mobile
+// registration and asks for a token to call the API.
+//
+// The Mobile registration needs, once:
+// 1. Authentication -> "Mobile and desktop applications" platform with the
+//    redirect URI used by Windows' account broker (WAM - see
+//    MsalTokenProvider):
+//      ms-appx-web://microsoft.aad.brokerplugin/85378c65-ead1-4b71-956a-389142bd3342
+//    and "Allow public client flows" set to Yes. Missing it gives
+//    AADSTS50011 (redirect URI not registered) or AADSTS7000218.
+// 2. API permissions -> the API registration's "access_as_user" delegated
+//    permission (with admin consent), so it can request the token below.
 public static class ApiConfig
 {
-    // Same tenant/app registration as Flexispace.Web/appsettings.json's
-    // AzureAd section and the React TestClient's authConfig.js.
     public const string TenantId = "2427e95a-1238-4880-8236-996db36bc62c";
-    public const string ClientId = "77163347-59be-48f4-8675-535af30a3a53";
+
+    // This app's own registration ("Mobile").
+    public const string ClientId = "85378c65-ead1-4b71-956a-389142bd3342";
+
+    // The API's registration - only used to name the scope we ask for.
+    public const string ApiClientId = "77163347-59be-48f4-8675-535af30a3a53";
 
     public static string Authority => $"https://login.microsoftonline.com/{TenantId}";
 
-    // The API's own exposed scope - same one Web/TestClient request.
+    // The API's exposed scope - the same one the Web app requests.
     public static readonly string[] ApiScopes =
     {
-        "api://77163347-59be-48f4-8675-535af30a3a53/access_as_user"
+        $"api://{ApiClientId}/access_as_user"
     };
 
     // The API's base address. "https://localhost:7055" matches

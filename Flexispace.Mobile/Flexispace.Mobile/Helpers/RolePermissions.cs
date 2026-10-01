@@ -40,8 +40,9 @@ public static class RolePermissions
     public static bool CanManageUsers(UserRole role) =>
         role is UserRole.Administrator;
 
+    // Same rule as the API and Flexispace.Web: Centre Managers (own location) and Administrators.
     public static bool CanViewReports(UserRole role) =>
-        role is UserRole.Staff or UserRole.CentreManager or UserRole.Administrator;
+        role is UserRole.CentreManager or UserRole.Administrator;
 
     public static bool IsFlexispaceEmployee(UserRole role) =>
         role is UserRole.Staff or UserRole.CentreManager or UserRole.Administrator;
@@ -56,7 +57,7 @@ public static class RolePermissions
     {
         UserRole.Administrator => "Add/remove rooms · configure locations · manage users · all bookings · reports",
         UserRole.CentreManager => "View/block/edit/cancel bookings for your centre · reports",
-        UserRole.Staff => "Book rooms · cancel own bookings · view live availability · reports",
+        UserRole.Staff => "Book rooms · cancel own bookings · view live availability",
         UserRole.Client => "Self-service booking · confirmations · (payments coming in Phase 2)",
         _ => string.Empty
     };

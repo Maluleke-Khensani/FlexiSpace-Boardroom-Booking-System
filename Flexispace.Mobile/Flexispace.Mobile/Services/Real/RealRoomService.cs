@@ -12,11 +12,12 @@ namespace Flexispace.Mobile.Services.Real;
 //   CombinedRoomIds, so the mapping below picks the first id from
 //   whichever list the real API returns.
 //
-// Registered Singleton in MauiProgram.cs, matching MockRoomService.
+// Registered Singleton in MauiProgram.cs.
 public class RealRoomService : IRoomService
 {
     private readonly FlexiSpaceApiClient _api;
     private List<ApiEquipment>? _equipmentCatalogue;
+    private Dictionary<int, string>? _locationNames;
 
     public RealRoomService(FlexiSpaceApiClient api)
     {
@@ -26,6 +27,7 @@ public class RealRoomService : IRoomService
     public async Task<IReadOnlyList<OfficeLocation>> GetLocationsAsync()
     {
         var locations = await _api.GetAsync<List<ApiLocation>>("api/location") ?? new();
+        _locationNames = locations.ToDictionary(l => l.Id, l => l.Name);
         return locations.Select(MapLocation).ToList();
     }
 
@@ -42,6 +44,7 @@ public class RealRoomService : IRoomService
     {
         var boardrooms = await _api.GetAsync<List<ApiBoardroom>>("api/boardroom") ?? new();
         await EnsureEquipmentCatalogueAsync();
+        await EnsureLocationNamesAsync();
 
         var filtered = string.IsNullOrWhiteSpace(locationId)
             ? boardrooms
@@ -58,6 +61,7 @@ public class RealRoomService : IRoomService
         if (!found || boardroom is null) return null;
 
         await EnsureEquipmentCatalogueAsync();
+        await EnsureLocationNamesAsync();
         return MapBoardroom(boardroom);
     }
 
@@ -76,6 +80,15 @@ public class RealRoomService : IRoomService
     private async Task EnsureEquipmentCatalogueAsync()
     {
         _equipmentCatalogue ??= await _api.GetAsync<List<ApiEquipment>>("api/equipment") ?? new();
+    }
+
+    // Room photos are looked up by location name + room name (see
+    // LocationPresentation), so the names are cached alongside the rooms.
+    private async Task EnsureLocationNamesAsync()
+    {
+        if (_locationNames is not null) return;
+        var locations = await _api.GetAsync<List<ApiLocation>>("api/location") ?? new();
+        _locationNames = locations.ToDictionary(l => l.Id, l => l.Name);
     }
 
     private Boardroom MapBoardroom(ApiBoardroom b)
@@ -109,20 +122,24 @@ public class RealRoomService : IRoomService
                 .ToList(),
             Status = MapStatus(b.Status),
             IsCombined = isCombined,
-            CombinableWithRoomId = combinableWithRoomId
+            CombinableWithRoomId = combinableWithRoomId,
+            ImageKey = LocationPresentation.RoomImage(
+                _locationNames?.GetValueOrDefault(b.LocationId), b.Name)
         };
     }
 
-    private static OfficeLocation MapLocation(ApiLocation l) => new()
+    private static OfficeLocation MapLocation(ApiLocation l)
     {
-        Id = l.Id.ToString(),
-        Name = l.Name,
-        Address = l.Address
-        // Phone/CentreManager/ManagerEmail/ImageKey/Tagline aren't part
-        // of the real Location entity - left at their defaults rather
-        // than fabricated. Worth raising with Khensani/Khumo if the
-        // mobile UI needs any of these from real data.
-    };
+        var location = new OfficeLocation
+        {
+            Id = l.Id.ToString(),
+            Name = l.Name,
+            Address = l.Address
+        };
+        // Photo, tagline and contact details aren't stored by the API.
+        LocationPresentation.Apply(location);
+        return location;
+    }
 
     private static RoomStatus MapStatus(ApiBoardroomStatus status) => status switch
     {
