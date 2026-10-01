@@ -175,54 +175,6 @@
                     </Grid>
                 </Border>
 
-                <Label Text="Character select" Style="{StaticResource EyebrowLabel}" Margin="0,6,0,0" />
-                <Label Text="Preview the app as another role without signing out." Style="{StaticResource MutedLabel}" FontSize="12" Margin="0,-8,0,0" />
-
-                <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding DemoUsers}">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="models:User">
-                            <Border Style="{StaticResource ElevatedCard}" Padding="0">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ProfileViewModel}}, Path=SwitchUserCommand}"
-                                        CommandParameter="{Binding .}" />
-                                </Border.GestureRecognizers>
-                                <Border.BackgroundColor>
-                                    <MultiBinding Converter="{StaticResource ChipSelectedConverter}" ConverterParameter="wash">
-                                        <Binding Path="Email" />
-                                        <Binding Path="CurrentEmail" Source="{RelativeSource AncestorType={x:Type vm:ProfileViewModel}}" />
-                                    </MultiBinding>
-                                </Border.BackgroundColor>
-                                <Border.Stroke>
-                                    <MultiBinding Converter="{StaticResource ChipSelectedConverter}" ConverterParameter="stroke">
-                                        <Binding Path="Email" />
-                                        <Binding Path="CurrentEmail" Source="{RelativeSource AncestorType={x:Type vm:ProfileViewModel}}" />
-                                    </MultiBinding>
-                                </Border.Stroke>
-                                <Grid ColumnDefinitions="46,*,Auto" ColumnSpacing="12" Padding="12,10">
-                                    <Border Style="{StaticResource AvatarBadge}" WidthRequest="40" HeightRequest="40" BackgroundColor="{StaticResource BrandBlack}">
-                                        <Label Text="{Binding Name, Converter={StaticResource InitialsConverter}}" Style="{StaticResource AvatarInitials}" FontSize="13" />
-                                    </Border>
-                                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="1">
-                                        <Label Text="{Binding Name}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="14" />
-                                        <Label Text="{Binding Role, Converter={StaticResource RoleDisplayConverter}}" TextColor="{StaticResource BrandGoldDeep}" FontSize="11" FontAttributes="Bold" />
-                                        <Label Text="{Binding Email}" TextColor="{StaticResource BrandMuted}" FontSize="11" />
-                                    </VerticalStackLayout>
-                                    <Border Grid.Column="2" Style="{StaticResource TabIconPill}" Padding="8,4" VerticalOptions="Center">
-                                        <Border.IsVisible>
-                                            <MultiBinding Converter="{StaticResource ChipSelectedConverter}" ConverterParameter="bool">
-                                                <Binding Path="Email" />
-                                                <Binding Path="CurrentEmail" Source="{RelativeSource AncestorType={x:Type vm:ProfileViewModel}}" />
-                                            </MultiBinding>
-                                        </Border.IsVisible>
-                                        <Label Text="YOU" TextColor="{StaticResource BrandBlack}" FontSize="9" FontAttributes="Bold" />
-                                    </Border>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
-                </VerticalStackLayout>
-
                 <Button Text="Sign out" Command="{Binding LogoutCommand}" Style="{StaticResource GoldButton}" Margin="0,8,0,4" />
 
                 <controls:SocialLinksBar Caption="FOLLOW FLEXISPACE" Margin="0,12,0,4" />

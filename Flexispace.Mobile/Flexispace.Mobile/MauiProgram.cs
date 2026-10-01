@@ -36,13 +36,10 @@ public static class MauiProgram
         // login/role switch instead of mutating one long-lived instance — see ShellReloader.
         builder.Services.AddTransient<AppShell>();
 
-        // Real, API-backed services (replacing the Mock* registrations -
-        // see Services/Real/ for the FlexiSpace.API wiring, and
-        // ApiConfig.cs for the Azure Portal step this still needs from
-        // whoever owns the Entra app registration before sign-in works
-        // end to end). All Singleton, same lifetime the Mock services
-        // used - this is a single-user device app, unlike Flexispace.Web
-        // which needs one instance per browser circuit.
+        // API-backed services (see Services/Real/, and ApiConfig.cs for the
+        // Azure app registration step sign-in needs). All Singleton - this
+        // is a single-user device app, unlike Flexispace.Web, which needs
+        // one instance per browser circuit.
         builder.Services.AddHttpClient("FlexiSpaceApi", client =>
             {
                 client.BaseAddress = new Uri(ApiConfig.ApiBaseUrl);

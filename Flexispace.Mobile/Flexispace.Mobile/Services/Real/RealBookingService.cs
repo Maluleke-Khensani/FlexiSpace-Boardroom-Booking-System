@@ -38,8 +38,7 @@ public class RealBookingService : IBookingService
         if (!string.IsNullOrWhiteSpace(locationId)) query.Add($"locationId={locationId}");
         if (day.HasValue) query.Add($"fromDate={DateOnly.FromDateTime(day.Value):O}&toDate={DateOnly.FromDateTime(day.Value):O}");
 
-        var path = "api/booking/search" + (query.Count > 0 ? "?" + string.Join("&", query) : "");
-        var bookings = await _api.GetAsync<List<ApiBooking>>(path) ?? new();
+        var bookings = await SearchAllAsync(string.Join("&", query));
         return await MapAllAsync(bookings);
     }
 
@@ -50,19 +49,40 @@ public class RealBookingService : IBookingService
         // CentreManager: their location, everyone else: their own
         // bookings - BookingService.ApplyVisibilityScope), so whatever
         // comes back IS "my scope".
-        var path = day.HasValue
-            ? $"api/booking/search?fromDate={DateOnly.FromDateTime(day.Value):O}&toDate={DateOnly.FromDateTime(day.Value):O}"
-            : "api/booking";
-        var bookings = await _api.GetAsync<List<ApiBooking>>(path) ?? new();
+        var bookings = day.HasValue
+            ? await SearchAllAsync($"fromDate={DateOnly.FromDateTime(day.Value):O}&toDate={DateOnly.FromDateTime(day.Value):O}")
+            : await _api.GetAsync<List<ApiBooking>>("api/booking") ?? new();
         return await MapAllAsync(bookings);
     }
 
     public async Task<IReadOnlyList<Booking>> GetTodaysBookingsAsync()
     {
         var today = DateOnly.FromDateTime(DateTime.Today);
-        var bookings = await _api.GetAsync<List<ApiBooking>>(
-            $"api/booking/search?fromDate={today:O}&toDate={today:O}") ?? new();
+        var bookings = await SearchAllAsync($"fromDate={today:O}&toDate={today:O}");
         return await MapAllAsync(bookings);
+    }
+
+    // GET api/booking/search returns one page ({ items, totalCount, page,
+    // pageSize }), not a bare array, so this walks every page and returns
+    // the full list. The API caps pageSize at 100. Same as Flexispace.Web.
+    private async Task<List<ApiBooking>> SearchAllAsync(string filters)
+    {
+        const int pageSize = 100;
+        const int maxPages = 50; // safety stop: 5,000 bookings
+        var prefix = string.IsNullOrEmpty(filters) ? string.Empty : filters + "&";
+        var all = new List<ApiBooking>();
+
+        for (var page = 1; page <= maxPages; page++)
+        {
+            var result = await _api.GetAsync<ApiPagedResult<ApiBooking>>(
+                $"api/booking/search?{prefix}page={page}&pageSize={pageSize}");
+            if (result is null || result.Items.Count == 0) break;
+
+            all.AddRange(result.Items);
+            if (all.Count >= result.TotalCount) break;
+        }
+
+        return all;
     }
 
     public async Task<Booking?> GetBookingAsync(Guid bookingId)

@@ -3,8 +3,7 @@ using Flexispace.Mobile;
 namespace Flexispace.Mobile.Helpers;
 
 /// <summary>
-/// Swaps in a brand-new <see cref="AppShell"/> whenever the signed-in role changes (login,
-/// switch demo user), so the tab bar is built fresh with only the tabs that role can use.
+/// Swaps in a brand-new <see cref="AppShell"/> on every sign-in, so the tab bar is built fresh with only the tabs that role can use.
 /// We deliberately never mutate tabs on a live Shell — toggling ShellContent.IsVisible
 /// after the tab bar has rendered crashes on Windows/WinUI — so a role change always gets
 /// an entirely new Shell instance instead.

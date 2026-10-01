@@ -18,23 +18,21 @@ public partial class WelcomeViewModel : ObservableObject
 
 public partial class LoginViewModel(IAuthService auth) : ObservableObject
 {
-    [ObservableProperty] private string email = string.Empty;
-    [ObservableProperty] private string password = string.Empty;
     [ObservableProperty] private string? errorMessage;
     [ObservableProperty] private bool isBusy;
 
     [RelayCommand]
-    private async Task LoginAsync()
+    private async Task SignInAsync()
     {
         if (IsBusy) return;
         IsBusy = true;
         ErrorMessage = null;
         try
         {
-            var ok = await auth.LoginAsync(Email, Password);
-            if (!ok)
+            var result = await auth.SignInAsync();
+            if (!result.Succeeded)
             {
-                ErrorMessage = "Invalid email or password. Try a demo account below.";
+                ErrorMessage = result.ErrorMessage;
                 return;
             }
 
@@ -45,14 +43,6 @@ public partial class LoginViewModel(IAuthService auth) : ObservableObject
         {
             IsBusy = false;
         }
-    }
-
-    [RelayCommand]
-    private async Task UseDemoAsync(string email)
-    {
-        Email = email;
-        Password = "demo123";
-        await LoginAsync();
     }
 
     [RelayCommand]

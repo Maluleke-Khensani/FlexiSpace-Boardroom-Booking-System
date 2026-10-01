@@ -167,6 +167,15 @@ public class ApiNotification
     public DateTime SentAt { get; set; }
 }
 
+// Shape of GET api/booking/search - one page of results, not a bare array.
+public class ApiPagedResult<T>
+{
+    public List<T> Items { get; set; } = new();
+    public int TotalCount { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+}
+
 public class ApiBookingCountBreakdown
 {
     public string Label { get; set; } = string.Empty;

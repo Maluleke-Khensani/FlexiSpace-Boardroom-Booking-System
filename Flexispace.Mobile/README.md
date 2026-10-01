@@ -2,7 +2,7 @@
 
 Boardroom booking app for Centurion, Houghton Estate, and Eagle Canyon — branded to match [flexispace.net.za](https://flexispace.net.za/).
 
-This project is a **Windows-first MAUI prototype**. It runs entirely on **mock services** today, so you can explore the full booking flow without a backend.
+This project is a **Windows-first MAUI app**. It signs in with **Microsoft Entra ID** and talks to the FlexiSpace API (`FlexiSpace/FlexiSpace.API`), so the API must be running for the app to work.
 
 ---
 
@@ -24,11 +24,11 @@ Install these before you open the project:
 ### 1. Clone the repository
 
 ```powershell
-git clone https://github.com/EMGPRS/insy7315-2026-task-1-ribaorearabetse.git
-cd insy7315-2026-task-1-ribaorearabetse
+git clone https://github.com/Maluleke-Khensani/FlexiSpace-Boardroom-Booking-System.git
+cd FlexiSpace-Boardroom-Booking-System
 ```
 
-The mobile app lives in `Flexispace App\Flexispace.Mobile`.
+The mobile app lives in `Flexispace.Mobile\Flexispace.Mobile`.
 
 ### 2. Install the MAUI workload
 
@@ -49,7 +49,7 @@ You should see `maui` and `maui-windows` in the list.
 ### 3. Restore dependencies
 
 ```powershell
-cd "Flexispace App\Flexispace.Mobile"
+cd Flexispace.Mobile\Flexispace.Mobile
 dotnet restore
 ```
 
@@ -71,7 +71,7 @@ On Windows, the app opens in a fixed **400×860** window sized like a phone for 
 
 ## Running from Visual Studio
 
-1. Open `Flexispace App\Flexispace.Mobile.sln` (or the `.slnx` file).
+1. Open `Flexispace.Mobile\Flexispace.Mobile.sln`.
 2. Set **Flexispace.Mobile** as the startup project.
 3. Choose the **Windows Machine** target.
 4. Press **F5** to run.
@@ -80,22 +80,21 @@ If the Windows target does not appear, install the **.NET MAUI** workload in Vis
 
 ---
 
-## Demo login
+## Signing in
 
-All mock accounts use password: **`demo123`**
+1. Start the API first (`https://localhost:7055`). See the root README for its user secrets.
+2. Run the app, tap **Get a quote · Book a room**, then **Sign in with Microsoft**.
+3. Sign in with your Microsoft account in the window that opens.
 
-You can type credentials manually or tap a **demo role tile** on the login screen.
+Your role and location come from your FlexiSpace user record (`GET api/user/me`), and each role sees a **different tab bar**. An account that isn't in FlexiSpace's Users table gets a "not set up yet" message; an Administrator has to add it first.
 
-| Email | Role | What you can test |
-|-------|------|-------------------|
-| `staff@flexispace.net.za` | Staff | Book rooms, view own bookings, alerts |
-| `rebecca@flexispace.net.za` | Centre Manager (Houghton) | View bookings, block rooms, manage centre |
-| `antoinette@flexispace.net.za` | Centre Manager (Eagle Canyon) | Same as above, Eagle Canyon scope |
-| `lesego@flexispace.net.za` | Centre Manager (Eagle Canyon) | Same as above, Eagle Canyon scope |
-| `admin@flexispace.net.za` | Administrator | Full manage console, users, rooms, reports |
-| `client@example.com` | Client | Book rooms as an external client |
+Sign-in and sign-out are recorded in the audit log (`?client=mobile`).
 
-Each role sees a **different tab bar** — not the same screen with hidden buttons.
+On Windows, sign-in goes through the Windows account picker (WAM), not a browser.
+
+**One-time Azure setup** (on the **Mobile** app registration, `85378c65-…`, not the API's): add a **Mobile and desktop applications** platform with the redirect URI `ms-appx-web://microsoft.aad.brokerplugin/85378c65-ead1-4b71-956a-389142bd3342`, set **Allow public client flows** to Yes, and under **API permissions** add the API's `access_as_user` permission (with admin consent). Without these, sign-in fails with `AADSTS50011`, `AADSTS7000218` or a consent error. Details are in `Services/Real/ApiConfig.cs`.
+
+The token cache is in memory, so you sign in again each time the app starts.
 
 ---
 
@@ -105,22 +104,22 @@ Each role sees a **different tab bar** — not the same screen with hidden butto
 Flexispace.Mobile/
 ├── Views/              XAML screens
 ├── ViewModels/         MVVM (CommunityToolkit.Mvvm)
-├── Services/           Interfaces + Mock/ implementations
+├── Services/           Interfaces + Real/ (API and MSAL sign-in)
 ├── Models/             Domain types (bookings, rooms, users, etc.)
 ├── Helpers/            Role permissions, shell/tab helpers
 ├── Platforms/Windows/  Windows-specific code (incl. chatbot prototype)
 ├── Resources/          Images, fonts, styles
 ├── API_CONTRACT.md     Backend API the app expects
-└── MauiProgram.cs      DI registration (swap mocks for HTTP later)
+└── MauiProgram.cs      DI registration
 ```
 
 ---
 
 ## Backend
 
-No API is required for local development. Mock data is seeded in `Services/Mock/MockDataStore.cs` and `Services/SeedData.cs`.
+The app calls the FlexiSpace API at `ApiConfig.ApiBaseUrl` (`https://localhost:7055` by default). Change it in `Services/Real/ApiConfig.cs` if the API runs elsewhere. The API calls the app makes are listed in **`API_CONTRACT.md`**.
 
-When the backend is ready, replace the mock service registrations in `MauiProgram.cs` with HTTP implementations. See **`API_CONTRACT.md`** for endpoints and payloads.
+`Services/SeedData.cs` still supplies the room list used for combined rooms and the equipment and catering choices on the booking screen; moving those to the API is a follow-up.
 
 ---
 

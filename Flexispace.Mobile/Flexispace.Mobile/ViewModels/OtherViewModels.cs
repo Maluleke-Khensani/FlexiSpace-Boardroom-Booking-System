@@ -168,7 +168,6 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
     [ObservableProperty] private string name = string.Empty;
     [ObservableProperty] private string firstName = string.Empty;
     [ObservableProperty] private string email = string.Empty;
-    [ObservableProperty] private string currentEmail = string.Empty;
     [ObservableProperty] private string role = string.Empty;
     [ObservableProperty] private string rankTitle = string.Empty;
     [ObservableProperty] private string rankLine = string.Empty;
@@ -183,8 +182,6 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
     [ObservableProperty] private int upcomingCount;
     [ObservableProperty] private int unreadAlerts;
 
-    public ObservableCollection<User> DemoUsers { get; } = [];
-
     [RelayCommand]
     private async Task AppearingAsync()
     {
@@ -192,7 +189,6 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
         Name = user?.Name ?? "Guest";
         FirstName = string.IsNullOrWhiteSpace(Name) ? "there" : Name.Split(' ')[0];
         Email = user?.Email ?? string.Empty;
-        CurrentEmail = Email;
         Role = user is null ? "—" : RolePermissions.DisplayName(user.Role);
         RankTitle = user is null ? "Guest" : RolePermissions.RankTitle(user.Role);
         AccessLevel = user is null ? 0 : RolePermissions.AccessLevel(user.Role);
@@ -203,10 +199,6 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
         CanViewAvailability = user is not null && RolePermissions.CanViewAvailability(user.Role);
         CanViewReports = user is not null && RolePermissions.CanViewReports(user.Role);
         ShowPayPlaceholder = user is not null && RolePermissions.CanSeePayPlaceholder(user.Role);
-
-        DemoUsers.Clear();
-        foreach (var u in auth.GetDemoUsers())
-            DemoUsers.Add(u);
 
         try
         {
@@ -219,15 +211,6 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
         {
             TodayCount = UpcomingCount = UnreadAlerts = 0;
         }
-    }
-
-    [RelayCommand]
-    private async Task SwitchUserAsync(User? user)
-    {
-        if (user is null) return;
-        await auth.SwitchDemoUserAsync(user.Email);
-        // Rebuild the Shell so the tab bar matches the new role's permissions exactly.
-        await ShellReloader.ReloadAsync();
     }
 
     [RelayCommand]
