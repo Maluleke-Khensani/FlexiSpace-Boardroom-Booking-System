@@ -98,6 +98,7 @@ namespace FlexiSpace.Infrastructure.Services
                 return null;
             }
 
+            /*
             // NEW: duplicate-email guard. Two different Entra accounts
             // shouldn't be able to provision into FlexiSpace under the
             // same email - Email is what notifications/calendar invites
@@ -110,7 +111,7 @@ namespace FlexiSpace.Infrastructure.Services
             {
                 return null;
             }
-
+            */
             // Location is optional. If supplied, it must exist.
             if (dto.LocationId.HasValue)
             {
