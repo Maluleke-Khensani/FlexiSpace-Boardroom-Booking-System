@@ -34,16 +34,19 @@ namespace FlexiSpace.API.Controllers
     {
         private readonly IUserService _userService;
         private readonly IAuditService _auditService;
+        private readonly IEntraUserService _entraUserService;
         private readonly ICurrentUserService _currentUserService;
 
         public UserController(
             IUserService userService,
             IAuditService auditService,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            IEntraUserService entraUserService)
         {
             _userService = userService;
             _auditService = auditService;
             _currentUserService = currentUserService;
+            _entraUserService = entraUserService;
         }
 
         // NEW: lets a signed-in user fetch their own FlexiSpace profile
@@ -175,6 +178,8 @@ namespace FlexiSpace.API.Controllers
         public async Task<IActionResult> ProvisionUser(
             UserProvisionDto dto)
         {
+           
+
             // Ask the UserService to provision the selected
             // Microsoft Entra user into the local database.
             var user = await _userService.ProvisionUserAsync(dto);
@@ -222,6 +227,10 @@ namespace FlexiSpace.API.Controllers
                 new { id = user.Id },
                 MapToResponseDto(user));
         }
+
+        
+
+
 
         // Updates an existing user's information.
         [HttpPut("{id}")]
