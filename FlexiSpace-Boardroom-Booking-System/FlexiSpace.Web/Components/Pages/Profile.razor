@@ -1,0 +1,81 @@
+@* User profile, role info, demo-user switcher, and sign-out. *@
+@page "/profile"
+@rendermode InteractiveServer
+@inject ProfileViewModel Vm
+@inject IAuthService Auth
+@using Flexispace.Web.Helpers
+
+<PageTitle>Profile · Flexispace</PageTitle>
+
+@if (!Auth.IsAuthenticated)
+{
+    <RedirectToLogin />
+}
+else
+{
+    <div class="fs-profile-hero">
+        <div class="fs-avatar">@DisplayHelpers.Initials(Vm.Name)</div>
+        <h1 class="fs-heading fs-heading--sm" style="color:var(--fs-ivory); margin-top:16px">@Vm.Name</h1>
+        <p style="color:var(--fs-muted); font-size:14px; margin-top:4px">@Vm.Email</p>
+        <span class="fs-role-badge">@Vm.Role</span>
+    </div>
+
+    <div class="fs-content-narrow" style="padding:28px 32px 48px">
+        <div class="fs-filter-bar" style="margin-bottom:24px">
+            <a href="/my-bookings" class="fs-btn fs-btn--pill">My bookings</a>
+            <a href="/locations" class="fs-btn fs-btn--pill">All locations</a>
+            @if (Vm.CanAccessManage)
+            {
+                <button type="button" class="fs-btn fs-btn--pill" @onclick="Manage">Manage console</button>
+            }
+        </div>
+
+        <div class="fs-card--elevated" style="margin-bottom:20px">
+            <div style="display:flex">
+                <div class="fs-card__accent" style="background:var(--fs-gold)"></div>
+                <div class="fs-card__body">
+                    <p class="fs-eyebrow" style="font-size:10px">What you can do</p>
+                    <p style="font-size:14px; margin:8px 0">@Vm.RoleDescription</p>
+                    <hr style="border:none; border-top:1px solid var(--fs-line); margin:12px 0" />
+                    <p class="fs-muted" style="font-size:13px; margin:0">Home location · @Vm.Location</p>
+                </div>
+            </div>
+        </div>
+
+        @if (Vm.ShowPayPlaceholder)
+        {
+            <div class="fs-card--elevated" style="margin-bottom:28px">
+                <div style="display:flex">
+                    <div class="fs-card__accent" style="background:var(--fs-gold-soft)"></div>
+                    <p class="fs-muted" style="font-size:13px; padding:16px 18px; margin:0">Online payment (Phase 2) — placeholder for Client self-service billing.</p>
+                </div>
+            </div>
+        }
+
+        <p class="fs-eyebrow">Switch demo user</p>
+        <p class="fs-muted" style="font-size:13px; margin:-8px 0 16px">Preview the app as another role without signing out.</p>
+
+        <div class="fs-choice-grid">
+            @foreach (var user in Vm.DemoUsers)
+            {
+                <button type="button" class="fs-choice-btn fs-choice-btn--person" @onclick="() => Switch(user)">
+                    <div class="fs-choice-btn__avatar">@DisplayHelpers.Initials(user.Name)</div>
+                    <div class="fs-choice-btn__body">
+                        <div class="fs-choice-btn__title">@user.Name</div>
+                        <div class="fs-choice-btn__meta">@user.Role · @user.Email</div>
+                    </div>
+                </button>
+            }
+        </div>
+
+        <button type="button" class="fs-btn fs-btn--gold fs-btn--block" style="margin-top:24px" @onclick="Logout">Sign out</button>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized() => Vm.AppearingCommand.Execute(null);
+
+    private void Manage() => Vm.OpenManageCommand.Execute(null);
+    private Task Switch(User user) => Vm.SwitchUserCommand.ExecuteAsync(user);
+    private Task Logout() => Vm.LogoutCommand.ExecuteAsync(null);
+}

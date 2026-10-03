@@ -1,0 +1,15 @@
+<maui:MauiWinUIApplication
+    x:Class="Flexispace.Mobile.WinUI.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:maui="using:Microsoft.Maui"
+    xmlns:local="using:Flexispace.Mobile.WinUI">
+
+    <!--
+        Do not replace Application.Resources here — that wipes MAUI/WinUI default styles.
+        Tab-bar brushes (transparent underline, hover tint) are merged in
+        TabBarHandlerFix.EnsureTabBarResources(), and the gold icon pill is a
+        RoundRectangle 20 Border style (TabIconPill) plus the Windows handler.
+    -->
+
+</maui:MauiWinUIApplication>
