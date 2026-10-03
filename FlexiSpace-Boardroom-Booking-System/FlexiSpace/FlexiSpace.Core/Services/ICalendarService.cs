@@ -20,5 +20,10 @@
         Task DeleteCalendarEventAsync(
             string calendarEmail,
             string eventId);
+
+        Task<bool> IsCalendarAvailableAsync(
+            string calendarEmail,
+            DateTime start,
+            DateTime end);
     }
 }

@@ -4,7 +4,7 @@ using FlexiSpace.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
-namespace FlexiSpace.Infrastructure.Services
+namespace FlexiSpace.Infrastructure.services
 {
     public class CurrentUserService : ICurrentUserService
     {

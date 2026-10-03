@@ -4,7 +4,7 @@ using FlexiSpace.Core.Services;
 using FlexiSpace.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
-namespace FlexiSpace.Infrastructure.Services
+namespace FlexiSpace.Infrastructure.services
 {
     public class LocationService : ILocationService
     {

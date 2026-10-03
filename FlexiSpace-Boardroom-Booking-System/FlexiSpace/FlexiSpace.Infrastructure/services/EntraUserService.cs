@@ -5,7 +5,7 @@ using FlexiSpace.Core.Services;
 using Microsoft.Graph;
 using Microsoft.Graph.Models;
 
-namespace FlexiSpace.Infrastructure.Services
+namespace FlexiSpace.Infrastructure.services
 {
     public class EntraUserService : IEntraUserService
     {
