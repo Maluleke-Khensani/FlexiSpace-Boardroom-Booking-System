@@ -1,12 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using FlexiSpace.Core.DTOs.Location;
+using FlexiSpace.Core.Entities;
 
 namespace FlexiSpace.Core.Services
 {
-    internal interface ILocationCalendarAccountService
+    public interface ILocationCalendarAccountService
     {
+        Task<LocationCalendarAccount> CreateAsync(LocationCalendarAccountCreateDto dto);
     }
 }
