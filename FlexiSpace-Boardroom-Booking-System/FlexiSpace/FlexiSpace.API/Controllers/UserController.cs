@@ -41,6 +41,24 @@ namespace FlexiSpace.API.Controllers
             _currentUserService = currentUserService;
         }
 
+        // NEW: lets a signed-in user fetch their own FlexiSpace profile
+        // (Id, Role, LocationId, etc.) without needing Administrator rights.
+        [HttpGet("me")]
+        public async Task<IActionResult> GetMyProfile()
+        {
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+
+            if (currentUser == null)
+            {
+                return NotFound(new
+                {
+                    message = "No FlexiSpace account is linked to this sign-in yet. Ask an Administrator to provision your account."
+                });
+            }
+
+            return Ok(MapToResponseDto(currentUser));
+        }
+
         // Retrieves all users that have been provisioned
         // into the FlexiSpace database.
         [HttpGet]
