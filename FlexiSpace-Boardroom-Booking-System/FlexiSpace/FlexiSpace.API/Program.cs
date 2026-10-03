@@ -2,7 +2,8 @@ using FlexiSpace.Core.Common;
 using FlexiSpace.Core.Services;
 using FlexiSpace.Infrastructure.Persistence;
 using FlexiSpace.Infrastructure.Seed;
-using FlexiSpace.Infrastructure.Services;
+using FlexiSpace.Infrastructure.services;
+using FlexiSpace.Core.DTOs.Location;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Identity.Web;
@@ -107,6 +108,7 @@ namespace FlexiSpace.API
 
             // Register application services.
             builder.Services.AddScoped<ILocationService, LocationService>();
+            builder.Services.AddScoped<ILocationCalendarAccountService, LocationCalendarAccountService>();
             builder.Services.AddScoped<IBoardroomService, BoardroomService>();
             builder.Services.AddScoped<IEquipmentService, EquipmentService>();
             builder.Services.AddScoped<IBookingService, BookingService>();

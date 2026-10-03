@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FlexiSpace.Infrastructure\FlexiSpace.Infrastructure.csproj" />
+    <ProjectReference Include="..\FlexiSpace.Core\FlexiSpace.Core.csproj" />
   </ItemGroup>
 
 </Project>

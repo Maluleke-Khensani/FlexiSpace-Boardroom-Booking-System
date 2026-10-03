@@ -1,7 +1,7 @@
 using FlexiSpace.Core.Entities;
 using FlexiSpace.Core.Enums;
 using FlexiSpace.Infrastructure.Persistence;
-using FlexiSpace.Infrastructure.Services;
+using FlexiSpace.Infrastructure.services;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 

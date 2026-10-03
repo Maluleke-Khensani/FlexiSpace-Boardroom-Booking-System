@@ -15,10 +15,12 @@ namespace FlexiSpace.API.Controllers
     public class LocationController : ControllerBase
     {
         private readonly ILocationService _locationService;
+        private readonly ILocationCalendarAccountService _locationCalendarAccountService;
 
-        public LocationController(ILocationService locationService)
+        public LocationController(ILocationService locationService, ILocationCalendarAccountService locationCalendarAccountService)
         {
             _locationService = locationService;
+            _locationCalendarAccountService = locationCalendarAccountService;
         }
 
         [HttpGet]
@@ -38,6 +40,34 @@ namespace FlexiSpace.API.Controllers
             });
 
             return Ok(response);
+        }
+
+        // Creates a calendar account for a location (e.g. centre manager calendar).
+        [HttpPost("calendar-accounts")]
+        [AuthorizeRoles(UserRole.Administrator)]
+        public async Task<IActionResult> CreateLocationCalendarAccount([FromBody] LocationCalendarAccountCreateDto dto)
+        {
+            try
+            {
+                var account = await _locationCalendarAccountService.CreateAsync(dto);
+
+                var response = new LocationCalendarAccountResponseDto
+                {
+                    Id = account.Id,
+                    Email = account.Email,
+                    DisplayName = account.DisplayName,
+                    IsPrimary = account.IsPrimary,
+                    IsActive = account.IsActive,
+                    LocationId = account.LocationId,
+                    CreatedAt = account.CreatedAt
+                };
+
+                return CreatedAtAction(nameof(GetLocationById), new { id = account.LocationId }, response);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
         }
 
         [HttpPost]

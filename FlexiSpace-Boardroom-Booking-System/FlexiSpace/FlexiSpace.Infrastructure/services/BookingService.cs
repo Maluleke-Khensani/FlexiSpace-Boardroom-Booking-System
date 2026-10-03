@@ -6,7 +6,7 @@ using FlexiSpace.Core.Services;
 using FlexiSpace.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
-namespace FlexiSpace.Infrastructure.Services
+namespace FlexiSpace.Infrastructure.services
 {
     public class BookingService : IBookingService
     {
@@ -17,6 +17,17 @@ namespace FlexiSpace.Infrastructure.Services
         // computed against a fixed offset rather than the server's own
         // DateTime.Now - that keeps the check correct regardless of what
         // timezone the host machine happens to be set to.
+
+        private readonly ICalendarService _calendarService;
+        private readonly ApplicationDbContext _context;
+
+        public BookingService( ApplicationDbContext context, ICalendarService calendarService)
+        {
+            _context = context;
+            _calendarService = calendarService;
+        }
+     
+
         private static readonly TimeSpan SouthAfricaUtcOffset =
             TimeSpan.FromHours(2);
 
@@ -47,12 +58,7 @@ namespace FlexiSpace.Infrastructure.Services
         private const int DefaultPageSize = 20;
         private const int MaxPageSize = 100;
 
-        private readonly ApplicationDbContext _context;
-
-        public BookingService(ApplicationDbContext context)
-        {
-            _context = context;
-        }
+      
 
         // Retrieves all bookings together with their equipment and catering.
         public async Task<IEnumerable<Booking>> GetAllBookingsAsync()
@@ -121,18 +127,20 @@ namespace FlexiSpace.Infrastructure.Services
                 .ToList();
         }
 
-        // Creates a new booking.
+        // Creates a new booking
+   
         public async Task<Booking> CreateBookingAsync(Booking booking)
         {
             var boardroom = await _context.Boardrooms
-                .FirstOrDefaultAsync(b => b.Id == booking.BoardroomId);
+            .Include(b => b.Location)
+                .ThenInclude(l => l.LocationCalendarAccounts)
+            .FirstOrDefaultAsync(b => b.Id == booking.BoardroomId);
 
             if (boardroom == null)
             {
                 throw new NotFoundException(
                     $"Boardroom {booking.BoardroomId} was not found.");
             }
-
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.Id == booking.UserId);
 
@@ -142,7 +150,23 @@ namespace FlexiSpace.Infrastructure.Services
                     $"User {booking.UserId} was not found.");
             }
 
+            // Get the active Outlook calendars configured for this location.
+            var calendarAccounts = boardroom.Location?.LocationCalendarAccounts
+                .Where(a => a.IsActive)
+                .ToList()
+                ?? new List<LocationCalendarAccount>();
+
+            // Find the active primary Outlook calendar.
+            var primaryCalendar = calendarAccounts
+                .FirstOrDefault(a => a.IsPrimary);
+
             var errors = new List<string>();
+
+            if (primaryCalendar == null)
+            {
+                errors.Add(
+                    $"{boardroom.Location?.Name ?? "This location"} does not have an active primary Outlook calendar configured.");
+            }
 
             ValidateBookingRules(
                 booking,
@@ -180,16 +204,98 @@ namespace FlexiSpace.Infrastructure.Services
                     $"{booking.BookingDate:yyyy-MM-dd}.");
             }
 
+
+            // Check the primary Outlook calendar for conflicts.
+            if (primaryCalendar != null)
+            {
+                var bookingStart = booking.BookingDate
+                    .ToDateTime(booking.StartTime);
+
+                var bookingEnd = booking.BookingDate
+                    .ToDateTime(booking.EndTime);
+
+                var outlookAvailable =
+                    await _calendarService.IsCalendarAvailableAsync(
+                        primaryCalendar.Email,
+                        bookingStart,
+                        bookingEnd);
+
+                if (!outlookAvailable)
+                {
+                    errors.Add(
+                        $"{boardroom.Name} is already occupied in the Outlook calendar " +
+                        $"for {booking.BookingDate:yyyy-MM-dd} " +
+                        $"{booking.StartTime:HH\\:mm}-{booking.EndTime:HH\\:mm}.");
+                }
+            }
+
+
             if (errors.Count > 0)
             {
                 throw new BusinessRuleException(errors);
             }
 
+            // Prepare the Outlook event times using South African local time.
+            var outlookStart = booking.BookingDate
+                .ToDateTime(booking.StartTime);
+
+            var outlookEnd = booking.BookingDate
+                .ToDateTime(booking.EndTime);
+
+            // Prepare the information that will appear in Outlook.
+            var outlookSubject =
+                $"{boardroom.Name} - {booking.Company ?? "FlexiSpace Booking"}";
+
+            var outlookDescription =
+                $"FlexiSpace Boardroom Booking\n" +
+                $"Boardroom: {boardroom.Name}\n" +
+                $"Location: {boardroom.Location?.Name}\n" +
+                $"Date: {booking.BookingDate:yyyy-MM-dd}\n" +
+                $"Time: {booking.StartTime:HH\\:mm} - {booking.EndTime:HH\\:mm}\n" +
+                $"Attendees: {booking.NumberOfAttendees}\n" +
+                $"Notes: {booking.Notes ?? "None"}";
+
+
+            // Add the validated booking to the database.
             _context.Bookings.Add(booking);
 
+            // Save the booking first so that it receives its database ID.
             await _context.SaveChangesAsync();
 
+            // At this point:
+            // - The FlexiSpace booking has passed all validation.
+            // - The FlexiSpace database has confirmed there is no conflict.
+            // - Outlook availability has been checked.
+            // - primaryCalendar contains the Outlook calendar that belongs
+            //   to this booking's location.
+            //
+            // We now create the matching event in Outlook.
+            if (primaryCalendar != null)
+            {
+                var outlookEventId =
+                    await _calendarService.CreateCalendarEventAsync(
+                        primaryCalendar.Email,
+                        outlookSubject,
+                        outlookStart,
+                        outlookEnd,
+                        outlookDescription);
+
+                // Microsoft Graph returns the Outlook event ID.
+                //
+                // We store this ID against the FlexiSpace booking so that
+                // we can later find the exact Outlook event when we need to:
+                // - update the booking
+                // - move the booking
+                // - cancel the booking
+                booking.OutlookEventId = outlookEventId;
+
+                // Save the Outlook event ID back to the database.
+                await _context.SaveChangesAsync();
+            }
+
+            // Return the completed booking.
             return booking;
+           
         }
 
         // Updates an existing booking.

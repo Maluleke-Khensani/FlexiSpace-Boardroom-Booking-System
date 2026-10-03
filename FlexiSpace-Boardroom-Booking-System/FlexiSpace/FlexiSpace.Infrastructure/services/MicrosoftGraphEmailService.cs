@@ -4,7 +4,7 @@ using Microsoft.Graph;
 using Microsoft.Graph.Models;
 using Microsoft.Graph.Users.Item.SendMail;
 
-namespace FlexiSpace.Infrastructure.Services
+namespace FlexiSpace.Infrastructure.services
 {
     public class MicrosoftGraphEmailService : IEmailService
     {
