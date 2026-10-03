@@ -318,7 +318,6 @@ Staff/Client: only own bookings
 - ✅ No overlapping bookings for same boardroom
 - ✅ Attendees ≤ boardroom capacity
 - ✅ Equipment/catering items exist and are active
-- ❌ Approval workflow: Auto-approved? Sent to manager? → **Not yet fully specified** (see section 7)
 
 **PUT /booking/{id}** — Update booking (date, time, equipment, catering)
 ```json
