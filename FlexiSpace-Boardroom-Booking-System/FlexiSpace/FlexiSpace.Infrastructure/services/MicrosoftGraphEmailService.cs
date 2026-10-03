@@ -108,5 +108,163 @@ namespace FlexiSpace.Infrastructure.services
                     SaveToSentItems = true
                 });
         }
+
+        public async Task SendBookingModifiedAsync(
+            string recipientEmail,
+            string recipientName,
+            string boardroomName,
+            string locationName,
+            string locationAddress,
+            DateOnly bookingDate,
+            TimeOnly startTime,
+            TimeOnly endTime,
+            int numberOfAttendees,
+            string? company,
+            string? notes)
+        {
+            var message = new Message
+            {
+                Subject = $"FlexiSpace Booking Modified - {boardroomName}",
+
+                Body = new ItemBody
+                {
+                    ContentType = BodyType.Html,
+                    Content = $"""
+                        <h2>Booking Modified</h2>
+
+                        <p>Hello {recipientName},</p>
+
+                        <p>
+                            Your FlexiSpace boardroom booking has been modified.
+                        </p>
+
+                        <h3>Updated Booking Details</h3>
+
+                        <p><strong>Boardroom:</strong> {boardroomName}</p>
+                        <p><strong>Location:</strong> {locationName}</p>
+                        <p><strong>Address:</strong> {locationAddress}</p>
+                        <p><strong>Date:</strong> {bookingDate:dddd, dd MMMM yyyy}</p>
+                        <p><strong>Time:</strong> {startTime:HH:mm} - {endTime:HH:mm}</p>
+                        <p><strong>Attendees:</strong> {numberOfAttendees}</p>
+
+                        {(string.IsNullOrWhiteSpace(company)
+                            ? ""
+                            : $"<p><strong>Company:</strong> {company}</p>")}
+
+                        {(string.IsNullOrWhiteSpace(notes)
+                            ? ""
+                            : $"<p><strong>Notes:</strong> {notes}</p>")}
+
+                        <p>
+                            Please keep this email for your records.
+                        </p>
+
+                        <p>
+                            Thank you,<br />
+                            FlexiSpace
+                        </p>
+                        """
+                },
+
+                ToRecipients =
+                [
+                    new Recipient
+                    {
+                        EmailAddress = new EmailAddress
+                        {
+                            Address = recipientEmail
+                        }
+                    }
+                ]
+            };
+
+            await _graphClient
+                .Users[_senderEmail]
+                .SendMail
+                .PostAsync(new SendMailPostRequestBody
+                {
+                    Message = message,
+                    SaveToSentItems = true
+                });
+        }
+
+        public async Task SendBookingCancellationAsync(
+            string recipientEmail,
+            string recipientName,
+            string boardroomName,
+            string locationName,
+            string locationAddress,
+            DateOnly bookingDate,
+            TimeOnly startTime,
+            TimeOnly endTime,
+            int numberOfAttendees,
+            string? company,
+            string? notes)
+        {
+            var message = new Message
+            {
+                Subject = $"FlexiSpace Booking Cancelled - {boardroomName}",
+
+                Body = new ItemBody
+                {
+                    ContentType = BodyType.Html,
+                    Content = $"""
+                        <h2>Booking Cancelled</h2>
+
+                        <p>Hello {recipientName},</p>
+
+                        <p>
+                            Your FlexiSpace boardroom booking has been cancelled.
+                        </p>
+
+                        <h3>Booking Details</h3>
+
+                        <p><strong>Boardroom:</strong> {boardroomName}</p>
+                        <p><strong>Location:</strong> {locationName}</p>
+                        <p><strong>Address:</strong> {locationAddress}</p>
+                        <p><strong>Date:</strong> {bookingDate:dddd, dd MMMM yyyy}</p>
+                        <p><strong>Time:</strong> {startTime:HH:mm} - {endTime:HH:mm}</p>
+                        <p><strong>Attendees:</strong> {numberOfAttendees}</p>
+
+                        {(string.IsNullOrWhiteSpace(company)
+                            ? ""
+                            : $"<p><strong>Company:</strong> {company}</p>")}
+
+                        {(string.IsNullOrWhiteSpace(notes)
+                            ? ""
+                            : $"<p><strong>Notes:</strong> {notes}</p>")}
+
+                        <p>
+                            If you did not cancel this booking, please contact your centre manager.
+                        </p>
+
+                        <p>
+                            Thank you,<br />
+                            FlexiSpace
+                        </p>
+                        """
+                },
+
+                ToRecipients =
+                [
+                    new Recipient
+                    {
+                        EmailAddress = new EmailAddress
+                        {
+                            Address = recipientEmail
+                        }
+                    }
+                ]
+            };
+
+            await _graphClient
+                .Users[_senderEmail]
+                .SendMail
+                .PostAsync(new SendMailPostRequestBody
+                {
+                    Message = message,
+                    SaveToSentItems = true
+                });
+        }
     }
 }

@@ -155,22 +155,28 @@ namespace FlexiSpace.API.Controllers
                 Notes = dto.Notes
             };
 
-            foreach (var equipment in dto.Equipment)
+            if (dto.Equipment != null)
             {
-                booking.BookingEquipments.Add(new BookingEquipment
+                foreach (var equipment in dto.Equipment)
                 {
-                    EquipmentId = equipment.EquipmentId,
-                    Quantity = equipment.Quantity
-                });
+                    booking.BookingEquipments.Add(new BookingEquipment
+                    {
+                        EquipmentId = equipment.EquipmentId,
+                        Quantity = equipment.Quantity
+                    });
+                }
             }
 
-            foreach (var catering in dto.Catering)
+            if (dto.Catering != null)
             {
-                booking.BookingCaterings.Add(new BookingCatering
+                foreach (var catering in dto.Catering)
                 {
-                    CateringId = catering.CateringId,
-                    Quantity = catering.Quantity
-                });
+                    booking.BookingCaterings.Add(new BookingCatering
+                    {
+                        CateringId = catering.CateringId,
+                        Quantity = catering.Quantity
+                    });
+                }
             }
 
             try

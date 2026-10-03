@@ -20,11 +20,14 @@ namespace FlexiSpace.Infrastructure.services
 
         private readonly ICalendarService _calendarService;
         private readonly ApplicationDbContext _context;
-
-        public BookingService( ApplicationDbContext context, ICalendarService calendarService)
+        private readonly FlexiSpace.Core.Services.IEmailService _emailService;
+        private readonly FlexiSpace.Core.Services.INotificationService _notificationService;
+        public BookingService( ApplicationDbContext context, ICalendarService calendarService, FlexiSpace.Core.Services.IEmailService emailService, FlexiSpace.Core.Services.INotificationService notificationService)
         {
             _context = context;
             _calendarService = calendarService;
+            _emailService = emailService;
+            _notificationService = notificationService;
         }
      
 
@@ -205,6 +208,12 @@ namespace FlexiSpace.Infrastructure.services
             }
 
 
+            // NOTE: Outlook/Exchange calendar integration is disabled for
+            // environments where centre managers do not have Microsoft 365
+            // mailboxes. The original code below performed an availability
+            // check against the primaryCalendar using Microsoft Graph. It is
+            // preserved here as a comment so it can be re-enabled later.
+            /*
             // Check the primary Outlook calendar for conflicts.
             if (primaryCalendar != null)
             {
@@ -228,6 +237,7 @@ namespace FlexiSpace.Infrastructure.services
                         $"{booking.StartTime:HH\\:mm}-{booking.EndTime:HH\\:mm}.");
                 }
             }
+            */
 
 
             if (errors.Count > 0)
@@ -269,6 +279,11 @@ namespace FlexiSpace.Infrastructure.services
             // - primaryCalendar contains the Outlook calendar that belongs
             //   to this booking's location.
             //
+            // We would normally create the matching event in Outlook here,
+            // but calendar integration is disabled in this environment. The
+            // original Microsoft Graph creation code is left commented so it
+            // can be restored when centre-manager mailboxes are available.
+            /*
             // We now create the matching event in Outlook.
             if (primaryCalendar != null)
             {
@@ -291,6 +306,51 @@ namespace FlexiSpace.Infrastructure.services
 
                 // Save the Outlook event ID back to the database.
                 await _context.SaveChangesAsync();
+            }
+            */
+
+            // Send booking confirmation email (best-effort: swallow errors to avoid failing the booking)
+            try
+            {
+                var recipient = user?.Email ?? string.Empty;
+                var recipientName = user != null ? $"{user.FirstName} {user.LastName}" : string.Empty;
+                var locationName = boardroom.Location?.Name ?? string.Empty;
+                var locationAddress = boardroom.Location?.Address ?? string.Empty;
+
+                await _emailService.SendBookingConfirmationAsync(
+                    recipientEmail: recipient,
+                    recipientName: recipientName,
+                    boardroomName: boardroom.Name,
+                    locationName: locationName,
+                    locationAddress: locationAddress,
+                    bookingDate: booking.BookingDate,
+                    startTime: booking.StartTime,
+                    endTime: booking.EndTime,
+                    numberOfAttendees: booking.NumberOfAttendees,
+                    company: booking.Company,
+                    notes: booking.Notes);
+            }
+            catch
+            {
+                // Intentionally ignore email failures here; booking has succeeded.
+            }
+
+            // Create in-app notification for the booking owner.
+            try
+            {
+                var title = "Booking Confirmed";
+                var message = $"Your booking for {boardroom.Name} on {booking.BookingDate:yyyy-MM-dd} at {booking.StartTime:HH:mm} has been confirmed.";
+
+                // Best-effort in-app notification: do not fail the booking if notification errors occur.
+                await _notificationService.CreateNotificationAsync(
+                    user.Id,
+                    title,
+                    message,
+                    NotificationType.BookingCreated);
+            }
+            catch
+            {
+                // Notifications are best-effort; do not fail the booking on notification errors.
             }
 
             // Return the completed booking.
@@ -391,6 +451,23 @@ namespace FlexiSpace.Infrastructure.services
 
             await _context.SaveChangesAsync();
 
+            // Create in-app notification for the booking owner about the modification.
+            try
+            {
+                var title = "Booking Modified";
+                var message = $"Your booking for {boardroom.Name} on {existingBooking.BookingDate:yyyy-MM-dd} at {existingBooking.StartTime:HH:mm} was modified.";
+
+                await _notificationService.CreateNotificationAsync(
+                    existingBooking.UserId,
+                    title,
+                    message,
+                    NotificationType.BookingModified);
+            }
+            catch
+            {
+                // Do not fail the update if notification fails.
+            }
+
             return true;
         }
 
@@ -416,6 +493,24 @@ namespace FlexiSpace.Infrastructure.services
             booking.Status = BookingStatus.Cancelled;
 
             await _context.SaveChangesAsync();
+
+            // Create in-app notification for the booking owner about the cancellation.
+            try
+            {
+                var boardroom = await _context.Boardrooms.FindAsync(booking.BoardroomId);
+                var title = "Booking Cancelled";
+                var message = $"Your booking for {boardroom?.Name ?? "the boardroom"} on {booking.BookingDate:yyyy-MM-dd} at {booking.StartTime:HH:mm} has been cancelled.";
+
+                await _notificationService.CreateNotificationAsync(
+                    booking.UserId,
+                    title,
+                    message,
+                    NotificationType.BookingCancelled);
+            }
+            catch
+            {
+                // Do not fail the cancellation if notification fails.
+            }
 
             return true;
         }
