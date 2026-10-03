@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="Flexispace.Mobile.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:views="clr-namespace:Flexispace.Mobile.Views"
+    Title="Flexispace"
+    Shell.FlyoutBehavior="Disabled"
+    Shell.NavBarIsVisible="True"
+    Shell.BackgroundColor="{StaticResource BrandIvory}"
+    Shell.ForegroundColor="{StaticResource BrandInk}"
+    Shell.TitleColor="{StaticResource BrandInk}"
+    Shell.TabBarBackgroundColor="{StaticResource BrandSurface}"
+    Shell.TabBarForegroundColor="{StaticResource BrandInk}"
+    Shell.TabBarUnselectedColor="{StaticResource BrandMuted}"
+    Shell.TabBarTitleColor="{StaticResource BrandGoldDeep}">
+
+    <ShellContent Route="WelcomePage"
+                  ContentTemplate="{DataTemplate views:WelcomePage}"
+                  FlyoutItemIsVisible="False"
+                  Shell.NavBarIsVisible="False"
+                  Shell.TabBarIsVisible="False" />
+
+    <ShellContent Route="LoginPage"
+                  ContentTemplate="{DataTemplate views:LoginPage}"
+                  FlyoutItemIsVisible="False"
+                  Shell.NavBarIsVisible="False"
+                  Shell.TabBarIsVisible="False" />
+
+    <!--
+        The main TabBar is built in code-behind (see AppShell.xaml.cs), not declared here.
+        Tabs a role can't use (e.g. Live/Manage for a Client) are left out entirely at
+        construction time rather than hidden after the fact, since a role change always
+        gets a brand-new AppShell instance (see Helpers/ShellReloader.cs).
+    -->
+
+</Shell>

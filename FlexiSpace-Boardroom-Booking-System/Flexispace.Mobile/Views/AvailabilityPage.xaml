@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Flexispace.Mobile.ViewModels"
+             xmlns:models="clr-namespace:Flexispace.Mobile.Models"
+             x:Class="Flexispace.Mobile.Views.AvailabilityPage"
+             x:DataType="vm:AvailabilityViewModel"
+             Title="Live availability"
+             BackgroundColor="{StaticResource BrandIvory}">
+
+    <Grid RowDefinitions="Auto,*" Padding="16">
+        <VerticalStackLayout Spacing="12">
+            <HorizontalStackLayout Spacing="8">
+                <Border Style="{StaticResource QuickActionOrb}" WidthRequest="36" HeightRequest="36">
+                    <Label Style="{StaticResource MaterialGlyph}" Text="&#xe51e;" FontSize="18" TextColor="{StaticResource BrandBlack}" />
+                </Border>
+                <VerticalStackLayout VerticalOptions="Center" Spacing="0">
+                    <Label Text="LIVE" Style="{StaticResource EyebrowLabel}" />
+                    <Label Text="Room status across Flexispace" Style="{StaticResource SectionTitle}" FontSize="20" />
+                </VerticalStackLayout>
+            </HorizontalStackLayout>
+
+            <Border Style="{StaticResource ElevatedCard}" Padding="14"
+                    IsVisible="{Binding AccessMessage, Converter={StaticResource StringNotEmptyConverter}}">
+                <Label Text="{Binding AccessMessage}" TextColor="{StaticResource BrandDanger}" FontSize="13" />
+            </Border>
+
+            <VerticalStackLayout Spacing="10" IsVisible="{Binding CanViewAvailability}">
+                <Label Text="Filter by location" Style="{StaticResource MutedLabel}" FontSize="12" />
+                <ScrollView Orientation="Horizontal" HeightRequest="48">
+                    <HorizontalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Locations}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="models:OfficeLocation">
+                                <Border Stroke="{StaticResource BrandGold}"
+                                        StrokeThickness="1.2"
+                                        StrokeShape="RoundRectangle 20"
+                                        Padding="12,8">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AvailabilityViewModel}}, Path=FilterCommand}"
+                                                              CommandParameter="{Binding .}" />
+                                    </Border.GestureRecognizers>
+                                    <Border.BackgroundColor>
+                                        <MultiBinding Converter="{StaticResource ChipSelectedConverter}">
+                                            <Binding Path="Id" />
+                                            <Binding Path="SelectedLocationId" Source="{RelativeSource AncestorType={x:Type vm:AvailabilityViewModel}}" />
+                                        </MultiBinding>
+                                    </Border.BackgroundColor>
+                                    <Label Text="{Binding Name}" FontSize="12" FontAttributes="Bold">
+                                        <Label.TextColor>
+                                            <MultiBinding Converter="{StaticResource ChipSelectedConverter}" ConverterParameter="fg">
+                                                <Binding Path="Id" />
+                                                <Binding Path="SelectedLocationId" Source="{RelativeSource AncestorType={x:Type vm:AvailabilityViewModel}}" />
+                                            </MultiBinding>
+                                        </Label.TextColor>
+                                    </Label>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </HorizontalStackLayout>
+                </ScrollView>
+
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                    <Border Style="{StaticResource StatTile}">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="{Binding AvailableCount}" Style="{StaticResource StatNumber}" TextColor="{StaticResource BrandSuccess}" />
+                            <Label Text="Available" Style="{StaticResource StatCaption}" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <Border Grid.Column="1" Style="{StaticResource StatTile}">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="{Binding ReservedCount}" Style="{StaticResource StatNumber}" TextColor="{StaticResource BrandGoldDeep}" />
+                            <Label Text="Reserved" Style="{StaticResource StatCaption}" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <Border Grid.Column="2" Style="{StaticResource StatTile}">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="{Binding OccupiedCount}" Style="{StaticResource StatNumber}" TextColor="{StaticResource BrandDanger}" />
+                            <Label Text="Busy" Style="{StaticResource StatCaption}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </Grid>
+
+                <HorizontalStackLayout Spacing="12">
+                    <HorizontalStackLayout Spacing="6">
+                        <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#2E7D4F" VerticalOptions="Center" />
+                        <Label Text="Free" Style="{StaticResource MutedLabel}" FontSize="11" />
+                    </HorizontalStackLayout>
+                    <HorizontalStackLayout Spacing="6">
+                        <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#C9A227" VerticalOptions="Center" />
+                        <Label Text="Held" Style="{StaticResource MutedLabel}" FontSize="11" />
+                    </HorizontalStackLayout>
+                    <HorizontalStackLayout Spacing="6">
+                        <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#B33A3A" VerticalOptions="Center" />
+                        <Label Text="In use" Style="{StaticResource MutedLabel}" FontSize="11" />
+                    </HorizontalStackLayout>
+                </HorizontalStackLayout>
+
+                <Grid ColumnDefinitions="*,Auto">
+                    <Label Text="Tap a room photo or name — map layout until floor plans ship."
+                           Style="{StaticResource MutedLabel}" FontSize="11" VerticalOptions="Center" />
+                    <HorizontalStackLayout Grid.Column="1" Spacing="6">
+                        <Button x:Name="MapViewButton" Text="Map" Clicked="OnMapViewClicked" Style="{StaticResource ActionPill}" Padding="12,6" FontSize="11" MinimumHeightRequest="34" />
+                        <Button x:Name="ListViewButton" Text="List" Clicked="OnListViewClicked" Style="{StaticResource ActionPill}" Padding="12,6" FontSize="11" MinimumHeightRequest="34" />
+                    </HorizontalStackLayout>
+                </Grid>
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+
+        <RefreshView Grid.Row="1" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}" IsVisible="{Binding CanViewAvailability}">
+            <ScrollView>
+                <VerticalStackLayout>
+                    <VerticalStackLayout x:Name="MapHost" Padding="0,12,0,0" IsVisible="True" />
+
+                    <VerticalStackLayout x:Name="ListHost" Spacing="10" Padding="0,12,0,0" IsVisible="False"
+                                         BindableLayout.ItemsSource="{Binding Items}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AvailabilityItem">
+                                <Border Style="{StaticResource ElevatedCard}" Padding="0">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AvailabilityViewModel}}, Path=OpenRoomCommand}"
+                                                              CommandParameter="{Binding .}" />
+                                    </Border.GestureRecognizers>
+                                    <Grid ColumnDefinitions="88,*">
+                                        <Image Source="{Binding Room.ImageKey}" Aspect="AspectFill" HeightRequest="96" />
+                                        <Grid Grid.Column="1" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" Padding="12,10" RowSpacing="4">
+                                            <Label Text="{Binding Room.Name}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="16" />
+                                            <Border Grid.Column="1" Style="{StaticResource StatusPillBorder}" BackgroundColor="{Binding StatusColor}">
+                                                <Label Text="{Binding StatusText}" Style="{StaticResource StatusPillText}" />
+                                            </Border>
+                                            <Label Grid.Row="1" Text="{Binding LocationName}" TextColor="{StaticResource BrandMuted}" FontSize="13" />
+                                            <Label Grid.Row="2"
+                                                   Text="{Binding Room.Capacity, StringFormat='Seats {0}'}"
+                                                   TextColor="{StaticResource BrandGoldDeep}"
+                                                   FontSize="12"
+                                                   VerticalOptions="Center" />
+                                            <Button Grid.Row="2" Grid.Column="1"
+                                                    Text="Book"
+                                                    IsVisible="{Binding Source={RelativeSource AncestorType={x:Type vm:AvailabilityViewModel}}, Path=CanBook}"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AvailabilityViewModel}}, Path=BookRoomCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    Style="{StaticResource GoldButton}"
+                                                    Padding="12,6"
+                                                    FontSize="12"
+                                                    MinimumHeightRequest="36"
+                                                    VerticalOptions="End" />
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+    </Grid>
+</ContentPage>

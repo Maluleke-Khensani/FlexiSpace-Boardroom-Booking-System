@@ -1,0 +1,36 @@
+@* Gallery of all Flexispace office locations. *@
+@page "/locations"
+@rendermode InteractiveServer
+@inject LocationsViewModel Vm
+@inject IAuthService Auth
+@using Flexispace.Web.Helpers
+
+<PageTitle>Locations · Flexispace</PageTitle>
+
+@if (!Auth.IsAuthenticated)
+{
+    <RedirectToLogin />
+}
+else
+{
+    <div class="fs-content-wide" style="padding:32px">
+        <p class="fs-eyebrow">Our spaces</p>
+        <h2 class="fs-section-title" style="margin-bottom:8px">View the gallery</h2>
+        <p class="fs-muted" style="margin-bottom:28px">We currently offer three locations across Gauteng.</p>
+        <div class="fs-choice-section">
+            <LocationChoiceGrid Items="Vm.Locations"
+                                OnSelect="OpenAsync" />
+        </div>
+    </div>
+}
+
+@code {
+    protected override async Task OnInitializedAsync() =>
+        await Vm.AppearingCommand.ExecuteAsync(null);
+
+    private Task OpenAsync(OfficeLocation loc)
+    {
+        Vm.OpenCommand.Execute(loc);
+        return Task.CompletedTask;
+    }
+}

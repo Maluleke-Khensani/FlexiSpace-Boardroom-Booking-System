@@ -1,0 +1,24 @@
+@* Image-button grid for selecting a boardroom. *@
+@using Flexispace.Web.Helpers
+
+<div class="fs-choice-grid fs-choice-grid--rooms">
+    @foreach (var room in Items)
+    {
+        var selected = room.Id == SelectedId;
+        <button type="button"
+                class="fs-choice-btn fs-choice-btn--room @(selected ? "fs-choice-btn--selected" : "")"
+                @onclick="() => OnSelect.InvokeAsync(room)">
+            <img src="@DisplayHelpers.ImageUrl(room.ImageKey)" alt="@room.Name" />
+            <div class="fs-choice-btn__body">
+                <div class="fs-choice-btn__title">@room.Name</div>
+                <div class="fs-choice-btn__meta">Seats @room.Capacity · @DisplayHelpers.JoinList(room.Equipment)</div>
+            </div>
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<Boardroom> Items { get; set; } = [];
+    [Parameter] public string? SelectedId { get; set; }
+    [Parameter] public EventCallback<Boardroom> OnSelect { get; set; }
+}
