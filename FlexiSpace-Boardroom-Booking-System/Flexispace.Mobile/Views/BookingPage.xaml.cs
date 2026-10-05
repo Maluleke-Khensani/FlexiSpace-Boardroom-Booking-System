@@ -141,6 +141,8 @@ public partial class BookingPage : ContentPage
 
     private void OnBookingPreviousClicked(object? sender, EventArgs e) => MoveBooking(-1);
     private void OnBookingNextClicked(object? sender, EventArgs e) => MoveBooking(1);
+    private void OnBookingPreviousClicked(object? sender, TappedEventArgs e) => MoveBooking(-1);
+    private void OnBookingNextClicked(object? sender, TappedEventArgs e) => MoveBooking(1);
     private void OnBookingSwipedLeft(object? sender, SwipedEventArgs e) => MoveBooking(1);
     private void OnBookingSwipedRight(object? sender, SwipedEventArgs e) => MoveBooking(-1);
     private async void OnBookingCenterTapped(object? sender, TappedEventArgs e) => await ChooseCurrentLocationAsync();
@@ -182,15 +184,26 @@ public partial class BookingPage : ContentPage
         var res = Microsoft.Maui.Controls.Application.Current!.Resources;
         var tiles = _vm.Rooms.Select((room, i) => new RoomMapTile
         {
-            Title = room.Name,
-            Subtitle = $"Seats {room.Capacity}",
+            Title = room.IsCombined ? "Combined" : room.Name,
+            Subtitle = room.IsCombined
+                ? $"Seats {room.Capacity}"
+                : room.CanCombine
+                    ? $"Seats {room.Capacity} · +"
+                    : $"Seats {room.Capacity}",
             ImageKey = room.ImageKey,
-            RingColor = (Color)res[RingColorKeys[i % RingColorKeys.Length]],
+            RingColor = room.IsCombined
+                ? (Color)res["BrandGold"]
+                : room.CanCombine
+                    ? (Color)res["BrandTeal"]
+                    : (Color)res[RingColorKeys[i % RingColorKeys.Length]],
             Command = _vm.SelectRoomCommand,
             CommandParameter = room
         }).ToList();
 
-        var view = RoomMapBuilder.BuildGroup(_vm.SelectedLocation.Name, $"{tiles.Count} room{(tiles.Count == 1 ? "" : "s")} · tap to select", tiles);
+        var subtitle = _vm.ShowCombineTip
+            ? $"{tiles.Count} options · teal rings can combine"
+            : $"{tiles.Count} room{(tiles.Count == 1 ? "" : "s")} · tap to select";
+        var view = RoomMapBuilder.BuildGroup(_vm.SelectedLocation.Name, subtitle, tiles);
         RoomsMapHost.Children.Add(view);
     }
 }

@@ -7,13 +7,13 @@
     Title="Flexispace"
     Shell.FlyoutBehavior="Disabled"
     Shell.NavBarIsVisible="True"
-    Shell.BackgroundColor="{StaticResource BrandIvory}"
-    Shell.ForegroundColor="{StaticResource BrandInk}"
-    Shell.TitleColor="{StaticResource BrandInk}"
-    Shell.TabBarBackgroundColor="{StaticResource BrandSurface}"
-    Shell.TabBarForegroundColor="{StaticResource BrandInk}"
-    Shell.TabBarUnselectedColor="{StaticResource BrandMuted}"
-    Shell.TabBarTitleColor="{StaticResource BrandGoldDeep}">
+    Shell.BackgroundColor="{DynamicResource BrandPage}"
+    Shell.ForegroundColor="{DynamicResource BrandInk}"
+    Shell.TitleColor="{DynamicResource BrandInk}"
+    Shell.TabBarBackgroundColor="{DynamicResource BrandSurface}"
+    Shell.TabBarForegroundColor="{DynamicResource BrandInk}"
+    Shell.TabBarUnselectedColor="{DynamicResource BrandMuted}"
+    Shell.TabBarTitleColor="{DynamicResource BrandGoldDeep}">
 
     <ShellContent Route="WelcomePage"
                   ContentTemplate="{DataTemplate views:WelcomePage}"

@@ -39,24 +39,29 @@ namespace FlexiSpace.Infrastructure.services
         // current workflow uses cancellation for rejection.
         private static readonly Dictionary<BookingStatus, BookingStatus[]> AllowedStatusTransitions = new()
         {
-            [BookingStatus.Pending] = new[]
-            {
+            [BookingStatus.Pending] =
+            [
+                BookingStatus.Confirmed,
                 BookingStatus.Cancelled,
                 BookingStatus.Completed
-            },
-
-            [BookingStatus.Cancelled] = Array.Empty<BookingStatus>(),
-
-            [BookingStatus.Completed] = Array.Empty<BookingStatus>()
+            ],
+            [BookingStatus.Confirmed] =
+            [
+                BookingStatus.Cancelled,
+                BookingStatus.Completed
+            ],
+            [BookingStatus.Cancelled] = [],
+            [BookingStatus.Completed] = []
         };
 
         // Statuses that hold a boardroom's time slot and therefore block
         // other bookings from overlapping it.
         // Cancelled/Completed bookings no longer occupy the slot.
         private static readonly BookingStatus[] SlotHoldingStatuses =
-        {
-            BookingStatus.Pending
-        };
+        [
+            BookingStatus.Pending,
+            BookingStatus.Confirmed
+        ];
 
         private const int DefaultPageSize = 20;
         private const int MaxPageSize = 100;
@@ -67,7 +72,8 @@ namespace FlexiSpace.Infrastructure.services
         public async Task<IEnumerable<Booking>> GetAllBookingsAsync()
         {
             return await _context.Bookings
-                .Include(b => b.Boardroom)
+                .Include(b => b.Boardroom)!.ThenInclude(br => br!.Location)
+                .Include(b => b.User)
                 .Include(b => b.BookingEquipments)
                 .Include(b => b.BookingCaterings)
                 .ToListAsync();
@@ -77,7 +83,8 @@ namespace FlexiSpace.Infrastructure.services
         public async Task<Booking?> GetBookingByIdAsync(int id)
         {
             return await _context.Bookings
-                .Include(b => b.Boardroom)
+                .Include(b => b.Boardroom)!.ThenInclude(br => br!.Location)
+                .Include(b => b.User)
                 .Include(b => b.BookingEquipments)
                 .Include(b => b.BookingCaterings)
                 .FirstOrDefaultAsync(b => b.Id == id);
@@ -165,11 +172,11 @@ namespace FlexiSpace.Infrastructure.services
 
             var errors = new List<string>();
 
-            if (primaryCalendar == null)
-            {
-                errors.Add(
-                    $"{boardroom.Location?.Name ?? "This location"} does not have an active primary Outlook calendar configured.");
-            }
+            // Outlook/Graph calendar sync is disabled in this environment —
+            // do not block booking creation when no primary calendar is configured.
+
+            // Bookings are confirmed immediately (no Pending approval step).
+            booking.Status = BookingStatus.Confirmed;
 
             ValidateBookingRules(
                 booking,
@@ -204,6 +211,13 @@ namespace FlexiSpace.Infrastructure.services
             {
                 errors.Add(
                     $"{boardroom.Name} is already booked for an overlapping time on " +
+                    $"{booking.BookingDate:yyyy-MM-dd}.");
+            }
+
+            if (await HasBlockedPeriodConflictAsync(booking))
+            {
+                errors.Add(
+                    $"{boardroom.Name} is blocked for an overlapping time on " +
                     $"{booking.BookingDate:yyyy-MM-dd}.");
             }
 
@@ -756,6 +770,18 @@ namespace FlexiSpace.Infrastructure.services
                     || b.Id != excludeBookingId.Value)
                 && booking.StartTime < b.EndTime
                 && b.StartTime < booking.EndTime);
+        }
+
+        private async Task<bool> HasBlockedPeriodConflictAsync(Booking booking)
+        {
+            var bookingStart = booking.BookingDate.ToDateTime(booking.StartTime);
+            var bookingEnd = booking.BookingDate.ToDateTime(booking.EndTime);
+
+            var blocks = await _context.BlockedPeriods
+                .Where(b => b.BoardroomId == booking.BoardroomId)
+                .ToListAsync();
+
+            return blocks.Any(b => bookingStart < b.End && b.Start < bookingEnd);
         }
     }
 }

@@ -15,5 +15,11 @@ namespace FlexiSpace.Core.Common
         Task<User?> GetCurrentUserAsync();
 
         Task<int?> GetCurrentUserIdAsync();
+
+        /// <summary>
+        /// Links the caller's Entra object id to a FlexiSpace directory row using an email/UPN hint
+        /// (e.g. MSAL Account.Username). Access tokens often omit email claims.
+        /// </summary>
+        Task<User?> LinkByEmailAsync(string? emailHint);
     }
 }

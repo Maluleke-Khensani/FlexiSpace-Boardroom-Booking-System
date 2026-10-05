@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Flexispace.Mobile.ViewModels"
+             xmlns:controls="clr-namespace:Flexispace.Mobile.Controls"
+             x:Class="Flexispace.Mobile.Views.RegisterPage"
+             x:DataType="vm:RegisterViewModel"
+             BackgroundColor="{DynamicResource BrandPage}"
+             Shell.NavBarIsVisible="False"
+             Title="Create account">
+
+    <ScrollView>
+        <VerticalStackLayout x:Name="RegisterContent" Padding="0" Spacing="0">
+            <Border Style="{StaticResource HeroBanner}" Padding="24,36,24,28">
+                <VerticalStackLayout Spacing="10" MaximumWidthRequest="480" HorizontalOptions="Center">
+                    <Image Source="flexispace_logo.png" HeightRequest="72" Aspect="AspectFit" HorizontalOptions="Center" />
+                    <Label Text="JOIN FLEXISPACE" Style="{StaticResource EyebrowLabel}" TextColor="{StaticResource BrandGold}" HorizontalTextAlignment="Center" />
+                    <Label Text="Create your account"
+                           TextColor="{StaticResource BrandIvory}"
+                           FontSize="26"
+                           FontAttributes="Bold"
+                           HorizontalTextAlignment="Center" />
+                    <Label Text="Book boardrooms across Centurion, Houghton, and Eagle Canyon."
+                           TextColor="#C8C2B8"
+                           FontSize="14"
+                           HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
+            </Border>
+
+            <VerticalStackLayout Padding="20,18,20,28" Spacing="16" MaximumWidthRequest="480" HorizontalOptions="Center">
+                <Border Style="{StaticResource ElevatedCard}" Padding="18,18">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Your details" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="16" />
+                        <Label Text="Self-service accounts are created as Clients. Staff and centre managers are provisioned by an administrator."
+                               Style="{StaticResource MutedLabel}" FontSize="12" />
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <VerticalStackLayout Spacing="6">
+                                <Label Text="FIRST NAME" Style="{StaticResource MutedLabel}" FontSize="11" FontAttributes="Bold" />
+                                <Border BackgroundColor="{DynamicResource BrandSurface}" Stroke="{DynamicResource BrandLine}" StrokeThickness="1" StrokeShape="RoundRectangle 12" Padding="12,2">
+                                    <Entry Text="{Binding FirstName}" Placeholder="Thabo" Style="{StaticResource FieldEntry}" BackgroundColor="Transparent" />
+                                </Border>
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="6">
+                                <Label Text="LAST NAME" Style="{StaticResource MutedLabel}" FontSize="11" FontAttributes="Bold" />
+                                <Border BackgroundColor="{DynamicResource BrandSurface}" Stroke="{DynamicResource BrandLine}" StrokeThickness="1" StrokeShape="RoundRectangle 12" Padding="12,2">
+                                    <Entry Text="{Binding LastName}" Placeholder="Mokoena" Style="{StaticResource FieldEntry}" BackgroundColor="Transparent" />
+                                </Border>
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <Label Text="EMAIL" Style="{StaticResource MutedLabel}" FontSize="11" FontAttributes="Bold" Margin="0,4,0,0" />
+                        <Border BackgroundColor="{DynamicResource BrandSurface}" Stroke="{DynamicResource BrandLine}" StrokeThickness="1" StrokeShape="RoundRectangle 12" Padding="12,2">
+                            <Entry Text="{Binding Email}" Keyboard="Email" Placeholder="you@company.com" Style="{StaticResource FieldEntry}" BackgroundColor="Transparent" />
+                        </Border>
+
+                        <Label Text="PHONE (OPTIONAL)" Style="{StaticResource MutedLabel}" FontSize="11" FontAttributes="Bold" Margin="0,4,0,0" />
+                        <Border BackgroundColor="{DynamicResource BrandSurface}" Stroke="{DynamicResource BrandLine}" StrokeThickness="1" StrokeShape="RoundRectangle 12" Padding="12,2">
+                            <Entry Text="{Binding PhoneNumber}" Keyboard="Telephone" Placeholder="010 000 0000" Style="{StaticResource FieldEntry}" BackgroundColor="Transparent" />
+                        </Border>
+
+                        <Label Text="PASSWORD" Style="{StaticResource MutedLabel}" FontSize="11" FontAttributes="Bold" Margin="0,4,0,0" />
+                        <Border BackgroundColor="{DynamicResource BrandSurface}" Stroke="{DynamicResource BrandLine}" StrokeThickness="1" StrokeShape="RoundRectangle 12" Padding="12,2">
+                            <Entry Text="{Binding Password}" IsPassword="True" Placeholder="At least 6 characters" Style="{StaticResource FieldEntry}" BackgroundColor="Transparent" />
+                        </Border>
+
+                        <Label Text="CONFIRM PASSWORD" Style="{StaticResource MutedLabel}" FontSize="11" FontAttributes="Bold" Margin="0,4,0,0" />
+                        <Border BackgroundColor="{DynamicResource BrandSurface}" Stroke="{DynamicResource BrandLine}" StrokeThickness="1" StrokeShape="RoundRectangle 12" Padding="12,2">
+                            <Entry Text="{Binding ConfirmPassword}" IsPassword="True" Placeholder="Re-enter password" Style="{StaticResource FieldEntry}" BackgroundColor="Transparent" />
+                        </Border>
+
+                        <Border IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}"
+                                StrokeThickness="0"
+                                StrokeShape="RoundRectangle 10"
+                                BackgroundColor="{DynamicResource BrandDangerSoft}"
+                                Padding="12,10">
+                            <Label Text="{Binding ErrorMessage}" TextColor="{DynamicResource BrandDanger}" FontSize="13" />
+                        </Border>
+
+                        <Button Text="Create account"
+                                Command="{Binding RegisterCommand}"
+                                Style="{StaticResource GoldButton}"
+                                Margin="0,6,0,0"
+                                IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+
+                        <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="{StaticResource BrandGold}" />
+
+                        <Button Text="Already have an account? Sign in"
+                                Command="{Binding GoToLoginCommand}"
+                                Style="{StaticResource GhostButton}"
+                                Margin="0,2,0,0" />
+
+                        <Border StrokeThickness="0"
+                                StrokeShape="RoundRectangle 12"
+                                BackgroundColor="{DynamicResource BrandTealSoft}"
+                                Padding="12,10"
+                                Margin="0,4,0,0">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenPrivacyCommand}" />
+                            </Border.GestureRecognizers>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <Label Style="{StaticResource MaterialGlyph}" Text="&#xe32a;" FontSize="18"
+                                       TextColor="{DynamicResource BrandTeal}" VerticalOptions="Center" />
+                                <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                                    <Label Text="Protected by PoPIA" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="12" />
+                                    <Label Text="Read our privacy policy" TextColor="{DynamicResource BrandMuted}" FontSize="11" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="2" Style="{StaticResource MaterialGlyph}" Text="&#xe5cc;" FontSize="16"
+                                       TextColor="{DynamicResource BrandMuted}" VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
+                    </VerticalStackLayout>
+                </Border>
+
+                <controls:SocialLinksBar Margin="0,4,0,4" />
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -1,4 +1,6 @@
 using Flexispace.Mobile.Services;
+using Flexispace.Mobile.Services.Api;
+using Flexispace.Mobile.Services.Http;
 using Flexispace.Mobile.Services.Mock;
 using Flexispace.Mobile.ViewModels;
 using Flexispace.Mobile.Views;
@@ -36,12 +38,45 @@ public static class MauiProgram
         // login/role switch instead of mutating one long-lived instance — see ShellReloader.
         builder.Services.AddTransient<AppShell>();
 
-        builder.Services.AddSingleton<MockDataStore>();
-        builder.Services.AddSingleton<IAuthService, MockAuthService>();
-        builder.Services.AddSingleton<INotificationService, MockNotificationService>();
-        builder.Services.AddSingleton<IRoomService, MockRoomService>();
-        builder.Services.AddSingleton<IBookingService, MockBookingService>();
-        builder.Services.AddSingleton<IAdminService, MockAdminService>();
+        var apiSettings = ApiSettings.Load();
+        builder.Services.AddSingleton(apiSettings);
+        builder.Services.AddSingleton<CatalogSlugs>();
+        builder.Services.AddSingleton<ITokenStorage, SecureTokenStorage>();
+        builder.Services.AddSingleton<IMsalAuthService, MsalAuthService>();
+
+        if (apiSettings.UseMockServices)
+        {
+            builder.Services.AddSingleton<MockDataStore>();
+            builder.Services.AddSingleton<IAuthService, MockAuthService>();
+            builder.Services.AddSingleton<INotificationService, MockNotificationService>();
+            builder.Services.AddSingleton<IRoomService, MockRoomService>();
+            builder.Services.AddSingleton<IBookingService, MockBookingService>();
+            builder.Services.AddSingleton<IAdminService, MockAdminService>();
+            builder.Services.AddSingleton<IAiSuggestionService, NullAiSuggestionService>();
+        }
+        else
+        {
+            builder.Services.AddSingleton(_ =>
+            {
+                var handler = new HttpClientHandler();
+#if DEBUG
+                handler.ServerCertificateCustomValidationCallback =
+                    HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+#endif
+                return new HttpClient(handler)
+                {
+                    BaseAddress = new Uri(apiSettings.BaseUrl),
+                    Timeout = TimeSpan.FromSeconds(30)
+                };
+            });
+            builder.Services.AddSingleton<ApiClient>();
+            builder.Services.AddSingleton<IAuthService, HttpAuthService>();
+            builder.Services.AddSingleton<INotificationService, HttpNotificationService>();
+            builder.Services.AddSingleton<IRoomService, HttpRoomService>();
+            builder.Services.AddSingleton<IBookingService, HttpBookingService>();
+            builder.Services.AddSingleton<IAdminService, HttpAdminService>();
+            builder.Services.AddSingleton<IAiSuggestionService, HttpAiSuggestionService>();
+        }
 
         builder.Services.AddTransient<WelcomeViewModel>();
         builder.Services.AddTransient<LoginViewModel>();
@@ -56,6 +91,10 @@ public static class MauiProgram
         builder.Services.AddTransient<LocationDetailViewModel>();
         builder.Services.AddTransient<LocationsViewModel>();
         builder.Services.AddTransient<ManageViewModel>();
+        builder.Services.AddTransient<PrivacyViewModel>();
+        builder.Services.AddTransient<ReportsViewModel>();
+        builder.Services.AddTransient<UsersViewModel>();
+        builder.Services.AddTransient<SettingsViewModel>();
 
         builder.Services.AddTransient<WelcomePage>();
         builder.Services.AddTransient<LoginPage>();
@@ -70,6 +109,10 @@ public static class MauiProgram
         builder.Services.AddTransient<LocationDetailPage>();
         builder.Services.AddTransient<LocationsPage>();
         builder.Services.AddTransient<ManagePage>();
+        builder.Services.AddTransient<PrivacyPage>();
+        builder.Services.AddTransient<ReportsPage>();
+        builder.Services.AddTransient<UsersPage>();
+        builder.Services.AddTransient<SettingsPage>();
 
         return builder.Build();
     }

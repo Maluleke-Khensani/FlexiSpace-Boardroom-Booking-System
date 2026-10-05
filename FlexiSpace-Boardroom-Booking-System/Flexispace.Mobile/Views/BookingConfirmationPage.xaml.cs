@@ -25,8 +25,7 @@ public partial class BookingConfirmationPage : ContentPage
     private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(BookingConfirmationViewModel.IsConfirmed)
-            or nameof(BookingConfirmationViewModel.Booking)
-            or nameof(BookingConfirmationViewModel.IsPending))
+            or nameof(BookingConfirmationViewModel.Booking))
         {
             TryPlayFireworks();
         }

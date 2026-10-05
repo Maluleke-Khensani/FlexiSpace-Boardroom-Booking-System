@@ -10,31 +10,34 @@ public partial class WelcomeViewModel : ObservableObject
     [RelayCommand]
     private async Task GetStartedAsync() =>
         await Shell.Current.GoToAsync("//LoginPage");
+
+    [RelayCommand]
+    private async Task OpenPrivacyAsync() =>
+        await Shell.Current.GoToAsync("PrivacyPage");
 }
 
 public partial class LoginViewModel(IAuthService auth) : ObservableObject
 {
-    [ObservableProperty] private string email = "staff@flexispace.net.za";
-    [ObservableProperty] private string password = "demo123";
     [ObservableProperty] private string? errorMessage;
     [ObservableProperty] private bool isBusy;
 
     [RelayCommand]
-    private async Task LoginAsync()
+    private async Task LoginWithMicrosoftAsync()
     {
         if (IsBusy) return;
         IsBusy = true;
         ErrorMessage = null;
         try
         {
-            var ok = await auth.LoginAsync(Email, Password);
-            if (!ok)
+            var result = await auth.LoginWithMicrosoftAsync();
+            if (!result.Success)
             {
-                ErrorMessage = "Invalid email or password. Try a demo account below.";
+                ErrorMessage = result.Message;
+                await ActionFeedback.FailAsync(result.Message, "Sign-in blocked");
                 return;
             }
 
-            // Rebuild the Shell so the tab bar reflects this user's role from the start.
+            await ActionFeedback.SuccessAsync(result.Message, "Signed in");
             await ShellReloader.ReloadAsync();
         }
         finally
@@ -46,8 +49,29 @@ public partial class LoginViewModel(IAuthService auth) : ObservableObject
     [RelayCommand]
     private async Task UseDemoAsync(string email)
     {
-        Email = email;
-        Password = "demo123";
-        await LoginAsync();
+        if (IsBusy) return;
+        IsBusy = true;
+        ErrorMessage = null;
+        try
+        {
+            var result = await auth.LoginAsync(email, "demo123");
+            if (!result.Success)
+            {
+                ErrorMessage = result.Message;
+                await ActionFeedback.FailAsync(result.Message, "Sign-in blocked");
+                return;
+            }
+
+            await ActionFeedback.SuccessAsync(result.Message, "Signed in");
+            await ShellReloader.ReloadAsync();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
+
+    [RelayCommand]
+    private async Task OpenPrivacyAsync() =>
+        await Shell.Current.GoToAsync("PrivacyPage");
 }

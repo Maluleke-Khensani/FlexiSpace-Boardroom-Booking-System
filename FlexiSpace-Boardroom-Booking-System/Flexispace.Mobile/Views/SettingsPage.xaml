@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Flexispace.Mobile.ViewModels"
+             xmlns:controls="clr-namespace:Flexispace.Mobile.Controls"
+             x:Class="Flexispace.Mobile.Views.SettingsPage"
+             x:DataType="vm:SettingsViewModel"
+             Title="Settings"
+             BackgroundColor="{DynamicResource BrandPage}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="18" MaximumWidthRequest="560" HorizontalOptions="Center">
+
+            <Border Style="{StaticResource HeroBanner}" Padding="20,22">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                    <Border StrokeThickness="0"
+                            StrokeShape="RoundRectangle 14"
+                            BackgroundColor="#33C4A035"
+                            WidthRequest="52"
+                            HeightRequest="52">
+                        <Label Style="{StaticResource MaterialGlyph}"
+                               Text="&#xe8b8;"
+                               FontSize="26"
+                               TextColor="{StaticResource BrandGold}" />
+                    </Border>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
+                        <Label Text="SETTINGS" Style="{StaticResource EyebrowLabel}" TextColor="{StaticResource BrandGold}" />
+                        <Label Text="Preferences" TextColor="{StaticResource BrandIvory}" FontSize="24" FontAttributes="Bold" />
+                        <Label Text="Alerts, assistant, privacy, and session."
+                               TextColor="#C8C2B8"
+                               FontSize="12" />
+                    </VerticalStackLayout>
+                </Grid>
+            </Border>
+
+            <!-- Account -->
+            <Label Text="Account" Style="{StaticResource EyebrowLabel}" />
+            <Border Style="{StaticResource ElevatedCard}" Padding="14,14" Margin="0,-6,0,0">
+                <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="12">
+                    <Border Style="{StaticResource AvatarBadge}"
+                            WidthRequest="48"
+                            HeightRequest="48"
+                            BackgroundColor="{StaticResource BrandBlack}">
+                        <Label Text="{Binding Name, Converter={StaticResource InitialsConverter}}"
+                               Style="{StaticResource AvatarInitials}"
+                               FontSize="15" />
+                    </Border>
+                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                        <Label Text="{Binding Name}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="16" />
+                        <Label Text="{Binding Email}" TextColor="{DynamicResource BrandMuted}" FontSize="12" />
+                        <Label Text="{Binding RankLine}" TextColor="{DynamicResource BrandGoldDeep}" FontSize="11" FontAttributes="Bold" />
+                    </VerticalStackLayout>
+                    <Border Grid.Column="2"
+                            Style="{StaticResource SectionIndexBadge}"
+                            Margin="0"
+                            VerticalOptions="Center">
+                        <Label Text="{Binding Role}" TextColor="{StaticResource BrandBlack}" FontSize="10" FontAttributes="Bold" />
+                    </Border>
+                </Grid>
+            </Border>
+            <Border Style="{StaticResource ElevatedCard}" Padding="14,12" Margin="0,-6,0,0">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                    <Label Style="{StaticResource MaterialGlyph}" Text="&#xe55f;" FontSize="18" TextColor="{StaticResource BrandGold}" />
+                    <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                        <Label Text="Home base" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="13" />
+                        <Label Text="{Binding HomeBase}" TextColor="{DynamicResource BrandMuted}" FontSize="12" />
+                    </VerticalStackLayout>
+                    <Label Grid.Column="2"
+                           Text="Scoped"
+                           TextColor="{DynamicResource BrandMuted}"
+                           FontSize="11"
+                           VerticalOptions="Center" />
+                </Grid>
+            </Border>
+
+            <!-- Notifications -->
+            <Label Text="Notifications" Style="{StaticResource EyebrowLabel}" Margin="0,4,0,0" />
+            <Border Style="{StaticResource ElevatedCard}" Padding="0" Margin="0,-6,0,0">
+                <VerticalStackLayout Spacing="0">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="14,12">
+                        <Border StrokeThickness="0" StrokeShape="RoundRectangle 10"
+                                BackgroundColor="{DynamicResource BrandSuccessSoft}"
+                                WidthRequest="36" HeightRequest="36">
+                            <Label Style="{StaticResource MaterialGlyph}" Text="&#xe86c;" FontSize="18"
+                                   TextColor="{DynamicResource BrandSuccess}" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                            <Label Text="Booking confirmations" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="13" />
+                            <Label Text="When a booking is created or held." TextColor="{DynamicResource BrandMuted}" FontSize="11" />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="2"
+                                IsToggled="{Binding BookingConfirmations}"
+                                OnColor="{StaticResource BrandGold}"
+                                VerticalOptions="Center" />
+                    </Grid>
+                    <BoxView Style="{StaticResource SectionRule}" Margin="14,0" />
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="14,12">
+                        <Border StrokeThickness="0" StrokeShape="RoundRectangle 10"
+                                BackgroundColor="{DynamicResource BrandTealSoft}"
+                                WidthRequest="36" HeightRequest="36">
+                            <Label Style="{StaticResource MaterialGlyph}" Text="&#xe8b5;" FontSize="18"
+                                   TextColor="{DynamicResource BrandTeal}" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                            <Label Text="Reminders" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="13" />
+                            <Label Text="Heads-up before a meeting starts." TextColor="{DynamicResource BrandMuted}" FontSize="11" />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="2"
+                                IsToggled="{Binding BookingReminders}"
+                                OnColor="{StaticResource BrandGold}"
+                                VerticalOptions="Center" />
+                    </Grid>
+                    <BoxView Style="{StaticResource SectionRule}" Margin="14,0" />
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="14,12">
+                        <Border StrokeThickness="0" StrokeShape="RoundRectangle 10"
+                                BackgroundColor="{DynamicResource BrandDangerSoft}"
+                                WidthRequest="36" HeightRequest="36">
+                            <Label Style="{StaticResource MaterialGlyph}" Text="&#xe5cd;" FontSize="18"
+                                   TextColor="{DynamicResource BrandDanger}" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                            <Label Text="Cancellations &amp; blocks" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="13" />
+                            <Label Text="When a booking is cancelled or a room is blocked." TextColor="{DynamicResource BrandMuted}" FontSize="11" />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="2"
+                                IsToggled="{Binding CancellationAlerts}"
+                                OnColor="{StaticResource BrandGold}"
+                                VerticalOptions="Center" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+            <Label Text="Alert delivery will honour these toggles when the live API is connected."
+                   Style="{StaticResource MutedLabel}"
+                   FontSize="11"
+                   Margin="0,-8,0,0" />
+
+            <!-- Appearance -->
+            <Label Text="Appearance" Style="{StaticResource EyebrowLabel}" Margin="0,4,0,0" />
+            <Border Style="{StaticResource ElevatedCard}" Padding="0" Margin="0,-6,0,0">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="14,12">
+                    <Border StrokeThickness="0" StrokeShape="RoundRectangle 10"
+                            BackgroundColor="{DynamicResource BrandGoldWash}"
+                            WidthRequest="36" HeightRequest="36">
+                        <Label Style="{StaticResource MaterialGlyph}" Text="&#xe51c;" FontSize="18"
+                               TextColor="{DynamicResource BrandGoldDeep}" />
+                    </Border>
+                    <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                        <Label Text="{Binding ThemeCaption}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="13" />
+                        <Label Text="Flip the whole app between light and dark."
+                               TextColor="{DynamicResource BrandMuted}" FontSize="11" />
+                    </VerticalStackLayout>
+                    <Switch Grid.Column="2"
+                            IsToggled="{Binding IsDarkMode}"
+                            OnColor="{StaticResource BrandGold}"
+                            VerticalOptions="Center" />
+                </Grid>
+            </Border>
+
+            <!-- Experience -->
+            <Label Text="Experience" Style="{StaticResource EyebrowLabel}" Margin="0,4,0,0" />
+            <Border Style="{StaticResource ElevatedCard}" Padding="0" Margin="0,-6,0,0">
+                <VerticalStackLayout Spacing="0">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="14,12">
+                        <Border StrokeThickness="0" StrokeShape="RoundRectangle 10"
+                                BackgroundColor="{DynamicResource BrandGoldWash}"
+                                WidthRequest="36" HeightRequest="36">
+                            <Label Style="{StaticResource MaterialGlyph}" Text="&#xe0b7;" FontSize="18"
+                                   TextColor="{DynamicResource BrandGoldDeep}" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                            <Label Text="Booking assistant" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="13" />
+                            <Label Text="Show the floating help button." TextColor="{DynamicResource BrandMuted}" FontSize="11" />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="2"
+                                IsToggled="{Binding ShowAssistant}"
+                                OnColor="{StaticResource BrandGold}"
+                                VerticalOptions="Center" />
+                    </Grid>
+                    <BoxView Style="{StaticResource SectionRule}" Margin="14,0" />
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="14,12">
+                        <Border StrokeThickness="0" StrokeShape="RoundRectangle 10"
+                                BackgroundColor="{DynamicResource BrandSteelSoft}"
+                                WidthRequest="36" HeightRequest="36">
+                            <Label Style="{StaticResource MaterialGlyph}" Text="&#xe838;" FontSize="18"
+                                   TextColor="{DynamicResource BrandSteel}" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                            <Label Text="Quest popups" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="13" />
+                            <Label Text="Success and tip alerts after actions." TextColor="{DynamicResource BrandMuted}" FontSize="11" />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="2"
+                                IsToggled="{Binding QuestPopups}"
+                                OnColor="{StaticResource BrandGold}"
+                                VerticalOptions="Center" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Privacy & support -->
+            <Label Text="Privacy &amp; support" Style="{StaticResource EyebrowLabel}" Margin="0,4,0,0" />
+            <Border Style="{StaticResource ElevatedCard}" Padding="0" Margin="0,-6,0,0">
+                <VerticalStackLayout Spacing="0">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="14,12">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenPrivacyCommand}" />
+                        </Grid.GestureRecognizers>
+                        <Border StrokeThickness="0" StrokeShape="RoundRectangle 10"
+                                BackgroundColor="{DynamicResource BrandCardAlt}"
+                                WidthRequest="36" HeightRequest="36">
+                            <Label Style="{StaticResource MaterialGlyph}" Text="&#xe32a;" FontSize="18"
+                                   TextColor="{DynamicResource BrandGoldDeep}" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                            <Label Text="Privacy policy" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="13" />
+                            <Label Text="PoPIA notice and data practices." TextColor="{DynamicResource BrandMuted}" FontSize="11" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="2" Style="{StaticResource MaterialGlyph}" Text="&#xe5cc;" FontSize="18"
+                               TextColor="{DynamicResource BrandMuted}" VerticalOptions="Center" />
+                    </Grid>
+                    <BoxView Style="{StaticResource SectionRule}" Margin="14,0" />
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="14,12">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenWebsiteCommand}" />
+                        </Grid.GestureRecognizers>
+                        <Border StrokeThickness="0" StrokeShape="RoundRectangle 10"
+                                BackgroundColor="{DynamicResource BrandTealSoft}"
+                                WidthRequest="36" HeightRequest="36">
+                            <Label Style="{StaticResource MaterialGlyph}" Text="&#xe89e;" FontSize="18"
+                                   TextColor="{DynamicResource BrandTeal}" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                            <Label Text="flexispace.net.za" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="13" />
+                            <Label Text="Company website and centres." TextColor="{DynamicResource BrandMuted}" FontSize="11" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="2" Style="{StaticResource MaterialGlyph}" Text="&#xe5cc;" FontSize="18"
+                               TextColor="{DynamicResource BrandMuted}" VerticalOptions="Center" />
+                    </Grid>
+                    <BoxView Style="{StaticResource SectionRule}" Margin="14,0" />
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="14,12">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding ContactSupportCommand}" />
+                        </Grid.GestureRecognizers>
+                        <Border StrokeThickness="0" StrokeShape="RoundRectangle 10"
+                                BackgroundColor="{DynamicResource BrandClaySoft}"
+                                WidthRequest="36" HeightRequest="36">
+                            <Label Style="{StaticResource MaterialGlyph}" Text="&#xe0be;" FontSize="18"
+                                   TextColor="{DynamicResource BrandClay}" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                            <Label Text="Email support" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="13" />
+                            <Label Text="Privacy or booking questions." TextColor="{DynamicResource BrandMuted}" FontSize="11" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="2" Style="{StaticResource MaterialGlyph}" Text="&#xe5cc;" FontSize="18"
+                               TextColor="{DynamicResource BrandMuted}" VerticalOptions="Center" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- About -->
+            <Label Text="About" Style="{StaticResource EyebrowLabel}" Margin="0,4,0,0" />
+            <Border Style="{StaticResource ElevatedCard}" Padding="14,14" Margin="0,-6,0,0">
+                <VerticalStackLayout Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Flexispace Mobile" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="14" />
+                        <Border Grid.Column="1" BackgroundColor="{DynamicResource BrandGoldWash}" StrokeThickness="0" Padding="8,3">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="10" />
+                            </Border.StrokeShape>
+                            <Label Text="{Binding BuildLabel}" TextColor="{DynamicResource BrandGoldDeep}" FontSize="10" FontAttributes="Bold" />
+                        </Border>
+                    </Grid>
+                    <Label Text="{Binding AppVersion}" TextColor="{DynamicResource BrandMuted}" FontSize="12" />
+                    <Label Text="Boardroom booking for Houghton Estate, Centurion, and Eagle Canyon."
+                           TextColor="{DynamicResource BrandMuted}"
+                           FontSize="12" />
+                    <controls:SocialLinksBar Caption="FOLLOW FLEXISPACE" Margin="0,4,0,0" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Button Text="Reset preferences"
+                    Command="{Binding ResetPreferencesCommand}"
+                    Style="{StaticResource GhostButton}" />
+            <Button Text="Sign out"
+                    Command="{Binding LogoutCommand}"
+                    Style="{StaticResource GoldButton}"
+                    Margin="0,0,0,12" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -19,9 +19,6 @@ public static class RolePermissions
     public static bool CanManageLocationBookings(UserRole role) =>
         role is UserRole.CentreManager or UserRole.Administrator;
 
-    public static bool CanApproveBookings(UserRole role) =>
-        role is UserRole.CentreManager or UserRole.Administrator;
-
     public static bool CanBlockRooms(UserRole role) =>
         role is UserRole.CentreManager or UserRole.Administrator;
 
@@ -44,7 +41,10 @@ public static class RolePermissions
         role is UserRole.Administrator;
 
     public static bool CanViewReports(UserRole role) =>
-        role is UserRole.Administrator;
+        role is UserRole.Staff or UserRole.CentreManager or UserRole.Administrator;
+
+    public static bool IsFlexispaceEmployee(UserRole role) =>
+        role is UserRole.Staff or UserRole.CentreManager or UserRole.Administrator;
 
     public static bool CanAccessManageHub(UserRole role) =>
         role is UserRole.CentreManager or UserRole.Administrator;
@@ -55,8 +55,8 @@ public static class RolePermissions
     public static string Describe(UserRole role) => role switch
     {
         UserRole.Administrator => "Add/remove rooms · configure locations · manage users · all bookings · reports",
-        UserRole.CentreManager => "View/approve/block/edit/cancel bookings for your centre",
-        UserRole.Staff => "Book rooms · cancel own bookings · view live availability",
+        UserRole.CentreManager => "Manage bookings, blocks, and reports for your assigned centre only",
+        UserRole.Staff => "Book rooms · cancel own bookings · view live availability · reports",
         UserRole.Client => "Self-service booking · confirmations · (payments coming in Phase 2)",
         _ => string.Empty
     };
@@ -84,4 +84,26 @@ public static class RolePermissions
         UserRole.Administrator => 4,
         _ => 0
     };
+
+    /// <summary>
+    /// Centre Managers are tied to one FlexiSpace location (project plan:
+    /// Centurion / Houghton / Eagle Canyon Outlook calendars). Other roles are not.
+    /// </summary>
+    public static bool IsLocationScoped(UserRole role) =>
+        role is UserRole.CentreManager;
+
+    /// <summary>Assigned location id for Centre Managers; otherwise null (all locations).</summary>
+    public static string? ScopedLocationId(User? user) =>
+        user is not null && IsLocationScoped(user.Role) && !string.IsNullOrWhiteSpace(user.LocationId)
+            ? user.LocationId
+            : null;
+
+    public static bool CanAccessLocation(User? user, string? locationId)
+    {
+        if (user is null || string.IsNullOrWhiteSpace(locationId))
+            return false;
+
+        var scope = ScopedLocationId(user);
+        return scope is null || string.Equals(scope, locationId, StringComparison.OrdinalIgnoreCase);
+    }
 }

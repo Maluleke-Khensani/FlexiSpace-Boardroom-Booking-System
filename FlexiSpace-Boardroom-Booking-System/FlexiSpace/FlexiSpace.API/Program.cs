@@ -1,13 +1,16 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Text.Json.Serialization;
+using FlexiSpace.API.Controllers;
+using FlexiSpace.API.Services;
 using FlexiSpace.Core.Common;
 using FlexiSpace.Core.Services;
 using FlexiSpace.Infrastructure.Persistence;
 using FlexiSpace.Infrastructure.Seed;
 using FlexiSpace.Infrastructure.services;
-using FlexiSpace.Core.DTOs.Location;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Identity.Web;
-
+using Microsoft.IdentityModel.Tokens;
 
 namespace FlexiSpace.API
 {
@@ -15,123 +18,181 @@ namespace FlexiSpace.API
     {
         public static async Task Main(string[] args)
         {
-            // Creating a new ASP.NET application
             var builder = WebApplication.CreateBuilder(args);
 
-          
-            // Authorization
             builder.Services.AddAuthorization();
-
-            // Add services to the container.
-
-            // My application will have API controllers.
-            builder.Services.AddControllers();
-
-            // Needed by CurrentUserService to read claims off the current
-            // request outside of a controller (it's injected into a
-            // Scoped service, not a controller, so it can't just take
-            // HttpContext directly).
+            builder.Services.AddControllers()
+                .AddJsonOptions(options =>
+                {
+                    options.JsonSerializerOptions.Converters.Add(
+                        new JsonStringEnumConverter());
+                });
             builder.Services.AddHttpContextAccessor();
 
             builder.Services.AddCors(options =>
             {
-                options.AddPolicy("AllowReactTestClient", policy =>
-                    policy.WithOrigins("http://localhost:5173")
+                options.AddPolicy("AllowClients", policy =>
+                    policy.SetIsOriginAllowed(static origin =>
+                          {
+                              if (string.IsNullOrWhiteSpace(origin)) return false;
+                              if (origin.StartsWith("http://localhost:", StringComparison.OrdinalIgnoreCase)) return true;
+                              if (origin.StartsWith("https://localhost:", StringComparison.OrdinalIgnoreCase)) return true;
+                              if (origin.StartsWith("http://127.0.0.1:", StringComparison.OrdinalIgnoreCase)) return true;
+                              return false;
+                          })
                           .AllowAnyHeader()
                           .AllowAnyMethod());
             });
 
-            // Register the database context and configure SQL Server
-            // as the database provider.
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlServer(
                     builder.Configuration.GetConnectionString("DefaultConnection")));
 
+            var hasGraph = HasConfig(builder.Configuration,
+                "MicrosoftGraph:TenantId",
+                "MicrosoftGraph:ClientId",
+                "MicrosoftGraph:ClientSecret");
 
-            // Register services for Entra ID and Microsoft Graph API integration.
-            builder.Services.AddScoped<IEntraUserService>(sp =>
+            var hasEntraApp = HasConfig(builder.Configuration,
+                "AzureAd:TenantId",
+                "AzureAd:ClientId");
+
+            // Graph app credentials (may differ from the public SPA/API client id used for JWT).
+            if (hasGraph)
             {
-                var configuration = sp.GetRequiredService<IConfiguration>();
+                builder.Services.AddScoped<IEntraUserService>(sp =>
+                {
+                    var configuration = sp.GetRequiredService<IConfiguration>();
+                    return new EntraUserService(
+                        configuration["MicrosoftGraph:TenantId"]!,
+                        configuration["MicrosoftGraph:ClientId"]!,
+                        configuration["MicrosoftGraph:ClientSecret"]!);
+                });
+            }
+            else
+            {
+                builder.Services.AddScoped<IEntraUserService, NoOpEntraUserService>();
+            }
 
-                var tenantId = configuration["AzureAd:TenantId"]
-                    ?? throw new InvalidOperationException("AzureAd:TenantId is missing.");
+            if (hasGraph && !string.IsNullOrWhiteSpace(builder.Configuration["MicrosoftGraph:SenderEmail"]))
+            {
+                builder.Services.AddScoped<IEmailService>(sp =>
+                {
+                    var configuration = sp.GetRequiredService<IConfiguration>();
+                    return new MicrosoftGraphEmailService(
+                        configuration["MicrosoftGraph:TenantId"]!,
+                        configuration["MicrosoftGraph:ClientId"]!,
+                        configuration["MicrosoftGraph:ClientSecret"]!,
+                        configuration["MicrosoftGraph:SenderEmail"]!);
+                });
 
-                var clientId = configuration["AzureAd:ClientId"]
-                    ?? throw new InvalidOperationException("AzureAd:ClientId is missing.");
+                builder.Services.AddScoped<ICalendarService>(sp =>
+                {
+                    var configuration = sp.GetRequiredService<IConfiguration>();
+                    return new MicrosoftGraphCalendarService(
+                        configuration["MicrosoftGraph:TenantId"]!,
+                        configuration["MicrosoftGraph:ClientId"]!,
+                        configuration["MicrosoftGraph:ClientSecret"]!);
+                });
+            }
+            else
+            {
+                builder.Services.AddScoped<IEmailService, NoOpEmailService>();
+                builder.Services.AddScoped<ICalendarService, NoOpCalendarService>();
+            }
 
-                var clientSecret = configuration["AzureAd:ClientSecret"]
-                    ?? throw new InvalidOperationException("AzureAd:ClientSecret is missing.");
-
-                return new EntraUserService(
-                    tenantId,
-                    clientId,
-                    clientSecret);
+            // Dual JWT: Entra ID (when configured) + DevAuth (Development demo tiles).
+            const string smartScheme = "Smart";
+            var authBuilder = builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = smartScheme;
+                options.DefaultChallengeScheme = smartScheme;
             });
 
-            // Register the Microsoft Graph Email service for sending emails.
-
-            builder.Services.AddScoped<IEmailService>(sp =>
+            authBuilder.AddPolicyScheme(smartScheme, smartScheme, options =>
             {
-                var configuration = sp.GetRequiredService<IConfiguration>();
+                options.ForwardDefaultSelector = context =>
+                {
+                    var header = context.Request.Headers.Authorization.ToString();
+                    if (header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var token = header["Bearer ".Length..].Trim();
+                        var handler = new JwtSecurityTokenHandler();
+                        if (handler.CanReadToken(token))
+                        {
+                            var jwt = handler.ReadJwtToken(token);
+                            if (string.Equals(jwt.Issuer, DevAuthController.Issuer, StringComparison.Ordinal))
+                                return DevAuthController.SchemeName;
+                        }
+                    }
 
-                return new MicrosoftGraphEmailService(
-                    configuration["MicrosoftGraph:TenantId"]!,
-                    configuration["MicrosoftGraph:ClientId"]!,
-                    configuration["MicrosoftGraph:ClientSecret"]!,
-                    configuration["MicrosoftGraph:SenderEmail"]!
-                );
+                    return hasEntraApp
+                        ? JwtBearerDefaults.AuthenticationScheme
+                        : DevAuthController.SchemeName;
+                };
             });
 
-
-            // Configure JWT Bearer authentication with Microsoft Identity Web API.
-            // It validates tokens issued by Entra ID and allows tokens from personal/external Microsoft accounts.
-            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddMicrosoftIdentityWebApi(options =>
+            authBuilder.AddJwtBearer(DevAuthController.SchemeName, options =>
             {
-                builder.Configuration.Bind("AzureAd", options);
-                options.TokenValidationParameters.ValidateIssuer = false; // Allows tokens from personal/external Microsoft accounts
-                options.TokenValidationParameters.RoleClaimType = "roles";
-            }, options => { builder.Configuration.Bind("AzureAd", options); });
-
-
-            // Register the Microsoft Graph Calendar service for managing calendar events.
-            builder.Services.AddScoped<ICalendarService>(sp =>
-            {
-                var configuration = sp.GetRequiredService<IConfiguration>();
-
-                return new MicrosoftGraphCalendarService(
-                    configuration["MicrosoftGraph:TenantId"]!,
-                    configuration["MicrosoftGraph:ClientId"]!,
-                    configuration["MicrosoftGraph:ClientSecret"]!
-                );
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidIssuer = DevAuthController.Issuer,
+                    ValidateAudience = true,
+                    ValidAudience = DevAuthController.Audience,
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(DevAuthController.GetSigningKey(builder.Configuration)),
+                    ValidateLifetime = true,
+                    RoleClaimType = "roles",
+                    NameClaimType = "preferred_username"
+                };
             });
 
-            // Register application services.
+            if (hasEntraApp)
+            {
+                authBuilder.AddMicrosoftIdentityWebApi(options =>
+                {
+                    builder.Configuration.Bind("AzureAd", options);
+                    options.TokenValidationParameters.ValidateIssuer = false;
+                    options.TokenValidationParameters.RoleClaimType = "roles";
+
+                    // One API for web (SPA) + mobile (public client): accept both app ids as audience.
+                    // Khumo's TestClient uses 77163347…; Khensani's mobile/Graph app is 85378c65….
+                    var audiences = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    void AddAudience(string? id)
+                    {
+                        if (string.IsNullOrWhiteSpace(id)) return;
+                        audiences.Add(id);
+                        audiences.Add($"api://{id}");
+                    }
+
+                    AddAudience(builder.Configuration["AzureAd:ClientId"]);
+                    AddAudience(builder.Configuration["AzureAd:Audience"]);
+                    AddAudience(builder.Configuration["AzureAd:SpaClientId"]);
+                    AddAudience(builder.Configuration["AzureAd:MobileClientId"]);
+                    // Known FlexiSpace registrations (safe defaults if secrets omit the extras).
+                    AddAudience("77163347-59be-48f4-8675-535af30a3a53");
+                    AddAudience("85378c65-ead1-4b71-956a-389142bd3342");
+
+                    if (audiences.Count > 0)
+                        options.TokenValidationParameters.ValidAudiences = audiences;
+                }, options => { builder.Configuration.Bind("AzureAd", options); });
+            }
+
             builder.Services.AddScoped<ILocationService, LocationService>();
             builder.Services.AddScoped<ILocationCalendarAccountService, LocationCalendarAccountService>();
             builder.Services.AddScoped<IBoardroomService, BoardroomService>();
             builder.Services.AddScoped<IEquipmentService, EquipmentService>();
             builder.Services.AddScoped<IBookingService, BookingService>();
-
-            // Register AI recommendation service.
             builder.Services.AddHttpClient<IAiRecommendationService, AiRecommendationService>();
-
-            // Fix: ICateringService and IUserService were being injected
-            // into CateringController/UserController but were never
-            // registered here - same bug class (and same fix) as the
-            // missing IBookingService registration Tino found. Without
-            // this, every request to those controllers throws
-            // "Unable to resolve service for type ..." at runtime.
+            builder.Services.AddHttpClient(nameof(EntraPasswordLoginService));
+            builder.Services.AddSingleton<EntraPasswordLoginService>();
             builder.Services.AddScoped<ICateringService, CateringService>();
             builder.Services.AddScoped<IUserService, UserService>();
-
-            // RBAC / admin / notifications (Denzel's scope).
             builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
             builder.Services.AddScoped<IAuditService, AuditService>();
             builder.Services.AddScoped<INotificationService, NotificationService>();
 
-
-            // Register Swagger services to generate API documentation and allow endpoint testing during development.
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(options =>
             {
@@ -142,54 +203,53 @@ namespace FlexiSpace.API
                     Scheme = "bearer",
                     BearerFormat = "JWT",
                     In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-                    Description = "Paste your Entra ID access token here. Swagger UI will automatically add the Bearer prefix."
+                    Description = "Paste a DevAuth or Entra access token. Swagger adds the Bearer prefix."
                 });
 
                 options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
-    {
-        {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-            {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
                 {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
-    });
+                    {
+                        new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                        {
+                            Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                            {
+                                Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        Array.Empty<string>()
+                    }
+                });
             });
-            // I've finished configuring everything. Now build the application.
+
             var app = builder.Build();
 
-            // Seed database
             using (var scope = app.Services.CreateScope())
             {
-                var context = scope.ServiceProvider
-                    .GetRequiredService<ApplicationDbContext>();
-
-                await FlexiSpace.Infrastructure.Seed.DatabaseSeeder
-                    .SeedUsersAsync(context);
+                var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                await context.Database.MigrateAsync();
+                await DatabaseSeeder.SeedAsync(context);
             }
 
-            // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
 
-            app.UseHttpsRedirection();
-            app.UseCors("AllowReactTestClient");
+            // Keep HTTP usable for local MAUI / curl smoke tests in Development.
+            if (!app.Environment.IsDevelopment())
+                app.UseHttpsRedirection();
 
-            // Authentication must happen before authorization.
+            app.UseCors("AllowClients");
             app.UseAuthentication();
             app.UseAuthorization();
-
             app.MapControllers();
 
             await app.RunAsync();
         }
+
+        private static bool HasConfig(IConfiguration config, params string[] keys) =>
+            keys.All(k => !string.IsNullOrWhiteSpace(config[k]));
     }
 }

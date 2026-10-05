@@ -1,4 +1,4 @@
-﻿using FlexiSpace.Core.Enums;
+using FlexiSpace.Core.Enums;
 
 namespace FlexiSpace.Core.Entities;
 
@@ -23,7 +23,7 @@ public class Booking
 
     public TimeOnly EndTime { get; set; }
 
-    public BookingStatus Status { get; set; } = BookingStatus.Pending;
+    public BookingStatus Status { get; set; } = BookingStatus.Confirmed;
 
     public string? Company { get; set; }
 

@@ -28,6 +28,10 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     [ObservableProperty] private string suggestedSlotsText = string.Empty;
     [ObservableProperty] private bool canBook = true;
     [ObservableProperty] private bool showClientPaymentNote;
+    [ObservableProperty] private bool showCombineTip;
+    [ObservableProperty] private string combineTipText = string.Empty;
+    [ObservableProperty] private bool showCapacityCombineOffer;
+    [ObservableProperty] private string capacityCombineMessage = string.Empty;
 
     public ObservableCollection<OfficeLocation> Locations { get; } = [];
     public ObservableCollection<Boardroom> Rooms { get; } = [];
@@ -64,6 +68,10 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
         ErrorMessage = null;
         SuccessMessage = null;
         SuggestedSlotsText = string.Empty;
+        ShowCombineTip = false;
+        CombineTipText = string.Empty;
+        ShowCapacityCombineOffer = false;
+        CapacityCombineMessage = string.Empty;
         Rooms.Clear();
         foreach (var o in EquipmentOptions) o.IsSelected = false;
         foreach (var o in CateringOptions) o.IsSelected = false;
@@ -71,12 +79,23 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
 
     partial void OnPrefillLocationIdChanged(string? value)
     {
-        // Prefill is applied from AppearingAsync after a full reset — avoid racing here.
+        // Shell sometimes applies query properties after OnAppearing — apply late if we
+        // already loaded locations (e.g. tapping a centre on Home).
+        if (!string.IsNullOrEmpty(value) && Locations.Count > 0)
+            _ = ApplyLatePrefillAsync(value, PrefillRoomId);
     }
 
     partial void OnPrefillRoomIdChanged(string? value)
     {
-        // Prefill is applied from AppearingAsync after a full reset — avoid racing here.
+        if (!string.IsNullOrEmpty(value) && Locations.Count > 0)
+            _ = ApplyLatePrefillAsync(PrefillLocationId, value);
+    }
+
+    private async Task ApplyLatePrefillAsync(string? locationId, string? roomId)
+    {
+        PrefillLocationId = null;
+        PrefillRoomId = null;
+        await ApplyPrefillAsync(locationId, roomId);
     }
 
     [RelayCommand]
@@ -101,15 +120,9 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
         ResetWizard();
 
         Locations.Clear();
-        var all = await rooms.GetLocationsAsync();
-        foreach (var loc in all)
-        {
-            if (user?.Role == UserRole.CentreManager &&
-                !string.IsNullOrEmpty(user.LocationId) &&
-                loc.Id != user.LocationId)
-                continue;
+        // GetLocationsAsync already scopes Centre Managers to their assigned centre.
+        foreach (var loc in await rooms.GetLocationsAsync())
             Locations.Add(loc);
-        }
 
         if (EquipmentOptions.Count == 0)
         {
@@ -127,10 +140,16 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
         if (string.IsNullOrEmpty(locationId) && string.IsNullOrEmpty(roomId))
             return;
 
+        var user = auth.CurrentUser;
+        if (!string.IsNullOrEmpty(locationId) && !RolePermissions.CanAccessLocation(user, locationId))
+            locationId = RolePermissions.ScopedLocationId(user);
+
         if (!string.IsNullOrEmpty(locationId))
         {
             SelectedLocation = Locations.FirstOrDefault(l => l.Id == locationId)
                                ?? await rooms.GetLocationAsync(locationId);
+            if (SelectedLocation is null)
+                return;
             await LoadRoomsAsync();
             Step = 2;
         }
@@ -139,6 +158,13 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
         {
             SelectedRoom = Rooms.FirstOrDefault(r => r.Id == roomId)
                            ?? await rooms.GetRoomAsync(roomId);
+            if (SelectedRoom is not null &&
+                !RolePermissions.CanAccessLocation(user, SelectedRoom.LocationId))
+            {
+                SelectedRoom = null;
+                return;
+            }
+
             if (SelectedRoom is not null && SelectedLocation is null)
             {
                 SelectedLocation = await rooms.GetLocationAsync(SelectedRoom.LocationId);
@@ -155,6 +181,9 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     [RelayCommand]
     private async Task SelectLocationAsync(OfficeLocation? location)
     {
+        if (location is null || !RolePermissions.CanAccessLocation(auth.CurrentUser, location.Id))
+            return;
+
         SelectedLocation = location;
         SelectedRoom = null;
         await LoadRoomsAsync();
@@ -164,16 +193,50 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     private async Task LoadRoomsAsync()
     {
         Rooms.Clear();
-        if (SelectedLocation is null) return;
+        if (SelectedLocation is null)
+        {
+            ShowCombineTip = false;
+            CombineTipText = string.Empty;
+            return;
+        }
+
         foreach (var room in await rooms.GetRoomsAsync(SelectedLocation.Id))
             Rooms.Add(room);
+
+        ShowCombineTip = Rooms.Any(r => r.IsCombined);
+        CombineTipText = ShowCombineTip
+            ? "Need a bigger group? Thingamajik and Whachamacallit open into one suite (seats 14). Look for the Combined option."
+            : string.Empty;
     }
 
     [RelayCommand]
     private void SelectRoom(Boardroom? room)
     {
         SelectedRoom = room;
+        ShowCapacityCombineOffer = false;
+        CapacityCombineMessage = string.Empty;
+        ErrorMessage = null;
         Step = 3;
+    }
+
+    [RelayCommand]
+    private void UseCombinedSuite()
+    {
+        var combined = Rooms.FirstOrDefault(r => r.IsCombined)
+                       ?? RoomCombinations.CreateCombinedOption();
+        if (!Rooms.Any(r => r.Id == combined.Id))
+            Rooms.Insert(0, combined);
+
+        SelectedRoom = combined;
+        ShowCapacityCombineOffer = false;
+        CapacityCombineMessage = string.Empty;
+        if (ErrorMessage is not null &&
+            (ErrorMessage.StartsWith("This room seats", StringComparison.Ordinal) ||
+             ErrorMessage.Contains("combine", StringComparison.OrdinalIgnoreCase)))
+            ErrorMessage = null;
+
+        // Stay on details so they can keep their headcount; clear capacity error.
+        RefreshCapacityGuidance();
     }
 
     [RelayCommand]
@@ -213,14 +276,47 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
         return true;
     }
 
-    partial void OnAttendeesTextChanged(string value)
+    partial void OnAttendeesTextChanged(string value) => RefreshCapacityGuidance();
+
+    partial void OnSelectedRoomChanged(Boardroom? value) => RefreshCapacityGuidance();
+
+    private void RefreshCapacityGuidance()
     {
+        ShowCapacityCombineOffer = false;
+        CapacityCombineMessage = string.Empty;
+
         if (SelectedRoom is null) return;
-        if (!int.TryParse(value, out var attendees)) return;
-        if (attendees > SelectedRoom.Capacity)
-            ErrorMessage = $"This room seats {SelectedRoom.Capacity}; reduce attendees or pick a bigger room.";
-        else if (ErrorMessage is not null && ErrorMessage.StartsWith("This room seats", StringComparison.Ordinal))
+        if (!int.TryParse(AttendeesText, out var attendees) || attendees < 1) return;
+
+        if (attendees <= SelectedRoom.Capacity)
+        {
+            if (ErrorMessage is not null &&
+                (ErrorMessage.StartsWith("This room seats", StringComparison.Ordinal) ||
+                 ErrorMessage.Contains("combine", StringComparison.OrdinalIgnoreCase)))
+                ErrorMessage = null;
+            return;
+        }
+
+        // Over capacity — offer the combined suite when it would solve the problem.
+        var combined = Rooms.FirstOrDefault(r => r.IsCombined) ??
+                       (RoomCombinations.IsPairMember(SelectedRoom.Id) || SelectedRoom.IsCombined
+                           ? RoomCombinations.CreateCombinedOption()
+                           : null);
+
+        if (combined is not null &&
+            !SelectedRoom.IsCombined &&
+            attendees <= combined.Capacity &&
+            (RoomCombinations.IsPairMember(SelectedRoom.Id) || SelectedRoom.LocationId == "eagle"))
+        {
+            ShowCapacityCombineOffer = true;
+            CapacityCombineMessage =
+                $"{SelectedRoom.Name} seats {SelectedRoom.Capacity}. " +
+                $"For {attendees} people, book Thingamajik + Whachamacallit together (seats {combined.Capacity}).";
             ErrorMessage = null;
+            return;
+        }
+
+        ErrorMessage = $"This room seats {SelectedRoom.Capacity}; reduce attendees or pick a bigger room.";
     }
 
     /// <summary>
@@ -242,6 +338,10 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
 
         if (attendees > SelectedRoom.Capacity)
         {
+            RefreshCapacityGuidance();
+            if (ShowCapacityCombineOffer)
+                return false;
+
             ErrorMessage = $"This room seats {SelectedRoom.Capacity}; reduce attendees or pick a bigger room.";
             return false;
         }
@@ -292,11 +392,17 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
                     SuggestedSlotsText = "Suggested: " + string.Join(", ",
                         result.SuggestedSlots.Select(s => s.ToString("HH:mm")));
                 }
+
+                var detail = result.SuggestedSlots.Count > 0
+                    ? $"{result.Message}\n\nTry: {string.Join(", ", result.SuggestedSlots.Select(s => s.ToString("HH:mm")))}"
+                    : result.Message;
+                await ActionFeedback.FailAsync(detail, "Booking blocked");
                 return;
             }
 
             SuccessMessage = result.Message;
             Step = 5;
+            await ActionFeedback.SuccessAsync("Your boardroom is locked in. Opening confirmation…", "Booked");
             if (result.Booking is not null)
                 await Shell.Current.GoToAsync($"BookingConfirmationPage?bookingId={result.Booking.Id}");
         }
@@ -305,10 +411,17 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
             IsBusy = false;
         }
     }
+
+    [RelayCommand]
+    private async Task OpenPrivacyAsync() =>
+        await Shell.Current.GoToAsync("PrivacyPage");
 }
 
 public partial class SelectableOption : ObservableObject
 {
     public string Label { get; set; } = string.Empty;
     [ObservableProperty] private bool isSelected;
+
+    [RelayCommand]
+    private void Toggle() => IsSelected = !IsSelected;
 }

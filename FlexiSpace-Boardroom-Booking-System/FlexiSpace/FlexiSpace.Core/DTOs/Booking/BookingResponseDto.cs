@@ -1,4 +1,4 @@
-﻿using FlexiSpace.Core.DTOs.Equipment;
+using FlexiSpace.Core.DTOs.Equipment;
 using FlexiSpace.Core.Enums;
 
 namespace FlexiSpace.Core.DTOs.Booking
@@ -9,7 +9,15 @@ namespace FlexiSpace.Core.DTOs.Booking
 
         public int BoardroomId { get; set; }
 
+        public string BoardroomName { get; set; } = string.Empty;
+
+        public int LocationId { get; set; }
+
+        public string LocationName { get; set; } = string.Empty;
+
         public int UserId { get; set; }
+
+        public string UserName { get; set; } = string.Empty;
 
         public DateOnly BookingDate { get; set; }
 

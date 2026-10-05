@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Flexispace.Mobile.Services.Http;
 using Microsoft.Maui.Layouts;
 
 namespace Flexispace.Mobile.Controls;
@@ -35,7 +36,7 @@ public partial class ChatbotOverlay : ContentView
         Questions.Add(new FaqItem
         {
             Question = "How do I book a room?",
-            Answer = "Open Book, choose a location and room, then pick a date and time. Centre Managers and Admins are confirmed straight away. Staff and Clients are sent for approval."
+            Answer = "Open Book, choose a location and room, then pick a date and time. Bookings are confirmed automatically as soon as they are made."
         });
         Questions.Add(new FaqItem
         {
@@ -44,13 +45,18 @@ public partial class ChatbotOverlay : ContentView
         });
         Questions.Add(new FaqItem
         {
-            Question = "Who approves bookings?",
-            Answer = "Centre Managers approve bookings for their own centre. Administrators can approve across every location."
+            Question = "When is my booking confirmed?",
+            Answer = "Immediately. Every booking is confirmed automatically when it is made. From Manage, a Centre Manager can open a booking to change its status or edit the details."
+        });
+        Questions.Add(new FaqItem
+        {
+            Question = "Can I combine rooms?",
+            Answer = "At Eagle Canyon, Thingamajik and Whachamacallit open into one suite for larger groups (up to 14 seats). Pick the Combined option when booking, or follow the tip if your headcount is too big for one room."
         });
         Questions.Add(new FaqItem
         {
             Question = "How do I cancel?",
-            Answer = "Open the booking from Home, Alerts, or My bookings, then tap Cancel booking. You can cancel your own confirmed or pending bookings."
+            Answer = "Open the booking from Home, Alerts, or My bookings, then tap Cancel booking. You can cancel your own confirmed bookings."
         });
         Questions.Add(new FaqItem
         {
@@ -61,6 +67,12 @@ public partial class ChatbotOverlay : ContentView
         {
             Question = "How do I block a room?",
             Answer = "Centre Managers and Admins can open Manage, choose a room and time window, and block it so new bookings cannot overlap. Anyone already booked in that window is notified."
+        });
+        Questions.Add(new FaqItem
+        {
+            Question = "Suggest a room for a video call",
+            Answer = "__ai__",
+            // Answer filled live via api/Ai/suggest when signed in on the live API.
         });
 
         Lines.Add(new ChatLine
@@ -176,7 +188,53 @@ public partial class ChatbotOverlay : ContentView
     {
         if (faq is null) return;
         Lines.Add(new ChatLine { Text = faq.Question, IsUser = true });
+
+        if (faq.Answer == "__ai__")
+        {
+            Lines.Add(new ChatLine { Text = "Thinking…" });
+            await _sheet.ScrollToEndAsync();
+            try
+            {
+                var ai = Application.Current?.Handler?.MauiContext?.Services.GetService<IAiSuggestionService>();
+                if (ai is null)
+                {
+                    ReplaceLastBotLine("AI suggestions need the live API. Sign in with a demo tile while the API is running.");
+                }
+                else
+                {
+                    var result = await ai.SuggestAsync(faq.Question);
+                    var text = result.Success
+                        ? (string.IsNullOrWhiteSpace(result.SuggestedBoardroomName)
+                            ? result.Message
+                            : $"Try {result.SuggestedBoardroomName}. {result.Message}".Trim())
+                        : result.Message;
+                    ReplaceLastBotLine(text);
+                }
+            }
+            catch (Exception ex)
+            {
+                ReplaceLastBotLine($"Could not get a suggestion ({ex.Message}).");
+            }
+
+            await _sheet.ScrollToEndAsync();
+            return;
+        }
+
         Lines.Add(new ChatLine { Text = faq.Answer });
         await _sheet.ScrollToEndAsync();
+    }
+
+    private void ReplaceLastBotLine(string text)
+    {
+        for (var i = Lines.Count - 1; i >= 0; i--)
+        {
+            if (!Lines[i].IsUser)
+            {
+                Lines[i] = new ChatLine { Text = text };
+                return;
+            }
+        }
+
+        Lines.Add(new ChatLine { Text = text });
     }
 }

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using FlexiSpace.API.Authorization;
 using FlexiSpace.Core.Enums;
@@ -11,7 +11,6 @@ namespace FlexiSpace.API.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    [AuthorizeRoles(UserRole.Administrator)]
     public class LocationController : ControllerBase
     {
         private readonly ILocationService _locationService;
@@ -71,6 +70,7 @@ namespace FlexiSpace.API.Controllers
         }
 
         [HttpPost]
+        [AuthorizeRoles(UserRole.Administrator)]
         public async Task<IActionResult> CreateLocation([FromBody] LocationCreateDto locationDto)
         {
             // Convert the DTO received from the client into a Location entity
@@ -124,6 +124,7 @@ namespace FlexiSpace.API.Controllers
         }
 
         [HttpPut("{id}")]
+        [AuthorizeRoles(UserRole.Administrator)]
         public async Task<IActionResult> UpdateLocation(int id, [FromBody] LocationUpdateDto locationDto)
         {
             // Convert the Update DTO into a Location entity
@@ -147,6 +148,7 @@ namespace FlexiSpace.API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [AuthorizeRoles(UserRole.Administrator)]
         public async Task<IActionResult> DeleteLocation(int id)
         {
             // Ask the service to delete the location

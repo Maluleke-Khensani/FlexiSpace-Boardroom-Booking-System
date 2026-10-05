@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Flexispace.Mobile.ViewModels"
+             xmlns:models="clr-namespace:Flexispace.Mobile.Models"
+             x:Class="Flexispace.Mobile.Views.UsersPage"
+             x:Name="Root"
+             x:DataType="vm:UsersViewModel"
+             Title="Users"
+             BackgroundColor="{DynamicResource BrandPage}">
+
+    <RefreshView Command="{Binding AppearingCommand}" IsRefreshing="{Binding IsBusy}">
+        <ScrollView>
+            <VerticalStackLayout Padding="20" Spacing="16" MaximumWidthRequest="720" HorizontalOptions="Center">
+                <Label Text="Users" Style="{StaticResource SectionTitle}" FontSize="24" />
+                <Label Text="Add people to FlexiSpace so they can Sign in with Microsoft. Remove deactivates their app access."
+                       Style="{StaticResource MutedLabel}" />
+
+                <Border IsVisible="{Binding Message, Converter={StaticResource StringNotEmptyConverter}}"
+                        StrokeThickness="0"
+                        StrokeShape="RoundRectangle 10"
+                        BackgroundColor="#26C4A035"
+                        Padding="14,12">
+                    <Label Text="{Binding Message}" TextColor="{DynamicResource BrandInk}" FontSize="13" />
+                </Border>
+
+                <VerticalStackLayout IsVisible="{Binding HasAccess}" Spacing="16">
+                    <Border Style="{StaticResource ElevatedCard}" Padding="16">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="Add user" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="16" />
+
+                            <Label Text="FIRST NAME" Style="{StaticResource MutedLabel}" FontSize="11" FontAttributes="Bold" />
+                            <Entry Text="{Binding FirstName}" Placeholder="First name"
+                                   TextColor="{DynamicResource BrandInk}" BackgroundColor="{DynamicResource BrandSurface}" />
+
+                            <Label Text="LAST NAME" Style="{StaticResource MutedLabel}" FontSize="11" FontAttributes="Bold" />
+                            <Entry Text="{Binding LastName}" Placeholder="Last name"
+                                   TextColor="{DynamicResource BrandInk}" BackgroundColor="{DynamicResource BrandSurface}" />
+
+                            <Label Text="EMAIL" Style="{StaticResource MutedLabel}" FontSize="11" FontAttributes="Bold" />
+                            <Entry Text="{Binding Email}" Keyboard="Email" Placeholder="name@company.com"
+                                   TextColor="{DynamicResource BrandInk}" BackgroundColor="{DynamicResource BrandSurface}" />
+
+                            <Label Text="ROLE" Style="{StaticResource MutedLabel}" FontSize="11" FontAttributes="Bold" />
+                            <Picker ItemsSource="{Binding Roles}"
+                                    SelectedItem="{Binding SelectedRole}"
+                                    TextColor="{DynamicResource BrandInk}"
+                                    BackgroundColor="{DynamicResource BrandSurface}" />
+
+                            <VerticalStackLayout IsVisible="{Binding ShowLocationPicker}" Spacing="6">
+                                <Label Text="LOCATION" Style="{StaticResource MutedLabel}" FontSize="11" FontAttributes="Bold" />
+                                <Picker ItemsSource="{Binding Locations}"
+                                        ItemDisplayBinding="{Binding Name}"
+                                        SelectedItem="{Binding SelectedLocation}"
+                                        TextColor="{DynamicResource BrandInk}"
+                                        BackgroundColor="{DynamicResource BrandSurface}" />
+                            </VerticalStackLayout>
+
+                            <Button Text="Add user"
+                                    Command="{Binding AddUserCommand}"
+                                    Style="{StaticResource GoldButton}"
+                                    Margin="0,4,0,0" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Label Text="Directory" TextColor="{DynamicResource BrandGoldDeep}" FontAttributes="Bold" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Users}" Spacing="8">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="models:User">
+                                <Border Style="{StaticResource ElevatedCard}" Padding="14,12">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                        <VerticalStackLayout Spacing="2">
+                                            <Label Text="{Binding Name}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" />
+                                            <Label Text="{Binding Email}" TextColor="{DynamicResource BrandMuted}" FontSize="12" />
+                                            <Label Text="{Binding Role}" TextColor="{DynamicResource BrandMuted}" FontSize="12" />
+                                            <Label Text="Inactive"
+                                                   TextColor="{DynamicResource BrandDanger}"
+                                                   FontSize="11"
+                                                   IsVisible="{Binding IsActive, Converter={StaticResource InvertedBoolConverter}}" />
+                                        </VerticalStackLayout>
+                                        <VerticalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                                            <Button Text="Remove"
+                                                    IsVisible="{Binding IsActive}"
+                                                    Command="{Binding Source={x:Reference Root}, Path=BindingContext.RemoveUserCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    Style="{StaticResource GhostButton}"
+                                                    Padding="10,6" FontSize="11" MinimumHeightRequest="36" />
+                                            <Button Text="Restore"
+                                                    IsVisible="{Binding IsActive, Converter={StaticResource InvertedBoolConverter}}"
+                                                    Command="{Binding Source={x:Reference Root}, Path=BindingContext.RestoreUserCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    Style="{StaticResource GhostButton}"
+                                                    Padding="10,6" FontSize="11" MinimumHeightRequest="36" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+    </RefreshView>
+</ContentPage>
