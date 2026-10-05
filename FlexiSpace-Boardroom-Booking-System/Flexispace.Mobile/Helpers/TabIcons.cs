@@ -1,3 +1,4 @@
+using Flexispace.Mobile.Services;
 using Microsoft.Maui.Graphics;
 
 namespace Flexispace.Mobile.Helpers;
@@ -16,14 +17,19 @@ public static class TabIcons
         FontFamily = FontFamily,
         Glyph = Glyph(route, selected),
         Size = Size,
-        Color = selected ? Color.FromArgb("#111111") : Color.FromArgb("#5A554D")
+        Color = IconColor(selected)
     };
 
     public static void Apply(FontImageSource image, string route, bool selected)
     {
         image.Glyph = Glyph(route, selected);
-        image.Color = selected ? Color.FromArgb("#111111") : Color.FromArgb("#5A554D");
+        image.Color = IconColor(selected);
     }
+
+    private static Color IconColor(bool selected) =>
+        AppPreferences.IsDarkMode
+            ? selected ? Color.FromArgb("#F3F0E8") : Color.FromArgb("#B0AAA0")
+            : selected ? Color.FromArgb("#111111") : Color.FromArgb("#5A554D");
 
     public static string Glyph(string route, bool selected) => route switch
     {
@@ -31,6 +37,7 @@ public static class TabIcons
         "BookingPage" => selected ? "\ue878" : "\ue935",        // event / calendar_today
         "AvailabilityPage" => selected ? "\ueaa2" : "\ue51e",   // monitor_heart / sensors
         "ManagePage" => selected ? "\ue85d" : "\ue14f",         // assignment / content_paste
+        "ReportsPage" => selected ? "\ue6e1" : "\uf1fe",         // analytics / bar_chart
         "NotificationsPage" => selected ? "\ue7f4" : "\ue7f5",  // notifications / notifications_none
         "ProfilePage" => selected ? "\ue7fd" : "\ue7ff",        // person / person_outline
         _ => "\ue88a"

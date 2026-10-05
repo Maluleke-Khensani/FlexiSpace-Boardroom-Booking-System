@@ -36,8 +36,14 @@
 
 	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+		<PackageReference Include="Microsoft.Identity.Client" Version="4.73.1" />
 		<PackageReference Include="Microsoft.Maui.Controls" Version="10.0.60" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="azuread.local.example.json" CopyToOutputDirectory="PreserveNewest" />
+		<None Update="azuread.local.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('azuread.local.json')" />
 	</ItemGroup>
 
 </Project>

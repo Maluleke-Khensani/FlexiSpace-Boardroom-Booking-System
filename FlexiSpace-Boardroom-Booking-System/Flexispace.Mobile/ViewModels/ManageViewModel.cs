@@ -5,14 +5,13 @@ using CommunityToolkit.Mvvm.Input;
 using Flexispace.Mobile.Helpers;
 using Flexispace.Mobile.Models;
 using Flexispace.Mobile.Services;
+using Flexispace.Mobile.Views;
 
 namespace Flexispace.Mobile.ViewModels;
 
 /// <summary>
-/// Centre Manager / Administrator booking console — approve, decline, and keep an eye on
-/// bookings in scope. Room/user administration and reporting are deliberately not built
-/// here: per the team's project plan, those are the React website's admin dashboard, and
-/// mobile is scoped to core on-the-go booking features only.
+/// Centre Manager / Administrator booking console — view and edit bookings in scope,
+/// and block rooms. Administrators can open Users for directory add/remove.
 /// </summary>
 public partial class ManageViewModel(IAuthService auth, IBookingService bookings, IRoomService rooms) : ObservableObject
 {
@@ -35,22 +34,23 @@ public partial class ManageViewModel(IAuthService auth, IBookingService bookings
     [ObservableProperty] private DateTime blockDate = DateTime.Today;
     [ObservableProperty] private TimeSpan blockStart = new(9, 0, 0);
     [ObservableProperty] private TimeSpan blockEnd = new(12, 0, 0);
-    [ObservableProperty] private int pendingCount;
     [ObservableProperty] private int inScopeCount;
-    [ObservableProperty] private bool hasPendingBookings;
     [ObservableProperty] private bool hasLocationBookings;
     [ObservableProperty] private string monthTitle = DateTime.Today.ToString("MMMM yyyy");
     [ObservableProperty] private string dayMeetingsCaption = "Pick a room to see its day.";
     [ObservableProperty] private bool hasDayMeetings;
     [ObservableProperty] private bool hasDayBlocks;
 
-    public ObservableCollection<Booking> PendingBookings { get; } = [];
     public ObservableCollection<Booking> LocationBookings { get; } = [];
     public ObservableCollection<Boardroom> Rooms { get; } = [];
     public ObservableCollection<MeetingOption> MeetingOptions { get; } = [];
     public ObservableCollection<CalendarDayItem> CalendarDays { get; } = [];
     public ObservableCollection<Booking> DayMeetings { get; } = [];
     public ObservableCollection<BlockedPeriod> DayBlocks { get; } = [];
+
+    [RelayCommand]
+    private async Task OpenUsersAsync() =>
+        await Shell.Current.GoToAsync(nameof(UsersPage));
 
     [RelayCommand]
     private async Task AppearingAsync()
@@ -69,8 +69,8 @@ public partial class ManageViewModel(IAuthService auth, IBookingService bookings
         IsAdministrator = user.Role == UserRole.Administrator;
         Title = IsAdministrator ? "Admin console" : "Centre management";
         Subtitle = IsAdministrator
-            ? "Approve or decline bookings across every location."
-            : $"Approve or decline bookings for {user.LocationId ?? "your centre"}.";
+            ? "View bookings, edit status and details, and block rooms across every location. New bookings are confirmed automatically."
+            : "View bookings at your centre, edit status and details, and block rooms. New bookings are confirmed automatically.";
 
         IsBusy = true;
         Message = null;
@@ -85,17 +85,10 @@ public partial class ManageViewModel(IAuthService auth, IBookingService bookings
             SelectedRoomToBlock = Rooms.FirstOrDefault(r => r.Id == keepRoomId) ?? Rooms.FirstOrDefault();
 
             LocationBookings.Clear();
-            PendingBookings.Clear();
             foreach (var b in await bookings.GetBookingsForCurrentUserScopeAsync())
-            {
                 LocationBookings.Add(b);
-                if (b.Status == BookingStatus.Pending)
-                    PendingBookings.Add(b);
-            }
 
-            PendingCount = PendingBookings.Count;
             InScopeCount = LocationBookings.Count;
-            HasPendingBookings = PendingCount > 0;
             HasLocationBookings = InScopeCount > 0;
         }
         finally
@@ -259,33 +252,6 @@ public partial class ManageViewModel(IAuthService auth, IBookingService bookings
     }
 
     [RelayCommand]
-    private async Task ApproveAsync(Booking? booking)
-    {
-        if (booking is null) return;
-        var ok = await bookings.ApproveBookingAsync(booking.Id);
-        Message = ok ? "Booking approved." : "Could not approve (check permissions / status).";
-        await AppearingAsync();
-    }
-
-    [RelayCommand]
-    private async Task CancelAsync(Booking? booking)
-    {
-        if (booking is null) return;
-        var ok = await bookings.CancelBookingAsync(booking.Id);
-        Message = ok ? "Booking cancelled." : "Could not cancel booking.";
-        await AppearingAsync();
-    }
-
-    [RelayCommand]
-    private async Task DeclineAsync(Booking? booking)
-    {
-        if (booking is null) return;
-        var ok = await bookings.DeclineBookingAsync(booking.Id);
-        Message = ok ? "Booking declined." : "Could not decline booking.";
-        await AppearingAsync();
-    }
-
-    [RelayCommand]
     private async Task OpenBookingAsync(Booking? booking)
     {
         if (booking is null) return;
@@ -298,19 +264,22 @@ public partial class ManageViewModel(IAuthService auth, IBookingService bookings
         if (!HasAccess) return;
         if (SelectedRoomToBlock is null)
         {
-            Message = "Select a room to block.";
+            Message = null;
+            await ActionFeedback.FailAsync("Pick a room before you block a window.");
             return;
         }
 
         if (BlockDate.Date < DateTime.Today)
         {
-            Message = "A room cannot be blocked for a date before today.";
+            Message = null;
+            await ActionFeedback.FailAsync("A room cannot be blocked for a date before today.");
             return;
         }
 
         if (BlockEnd <= BlockStart)
         {
-            Message = "Block end time must be after start time.";
+            Message = null;
+            await ActionFeedback.FailAsync("Block end time must be after start time.");
             return;
         }
 
@@ -320,12 +289,12 @@ public partial class ManageViewModel(IAuthService auth, IBookingService bookings
         var relatedId = SelectedMeetingOption?.Booking?.Id;
         var result = await bookings.BlockRoomAsync(SelectedRoomToBlock.Id, start, end, reason, relatedId);
         await AppearingAsync();
-        Message = result.Success
-            ? $"{SelectedRoomToBlock.Name} blocked {start:g}–{end:t}."
-            : result.Message;
+        Message = null;
 
-        if (Shell.Current is not null)
-            await Shell.Current.DisplayAlertAsync(result.Title, result.Message, "OK");
+        if (result.Success)
+            await ActionFeedback.SuccessAsync(result.Message, "Room blocked");
+        else
+            await ActionFeedback.FailAsync(result.Message, result.Title);
     }
 }
 

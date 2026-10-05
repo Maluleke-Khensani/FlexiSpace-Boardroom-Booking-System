@@ -18,6 +18,7 @@ public partial class HomeViewModel(IAuthService auth, IBookingService bookings, 
     [ObservableProperty] private bool canBook;
     [ObservableProperty] private bool canViewAvailability;
     [ObservableProperty] private bool canAccessManage;
+    [ObservableProperty] private bool canViewReports;
     [ObservableProperty] private bool showPayPlaceholder;
 
     public bool HasUnread => UnreadCount > 0;
@@ -39,19 +40,21 @@ public partial class HomeViewModel(IAuthService auth, IBookingService bookings, 
                 CanBook = RolePermissions.CanBookRooms(user.Role);
                 CanViewAvailability = RolePermissions.CanViewAvailability(user.Role);
                 CanAccessManage = RolePermissions.CanAccessManageHub(user.Role);
+                CanViewReports = RolePermissions.CanViewReports(user.Role);
                 ShowPayPlaceholder = RolePermissions.CanSeePayPlaceholder(user.Role);
                 RoleBanner = $"{RolePermissions.DisplayName(user.Role)} · {RolePermissions.Describe(user.Role)}";
                 Subtitle = user.Role switch
                 {
                     UserRole.Administrator => "All locations · rooms, users & reports",
                     UserRole.CentreManager => $"Managing {user.LocationId ?? "your centre"}",
+                    UserRole.Staff => "Book rooms · live availability · operations reports",
                     UserRole.Client => "Self-service booking across Flexispace",
                     _ => "You run your business — we run the rest."
                 };
             }
             else
             {
-                CanBook = CanViewAvailability = CanAccessManage = ShowPayPlaceholder = false;
+                CanBook = CanViewAvailability = CanAccessManage = CanViewReports = ShowPayPlaceholder = false;
                 RoleBanner = string.Empty;
             }
 
@@ -97,6 +100,13 @@ public partial class HomeViewModel(IAuthService auth, IBookingService bookings, 
     }
 
     [RelayCommand]
+    private async Task OpenReportsAsync()
+    {
+        if (!CanViewReports) return;
+        await Shell.Current.GoToAsync("//ReportsPage");
+    }
+
+    [RelayCommand]
     private async Task OpenAlertsAsync() =>
         await Shell.Current.GoToAsync("//NotificationsPage");
 
@@ -111,9 +121,8 @@ public partial class HomeViewModel(IAuthService auth, IBookingService bookings, 
     private async Task OpenLocationAsync(OfficeLocation? location)
     {
         if (location is null) return;
-        // Start the Book tab wizard from step 1 (same as the Book tab), not Location Detail
-        // and not a half-finished later step from a previous visit.
-        await Shell.Current.GoToAsync("//BookingPage");
+        // Location was already chosen on Home — skip Place and open the room step.
+        await Shell.Current.GoToAsync($"//BookingPage?locationId={Uri.EscapeDataString(location.Id)}");
     }
 
     [RelayCommand]

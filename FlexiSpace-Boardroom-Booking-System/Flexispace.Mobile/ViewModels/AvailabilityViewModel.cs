@@ -51,14 +51,12 @@ public partial class AvailabilityViewModel(IAuthService auth, IRoomService rooms
 
         AccessMessage = null;
         Locations.Clear();
+        // Room service already returns only the CM's centre; Staff/Admin still get every site.
         if (!LockLocationFilter)
             Locations.Add(new OfficeLocation { Id = string.Empty, Name = "All locations" });
 
         foreach (var loc in await rooms.GetLocationsAsync())
-        {
-            if (LockLocationFilter && loc.Id != user!.LocationId) continue;
             Locations.Add(loc);
-        }
 
         if (LockLocationFilter)
         {

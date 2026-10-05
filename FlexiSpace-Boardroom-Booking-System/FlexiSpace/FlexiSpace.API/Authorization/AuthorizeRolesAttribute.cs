@@ -1,5 +1,6 @@
 using FlexiSpace.Core.Common;
 using FlexiSpace.Core.Enums;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.DependencyInjection;
@@ -48,6 +49,16 @@ namespace FlexiSpace.API.Authorization
             // If [Authorize] already rejected the request (no/invalid
             // token), don't do extra work or override its result.
             if (context.Result != null)
+            {
+                return;
+            }
+
+            // Honor [AllowAnonymous] on the action/controller so public
+            // GETs (locations/boardrooms) are not blocked by class-level roles.
+            var allowAnonymous = context.ActionDescriptor.EndpointMetadata
+                .OfType<IAllowAnonymous>()
+                .Any();
+            if (allowAnonymous)
             {
                 return;
             }

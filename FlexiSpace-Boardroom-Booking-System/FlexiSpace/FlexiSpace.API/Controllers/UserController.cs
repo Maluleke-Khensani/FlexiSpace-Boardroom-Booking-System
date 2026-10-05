@@ -59,6 +59,28 @@ namespace FlexiSpace.API.Controllers
             return Ok(MapToResponseDto(currentUser));
         }
 
+        public record LinkMeRequest(string? Email);
+
+        /// <summary>
+        /// After Microsoft sign-in, mobile sends the MSAL account username so we can link
+        /// oid → directory row when the access token has no email claims.
+        /// </summary>
+        [HttpPost("me/link")]
+        public async Task<IActionResult> LinkMyProfile([FromBody] LinkMeRequest? request)
+        {
+            var currentUser = await _currentUserService.LinkByEmailAsync(request?.Email);
+
+            if (currentUser == null)
+            {
+                return NotFound(new
+                {
+                    message = "No FlexiSpace account is linked to this sign-in yet. Ask an Administrator to add your email in Users."
+                });
+            }
+
+            return Ok(MapToResponseDto(currentUser));
+        }
+
         // Retrieves all users that have been provisioned
         // into the FlexiSpace database.
         [HttpGet]
@@ -136,6 +158,37 @@ namespace FlexiSpace.API.Controllers
             }
 
             return Forbid();
+        }
+
+        // Creates a FlexiSpace directory row (email + role). Microsoft oid is
+        // linked automatically on first successful Entra sign-in when emails match.
+        [HttpPost("directory")]
+        [AuthorizeRoles(UserRole.Administrator)]
+        public async Task<IActionResult> CreateDirectoryUser([FromBody] UserDirectoryCreateDto dto)
+        {
+            var user = await _userService.CreateDirectoryUserAsync(dto);
+            if (user is null)
+            {
+                return BadRequest(new
+                {
+                    message = "Could not add user. Check email is unique, names are set, and Centre Managers have a location."
+                });
+            }
+
+            await LogAdminActionAsync(
+                AuditAction.Create,
+                user.Id,
+                oldValues: null,
+                newValues: JsonSerializer.Serialize(new
+                {
+                    user.Email,
+                    user.FirstName,
+                    user.LastName,
+                    Role = user.Role.ToString(),
+                    user.LocationId
+                }));
+
+            return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, MapToResponseDto(user));
         }
 
         // Provisions an existing Microsoft Entra user

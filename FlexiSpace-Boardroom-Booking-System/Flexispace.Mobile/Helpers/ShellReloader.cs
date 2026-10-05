@@ -1,4 +1,5 @@
 using Flexispace.Mobile;
+using Flexispace.Mobile.Services;
 
 namespace Flexispace.Mobile.Helpers;
 
@@ -17,6 +18,7 @@ public static class ShellReloader
         var shell = services.GetRequiredService<AppShell>();
 
         Application.Current!.Windows[0].Page = shell;
+        AppThemeService.ApplyFromPreferences();
 
         // Navigate on the new Shell instance directly rather than via the Shell.Current
         // static (which may not repoint to the new instance until the next UI tick).

@@ -63,6 +63,49 @@ namespace FlexiSpace.Infrastructure.Migrations
                     b.ToTable("AuditLogs", (string)null);
                 });
 
+            modelBuilder.Entity("FlexiSpace.Core.Entities.BlockedPeriod", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BoardroomId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<TimeOnly>("EndTime")
+                        .HasColumnType("time");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<TimeOnly>("StartTime")
+                        .HasColumnType("time");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("BoardroomId", "StartDate", "EndDate");
+
+                    b.ToTable("BlockedPeriods", (string)null);
+                });
+
             modelBuilder.Entity("FlexiSpace.Core.Entities.Boardroom", b =>
                 {
                     b.Property<int>("Id")
@@ -410,6 +453,17 @@ namespace FlexiSpace.Infrastructure.Migrations
                     b.Property<int?>("LocationId")
                         .HasColumnType("int");
 
+                    b.Property<string>("PasswordHash")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PhoneNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("");
+
                     b.Property<int>("Role")
                         .HasColumnType("int");
 
@@ -435,6 +489,25 @@ namespace FlexiSpace.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("FlexiSpace.Core.Entities.BlockedPeriod", b =>
+                {
+                    b.HasOne("FlexiSpace.Core.Entities.Boardroom", "Boardroom")
+                        .WithMany()
+                        .HasForeignKey("BoardroomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FlexiSpace.Core.Entities.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Boardroom");
+
+                    b.Navigation("CreatedByUser");
                 });
 
             modelBuilder.Entity("FlexiSpace.Core.Entities.Boardroom", b =>

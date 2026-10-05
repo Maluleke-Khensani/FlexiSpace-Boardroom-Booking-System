@@ -1,3 +1,5 @@
+using Flexispace.Mobile.Services;
+
 namespace Flexispace.Mobile;
 
 public partial class App : Application
@@ -8,11 +10,13 @@ public partial class App : Application
     {
         InitializeComponent();
         _services = services;
+        AppThemeService.ApplyFromPreferences();
     }
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
         var window = new Window(_services.GetRequiredService<AppShell>());
+        AppThemeService.ApplyFromPreferences();
 
 #if WINDOWS
         // Phone-sized desktop preview only. Android/iOS ignore Width/Height and

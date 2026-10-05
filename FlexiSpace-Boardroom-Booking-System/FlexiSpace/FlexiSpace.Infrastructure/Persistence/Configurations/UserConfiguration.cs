@@ -1,4 +1,4 @@
-﻿using FlexiSpace.Core.Entities;
+using FlexiSpace.Core.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -23,6 +23,14 @@ namespace FlexiSpace.Infrastructure.Persistence.Configurations
             builder.Property(u => u.Email)
                    .IsRequired()
                    .HasMaxLength(255);
+
+            builder.Property(u => u.PhoneNumber)
+                   .IsRequired()
+                   .HasMaxLength(20)
+                   .HasDefaultValue(string.Empty);
+
+            builder.Property(u => u.PasswordHash)
+                   .HasMaxLength(200);
 
             builder.Property(u => u.EntraObjectId)
                    .IsRequired();

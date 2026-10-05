@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:Flexispace.Mobile.ViewModels"
+             xmlns:controls="clr-namespace:Flexispace.Mobile.Controls"
              x:Class="Flexispace.Mobile.Views.WelcomePage"
              x:DataType="vm:WelcomeViewModel"
              BackgroundColor="{StaticResource BrandBlack}"
@@ -49,9 +50,25 @@
                         Style="{StaticResource GoldButton}"
                         HorizontalOptions="Fill" />
                 <Label Text="Rent daily, weekly or monthly · No lease"
-                       TextColor="{StaticResource BrandMuted}"
+                       TextColor="{DynamicResource BrandMuted}"
                        FontSize="12"
                        HorizontalTextAlignment="Center" />
+                <HorizontalStackLayout Spacing="6" HorizontalOptions="Center" Margin="0,8,0,0">
+                    <Label Style="{StaticResource MaterialGlyph}" Text="&#xe32a;" FontSize="14" TextColor="{StaticResource BrandGold}" VerticalOptions="Center" />
+                    <Label Text="Privacy &amp; PoPIA policy"
+                           TextColor="{StaticResource BrandGoldSoft}"
+                           FontSize="12"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenPrivacyCommand}" />
+                        </Label.GestureRecognizers>
+                    </Label>
+                </HorizontalStackLayout>
+
+                <controls:SocialLinksBar LightTheme="False"
+                                         Caption="FOLLOW FLEXISPACE"
+                                         Margin="0,14,0,0" />
             </VerticalStackLayout>
         </Grid>
     </Grid>

@@ -80,6 +80,15 @@ public static class SeedData
         },
         new()
         {
+            Id = Guid.Parse("77777777-7777-7777-7777-777777777777"),
+            Name = "Centurion Manager",
+            Email = "centurion@flexispace.net.za",
+            Password = "demo123",
+            Role = UserRole.CentreManager,
+            LocationId = "centurion"
+        },
+        new()
+        {
             Id = Guid.Parse("33333333-3333-3333-3333-333333333333"),
             Name = "Admin User",
             Email = "admin@flexispace.net.za",

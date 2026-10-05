@@ -19,6 +19,10 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(nameof(BookingConfirmationPage), typeof(BookingConfirmationPage));
         Routing.RegisterRoute(nameof(MyBookingsPage), typeof(MyBookingsPage));
         Routing.RegisterRoute(nameof(LocationsPage), typeof(LocationsPage));
+        Routing.RegisterRoute(nameof(PrivacyPage), typeof(PrivacyPage));
+        Routing.RegisterRoute(nameof(ReportsPage), typeof(ReportsPage));
+        Routing.RegisterRoute(nameof(UsersPage), typeof(UsersPage));
+        Routing.RegisterRoute(nameof(SettingsPage), typeof(SettingsPage));
 
         _notifications = notifications;
         BuildTabs(auth.CurrentUser?.Role);
@@ -56,6 +60,9 @@ public partial class AppShell : Shell
 
         if (role is null || RolePermissions.CanAccessManageHub(role.Value))
             tabBar.Items.Add(CreateTab("Manage", "ManagePage", typeof(ManagePage)));
+
+        if (role is null || RolePermissions.CanViewReports(role.Value))
+            tabBar.Items.Add(CreateTab("Reports", "ReportsPage", typeof(ReportsPage)));
 
         tabBar.Items.Add(CreateTab("Alerts", "NotificationsPage", typeof(NotificationsPage)));
         tabBar.Items.Add(CreateTab("Profile", "ProfilePage", typeof(ProfilePage)));

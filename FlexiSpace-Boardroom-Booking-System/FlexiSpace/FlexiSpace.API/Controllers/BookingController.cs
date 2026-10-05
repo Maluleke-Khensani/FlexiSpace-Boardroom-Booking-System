@@ -143,10 +143,14 @@ namespace FlexiSpace.API.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateBooking(BookingCreateDto dto)
         {
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+            if (currentUser == null)
+                return Unauthorized(new { message = "No active FlexiSpace account is linked to this sign-in." });
+
             var booking = new Booking
             {
                 BoardroomId = dto.BoardroomId,
-                UserId = dto.UserId,
+                UserId = dto.UserId > 0 ? dto.UserId : currentUser.Id,
                 BookingDate = dto.BookingDate,
                 StartTime = dto.StartTime,
                 EndTime = dto.EndTime,
@@ -343,17 +347,31 @@ namespace FlexiSpace.API.Controllers
 
         // Updates the booking status.
         [HttpPatch("{id}/status")]
-        [AuthorizeRoles(UserRole.Administrator)]
+        [AuthorizeRoles(UserRole.Administrator, UserRole.CentreManager)]
         public async Task<IActionResult> UpdateBookingStatus(
             int id,
             BookingStatusDto dto)
         {
             try
             {
+                var currentUser = await _currentUserService.GetCurrentUserAsync();
+                if (currentUser is null)
+                    return Unauthorized();
+
+                var existing = await _bookingService.GetBookingByIdAsync(id);
+                if (existing is null)
+                    return NotFound();
+
+                if (currentUser.Role == UserRole.CentreManager &&
+                    (existing.Boardroom is null || existing.Boardroom.LocationId != currentUser.LocationId))
+                {
+                    return Forbid();
+                }
+
                 var updated = await _bookingService.UpdateBookingStatusAsync(
                     id,
                     dto.Status,
-                    dto.ApprovedById);
+                    dto.ApprovedById ?? currentUser.Id);
 
                 if (!updated)
                 {
@@ -379,7 +397,13 @@ namespace FlexiSpace.API.Controllers
             {
                 Id = booking.Id,
                 BoardroomId = booking.BoardroomId,
+                BoardroomName = booking.Boardroom?.Name ?? string.Empty,
+                LocationId = booking.Boardroom?.LocationId ?? 0,
+                LocationName = booking.Boardroom?.Location?.Name ?? string.Empty,
                 UserId = booking.UserId,
+                UserName = booking.User is null
+                    ? string.Empty
+                    : $"{booking.User.FirstName} {booking.User.LastName}".Trim(),
                 BookingDate = booking.BookingDate,
                 StartTime = booking.StartTime,
                 EndTime = booking.EndTime,

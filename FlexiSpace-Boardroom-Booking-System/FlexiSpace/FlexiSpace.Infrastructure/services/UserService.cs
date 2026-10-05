@@ -1,4 +1,4 @@
-﻿using FlexiSpace.Core.DTOs.User;
+using FlexiSpace.Core.DTOs.User;
 using FlexiSpace.Core.Entities;
 using FlexiSpace.Core.Services;
 using FlexiSpace.Infrastructure.Persistence;
@@ -179,6 +179,56 @@ namespace FlexiSpace.Infrastructure.services
 
             await _context.SaveChangesAsync();
 
+            return user;
+        }
+
+        public async Task<User?> CreateDirectoryUserAsync(UserDirectoryCreateDto dto)
+        {
+            var email = (dto.Email ?? string.Empty).Trim().ToLowerInvariant();
+            var firstName = (dto.FirstName ?? string.Empty).Trim();
+            var lastName = (dto.LastName ?? string.Empty).Trim();
+
+            if (string.IsNullOrWhiteSpace(email) || !email.Contains('@') ||
+                string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
+                return null;
+
+            if (!Enum.IsDefined(dto.Role))
+                return null;
+
+            var exists = await _context.Users.AnyAsync(u => u.Email.ToLower() == email);
+            if (exists)
+                return null;
+
+            if (dto.LocationId.HasValue)
+            {
+                var locationExists = await _context.Locations.AnyAsync(l => l.Id == dto.LocationId.Value);
+                if (!locationExists)
+                    return null;
+            }
+
+            // Centre managers should have a location; others may be null.
+            if (dto.Role == Core.Enums.UserRole.CentreManager && !dto.LocationId.HasValue)
+                return null;
+
+            var oid = dto.EntraObjectId is Guid g && g != Guid.Empty ? g : Guid.NewGuid();
+            if (await _context.Users.AnyAsync(u => u.EntraObjectId == oid))
+                oid = Guid.NewGuid();
+
+            var user = new User
+            {
+                EntraObjectId = oid,
+                FirstName = firstName,
+                LastName = lastName,
+                Email = email,
+                PhoneNumber = string.Empty,
+                Role = dto.Role,
+                LocationId = dto.LocationId,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
             return user;
         }
     }

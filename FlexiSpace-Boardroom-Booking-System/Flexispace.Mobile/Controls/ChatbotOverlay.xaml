@@ -21,7 +21,7 @@
             BorderWidth="0"
             Clicked="OnFabClicked">
         <Button.Shadow>
-            <Shadow Brush="{StaticResource BrandGoldDeep}" Opacity="0.55" Radius="16" Offset="0,6" />
+            <Shadow Brush="{DynamicResource BrandGoldDeep}" Opacity="0.55" Radius="16" Offset="0,6" />
         </Button.Shadow>
         <Button.GestureRecognizers>
             <PointerGestureRecognizer PointerPressed="OnPointerPressed"

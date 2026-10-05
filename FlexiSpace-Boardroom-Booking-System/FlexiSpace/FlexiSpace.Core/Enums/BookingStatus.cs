@@ -1,15 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+namespace FlexiSpace.Core.Enums;
 
-namespace FlexiSpace.Core.Enums
+public enum BookingStatus
 {
-    public enum BookingStatus
-    {
-    Pending,
-    Cancelled,
-    Completed
-    }
+    /// <summary>Legacy / unused in the current auto-confirm flow.</summary>
+    Pending = 0,
+    Cancelled = 1,
+    Completed = 2,
+    /// <summary>Default status when a booking is created.</summary>
+    Confirmed = 3
 }

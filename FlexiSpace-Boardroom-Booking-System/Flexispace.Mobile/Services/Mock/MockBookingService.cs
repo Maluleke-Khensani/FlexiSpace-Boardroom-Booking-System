@@ -74,7 +74,7 @@ public class MockBookingService(
         }
 
         if (store.BlockedPeriods.Any(b =>
-                b.RoomId == request.RoomId &&
+                RoomCombinations.ConflictRoomIds(request.RoomId).Contains(b.RoomId) &&
                 request.Start < b.End &&
                 request.End > b.Start))
         {
@@ -82,8 +82,9 @@ public class MockBookingService(
         }
 
         var location = await rooms.GetLocationAsync(room.LocationId);
+        var conflictIds = RoomCombinations.ConflictRoomIds(request.RoomId);
         var conflict = store.Bookings.Any(b =>
-            b.RoomId == request.RoomId &&
+            conflictIds.Contains(b.RoomId) &&
             b.Status != BookingStatus.Cancelled &&
             request.Start < b.End &&
             request.End > b.Start);
@@ -94,13 +95,12 @@ public class MockBookingService(
             return new BookingResult
             {
                 Success = false,
-                Message = "This room is already booked for that time. Try one of the suggested slots.",
+                Message = room.IsCombined
+                    ? "One of these adjoining rooms is already booked for that time. Try a suggested slot."
+                    : "This room is already booked for that time. Try one of the suggested slots.",
                 SuggestedSlots = suggestions
             };
         }
-
-        // Client / staff bookings can sit as Pending when optional approval is on for CM demo
-        var needsApproval = auth.CurrentUser.Role is UserRole.Client or UserRole.Staff;
 
         var booking = new Booking
         {
@@ -117,7 +117,8 @@ public class MockBookingService(
             Equipment = [.. request.Equipment],
             Catering = [.. request.Catering],
             Notes = request.Notes,
-            Status = needsApproval ? BookingStatus.Pending : BookingStatus.Confirmed,
+            // Always confirmed on create — there is no approval gate.
+            Status = BookingStatus.Confirmed,
             OutlookEventId = $"mock-{Guid.NewGuid():N}"[..20]
         };
 
@@ -126,11 +127,9 @@ public class MockBookingService(
         // Always drop an unread Alerts item the booker can tap open (links to this booking).
         await notifications.AddAsync(new AppNotification
         {
-            Title = needsApproval ? "Booking request sent" : "Booking confirmed",
-            Message = needsApproval
-                ? $"{booking.RoomName} · {booking.LocationName} · {booking.Start:ddd d MMM HH:mm}–{booking.End:HH:mm} · awaiting Centre Manager approval. Tap to open."
-                : $"{booking.RoomName} · {booking.LocationName} · {booking.Start:ddd d MMM HH:mm}–{booking.End:HH:mm}. Tap to open.",
-            Type = needsApproval ? "Reminder" : "Confirmation",
+            Title = "Booking confirmed",
+            Message = $"{booking.RoomName} · {booking.LocationName} · {booking.Start:ddd d MMM HH:mm}–{booking.End:HH:mm}. Tap to open.",
+            Type = "Confirmation",
             CreatedAt = DateTime.Now,
             IsRead = false,
             BookingId = booking.Id
@@ -139,9 +138,7 @@ public class MockBookingService(
         return new BookingResult
         {
             Success = true,
-            Message = needsApproval
-                ? "Booking submitted for Centre Manager approval. Check Alerts for your request."
-                : "Your boardroom is booked. Check Alerts for the confirmation.",
+            Message = "Your boardroom is booked. Check Alerts for the confirmation.",
             Booking = booking
         };
     }
@@ -170,44 +167,6 @@ public class MockBookingService(
         return true;
     }
 
-    public async Task<bool> ApproveBookingAsync(Guid bookingId)
-    {
-        var user = auth.CurrentUser;
-        var booking = store.Bookings.FirstOrDefault(b => b.Id == bookingId);
-        if (user is null || booking is null) return false;
-        if (!RolePermissions.CanApproveBookings(user.Role) || !IsInScope(user, booking)) return false;
-        if (booking.Status != BookingStatus.Pending) return false;
-
-        booking.Status = BookingStatus.Confirmed;
-        await notifications.AddAsync(new AppNotification
-        {
-            Title = "Booking approved",
-            Message = $"{booking.RoomName} · {booking.LocationName} · {booking.Start:ddd d MMM HH:mm}",
-            Type = "Confirmation",
-            BookingId = booking.Id
-        });
-        return true;
-    }
-
-    public async Task<bool> DeclineBookingAsync(Guid bookingId)
-    {
-        var user = auth.CurrentUser;
-        var booking = store.Bookings.FirstOrDefault(b => b.Id == bookingId);
-        if (user is null || booking is null) return false;
-        if (!RolePermissions.CanApproveBookings(user.Role) || !IsInScope(user, booking)) return false;
-        if (booking.Status != BookingStatus.Pending) return false;
-
-        booking.Status = BookingStatus.Cancelled;
-        await notifications.AddAsync(new AppNotification
-        {
-            Title = "Booking declined",
-            Message = $"{booking.RoomName} · {booking.LocationName} · {booking.Start:ddd d MMM HH:mm} was declined by {user.Name}.",
-            Type = "Cancellation",
-            BookingId = booking.Id
-        });
-        return true;
-    }
-
     public Task<bool> UpdateBookingAsync(Guid bookingId, DateTime start, DateTime end, int attendees, string notes)
     {
         var user = auth.CurrentUser;
@@ -217,10 +176,11 @@ public class MockBookingService(
         if (end <= start) return Task.FromResult(false);
         if (start.Date < DateTime.Today) return Task.FromResult(false);
 
+        var conflictIds = RoomCombinations.ConflictRoomIds(booking.RoomId);
         var conflict = store.Bookings.Any(b =>
             b.Id != bookingId &&
-            b.RoomId == booking.RoomId &&
-            b.Status != BookingStatus.Cancelled &&
+            conflictIds.Contains(b.RoomId) &&
+            b.Status is BookingStatus.Confirmed or BookingStatus.Pending &&
             start < b.End && end > b.Start);
         if (conflict) return Task.FromResult(false);
 
@@ -229,6 +189,36 @@ public class MockBookingService(
         booking.Attendees = Math.Max(1, attendees);
         booking.Notes = notes;
         return Task.FromResult(true);
+    }
+
+    public async Task<bool> UpdateBookingStatusAsync(Guid bookingId, BookingStatus status)
+    {
+        var user = auth.CurrentUser;
+        var booking = store.Bookings.FirstOrDefault(b => b.Id == bookingId);
+        if (user is null || booking is null) return false;
+        if (!RolePermissions.CanEditBookings(user.Role) || !IsInScope(user, booking)) return false;
+
+        // Pending is not used — bookings are confirmed on create.
+        if (status is not (BookingStatus.Confirmed or BookingStatus.Cancelled or BookingStatus.Completed))
+            return false;
+
+        if (booking.Status == status) return true;
+
+        booking.Status = status;
+        var title = status switch
+        {
+            BookingStatus.Cancelled => "Booking cancelled",
+            BookingStatus.Completed => "Booking completed",
+            _ => "Booking status updated"
+        };
+        await notifications.AddAsync(new AppNotification
+        {
+            Title = title,
+            Message = $"{booking.RoomName} · {booking.LocationName} · {booking.Start:ddd d MMM HH:mm} is now {status}.",
+            Type = status == BookingStatus.Cancelled ? "Cancellation" : "Info",
+            BookingId = booking.Id
+        });
+        return true;
     }
 
     public async Task<BlockRoomResult> BlockRoomAsync(string roomId, DateTime start, DateTime end, string reason, Guid? relatedBookingId = null)
@@ -253,18 +243,19 @@ public class MockBookingService(
             CreatedBy = user.Name
         });
 
+        var conflictIds = RoomCombinations.ConflictRoomIds(roomId);
         var affected = store.Bookings
             .Where(b =>
-                b.RoomId == roomId &&
-                b.Status is BookingStatus.Confirmed or BookingStatus.Pending &&
+                conflictIds.Contains(b.RoomId) &&
+                b.Status == BookingStatus.Confirmed &&
                 start < b.End && end > b.Start)
             .OrderBy(b => b.Start)
             .ToList();
 
         if (relatedBookingId is { } relatedId &&
             affected.All(b => b.Id != relatedId) &&
-            store.Bookings.FirstOrDefault(b => b.Id == relatedId && b.RoomId == roomId) is { } related &&
-            related.Status is BookingStatus.Confirmed or BookingStatus.Pending)
+            store.Bookings.FirstOrDefault(b => b.Id == relatedId) is { } related &&
+            related.Status == BookingStatus.Confirmed)
         {
             affected.Add(related);
             affected = [.. affected.OrderBy(b => b.Start)];
@@ -344,12 +335,13 @@ public class MockBookingService(
         {
             var start = day.AddHours(hour);
             var end = start + duration;
+            var conflictIds = RoomCombinations.ConflictRoomIds(roomId);
             var busy = store.Bookings.Any(b =>
-                b.RoomId == roomId &&
+                conflictIds.Contains(b.RoomId) &&
                 b.Status != BookingStatus.Cancelled &&
                 start < b.End && end > b.Start);
             var blocked = store.BlockedPeriods.Any(b =>
-                b.RoomId == roomId && start < b.End && end > b.Start);
+                conflictIds.Contains(b.RoomId) && start < b.End && end > b.Start);
             if (!busy && !blocked) suggestions.Add(start);
         }
         return suggestions;

@@ -92,6 +92,9 @@ public partial class NotificationsViewModel(INotificationService notifications) 
     {
         await notifications.MarkAllAsReadAsync();
         ApplyFilter();
+        await ActionFeedback.SuccessAsync(
+            UnreadCount == 0 ? "Inbox zero. You're in the clear." : "Marked what we could as read.",
+            "Alerts cleared");
     }
 
     /// <summary>
@@ -160,6 +163,7 @@ public partial class NotificationsViewModel(INotificationService notifications) 
         if (notification is null) return;
         await notifications.DeleteAsync(notification.Id);
         await AppearingAsync();
+        await ActionFeedback.InfoAsync("Alert removed from your inbox.", "Cleared");
     }
 }
 
@@ -177,6 +181,7 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
     [ObservableProperty] private string location = string.Empty;
     [ObservableProperty] private bool canAccessManage;
     [ObservableProperty] private bool canViewAvailability;
+    [ObservableProperty] private bool canViewReports;
     [ObservableProperty] private bool showPayPlaceholder;
     [ObservableProperty] private int todayCount;
     [ObservableProperty] private int upcomingCount;
@@ -200,6 +205,7 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
         Location = user?.LocationId ?? "All locations";
         CanAccessManage = user is not null && RolePermissions.CanAccessManageHub(user.Role);
         CanViewAvailability = user is not null && RolePermissions.CanViewAvailability(user.Role);
+        CanViewReports = user is not null && RolePermissions.CanViewReports(user.Role);
         ShowPayPlaceholder = user is not null && RolePermissions.CanSeePayPlaceholder(user.Role);
 
         DemoUsers.Clear();
@@ -224,6 +230,9 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
     {
         if (user is null) return;
         await auth.SwitchDemoUserAsync(user.Email);
+        await ActionFeedback.SuccessAsync(
+            $"Now playing as {user.Name} · {RolePermissions.DisplayName(user.Role)}.",
+            "Character select");
         // Rebuild the Shell so the tab bar matches the new role's permissions exactly.
         await ShellReloader.ReloadAsync();
     }
@@ -232,6 +241,7 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
     private async Task LogoutAsync()
     {
         await auth.LogoutAsync();
+        await ActionFeedback.InfoAsync("Signed out. See you next round.", "Session ended");
         await Shell.Current.GoToAsync("//WelcomePage");
     }
 
@@ -260,6 +270,21 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
     [RelayCommand]
     private async Task OpenAlertsAsync() =>
         await Shell.Current.GoToAsync("//NotificationsPage");
+
+    [RelayCommand]
+    private async Task OpenReportsAsync()
+    {
+        if (!CanViewReports) return;
+        await Shell.Current.GoToAsync("//ReportsPage");
+    }
+
+    [RelayCommand]
+    private async Task OpenPrivacyAsync() =>
+        await Shell.Current.GoToAsync("PrivacyPage");
+
+    [RelayCommand]
+    private async Task OpenSettingsAsync() =>
+        await Shell.Current.GoToAsync("SettingsPage");
 }
 
 [QueryProperty(nameof(LocationId), "locationId")]
@@ -278,6 +303,14 @@ public partial class LocationDetailViewModel(IAuthService auth, IRoomService roo
     private async Task LoadAsync()
     {
         CanBook = auth.CurrentUser is not null && RolePermissions.CanBookRooms(auth.CurrentUser.Role);
+        if (!RolePermissions.CanAccessLocation(auth.CurrentUser, LocationId))
+        {
+            Location = null;
+            Rooms.Clear();
+            IsEmpty = true;
+            return;
+        }
+
         Location = await rooms.GetLocationAsync(LocationId);
         Rooms.Clear();
         foreach (var room in await rooms.GetRoomsAsync(LocationId))

@@ -45,7 +45,7 @@ public class MockDataStore
                 BookerName = "Client Guest",
                 Company = "Pro Tem",
                 Attendees = 3,
-                Status = BookingStatus.Pending
+                Status = BookingStatus.Confirmed
             },
             new Booking
             {
@@ -119,7 +119,108 @@ public class MockDataStore
                 BookerName = "Client Guest",
                 Company = "Pro Tem",
                 Attendees = 10,
-                Status = BookingStatus.Pending
+                Status = BookingStatus.Confirmed
+            },
+            new Booking
+            {
+                RoomId = "hou-1",
+                LocationId = "houghton",
+                RoomName = "Boardroom 1",
+                LocationName = "Houghton Estate",
+                Start = today.AddHours(8).AddMinutes(30),
+                End = today.AddHours(9).AddMinutes(30),
+                BookerId = staffId,
+                BookerName = "Thabo Staff",
+                Company = "360 Vision",
+                Attendees = 4,
+                Status = BookingStatus.Confirmed
+            },
+            new Booking
+            {
+                RoomId = "cen-b",
+                LocationId = "centurion",
+                RoomName = "Boardroom B",
+                LocationName = "Centurion",
+                Start = today.AddHours(11),
+                End = today.AddHours(12).AddMinutes(30),
+                BookerId = SeedData.Users.First(u => u.Email.StartsWith("centurion")).Id,
+                BookerName = "Centurion Manager",
+                Company = "ACIS",
+                Attendees = 8,
+                Catering = ["Coffee", "Water"],
+                Status = BookingStatus.Confirmed
+            },
+            new Booking
+            {
+                RoomId = "hou-exec",
+                LocationId = "houghton",
+                RoomName = "Executive Boardroom",
+                LocationName = "Houghton Estate",
+                Start = today.AddHours(13),
+                End = today.AddHours(14).AddMinutes(30),
+                BookerId = SeedData.Users.First(u => u.Email.StartsWith("rebecca")).Id,
+                BookerName = "Rebecca",
+                Company = "FlexiSpace Ops",
+                Attendees = 10,
+                Equipment = ["TV", "Video conferencing"],
+                Status = BookingStatus.Confirmed,
+                OutlookEventId = "mock-outlook-003"
+            },
+            new Booking
+            {
+                RoomId = "eag-meet",
+                LocationId = "eagle",
+                RoomName = "Meeting Room",
+                LocationName = "Eagle Canyon",
+                Start = today.AddHours(10),
+                End = today.AddHours(11).AddMinutes(30),
+                BookerId = staffId,
+                BookerName = "Thabo Staff",
+                Company = "ACIS",
+                Attendees = 7,
+                Status = BookingStatus.Confirmed
+            },
+            new Booking
+            {
+                RoomId = "cen-t",
+                LocationId = "centurion",
+                RoomName = "Training Room",
+                LocationName = "Centurion",
+                Start = today.AddHours(14),
+                End = today.AddHours(15),
+                BookerId = staffId,
+                BookerName = "Thabo Staff",
+                Company = "Pro Tem",
+                Attendees = 12,
+                Status = BookingStatus.Confirmed
+            },
+            new Booking
+            {
+                RoomId = "hou-exec",
+                LocationId = "houghton",
+                RoomName = "Executive Boardroom",
+                LocationName = "Houghton Estate",
+                Start = today.AddDays(1).AddHours(9),
+                End = today.AddDays(1).AddHours(10).AddMinutes(30),
+                BookerId = staffId,
+                BookerName = "Thabo Staff",
+                Company = "Wire Giraffe",
+                Attendees = 8,
+                Status = BookingStatus.Confirmed
+            },
+            new Booking
+            {
+                RoomId = "cen-a",
+                LocationId = "centurion",
+                RoomName = "Boardroom A",
+                LocationName = "Centurion",
+                Start = today.AddDays(-1).AddHours(10),
+                End = today.AddDays(-1).AddHours(11),
+                BookerId = staffId,
+                BookerName = "Thabo Staff",
+                Company = "Wire Giraffe",
+                Attendees = 5,
+                Status = BookingStatus.Completed
             }
         ]);
     }

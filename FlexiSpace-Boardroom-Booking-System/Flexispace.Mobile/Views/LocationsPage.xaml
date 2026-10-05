@@ -4,9 +4,10 @@
              xmlns:vm="clr-namespace:Flexispace.Mobile.ViewModels"
              xmlns:models="clr-namespace:Flexispace.Mobile.Models"
              x:Class="Flexispace.Mobile.Views.LocationsPage"
+             x:Name="Root"
              x:DataType="vm:LocationsViewModel"
              Title="Locations"
-             BackgroundColor="{StaticResource BrandIvory}">
+             BackgroundColor="{DynamicResource BrandPage}">
 
     <CollectionView ItemsSource="{Binding Locations}" Margin="16">
         <CollectionView.ItemTemplate>
@@ -14,7 +15,7 @@
                 <Border StrokeThickness="0" StrokeShape="RoundRectangle 12" Margin="0,0,0,14" HeightRequest="160">
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer
-                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:LocationsViewModel}}, Path=OpenCommand}"
+                            Command="{Binding Source={x:Reference Root}, Path=BindingContext.OpenCommand}"
                             CommandParameter="{Binding .}" />
                     </Border.GestureRecognizers>
                     <Grid>
