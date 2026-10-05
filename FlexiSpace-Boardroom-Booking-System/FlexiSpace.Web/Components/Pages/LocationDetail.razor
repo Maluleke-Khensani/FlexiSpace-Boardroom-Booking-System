@@ -1,6 +1,5 @@
 @* Single location detail with room list and book shortcuts. *@
 @page "/locations/{LocationId}"
-@rendermode InteractiveServer
 @inject LocationDetailViewModel Vm
 @inject IAuthService Auth
 @using Flexispace.Web.Helpers
@@ -51,7 +50,7 @@ else
                         <img src="@DisplayHelpers.ImageUrl(room.ImageKey)" alt="@room.Name" />
                         <div class="fs-room-row__body">
                             <strong style="font-size:16px">@room.Name</strong>
-                            <p class="fs-muted" style="font-size:12px; margin:4px 0">Seats @room.Capacity</p>
+                            <p class="fs-muted" style="font-size:12px; margin:4px 0">Seats @room.Capacity@(RoomCombinations.GetCombinationFor(room.Id) is null ? "" : " · Can be conjoined")</p>
                             <p class="fs-muted" style="font-size:12px; margin:0">@DisplayHelpers.JoinList(room.Equipment)</p>
                         </div>
                         @if (Vm.CanBook)

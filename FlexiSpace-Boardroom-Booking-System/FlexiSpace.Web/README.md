@@ -26,10 +26,10 @@ The app uses **mock data and services** (no live API). It is intended as a funct
 
 ## How to run
 
-From the solution root:
+From the `Flexispace.Web` solution folder:
 
 ```powershell
-dotnet run --project Flexispace.Web
+dotnet run --project FlexiSpace.Web
 ```
 
 Then open the URL shown in the terminal (typically `http://localhost:5282`).

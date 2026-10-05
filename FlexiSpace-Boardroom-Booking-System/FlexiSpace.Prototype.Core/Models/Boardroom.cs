@@ -1,4 +1,4 @@
-namespace Flexispace.CoreDev.Models;
+namespace Flexispace.Core.Models;
 
 public class Boardroom
 {
@@ -9,5 +9,7 @@ public class Boardroom
     public List<string> Equipment { get; set; } = [];
     public RoomStatus Status { get; set; } = RoomStatus.Available;
     public string ImageKey { get; set; } = "room_meeting";
+    public List<string> CombinedRoomIds { get; set; } = [];
+    public bool IsCombined => CombinedRoomIds.Count > 0;
 }
 

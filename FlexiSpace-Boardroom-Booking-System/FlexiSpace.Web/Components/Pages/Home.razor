@@ -1,33 +1,49 @@
-﻿@* Authenticated dashboard: today's bookings, perks, and location carousel. *@
+﻿@* Authenticated dashboard: today's bookings, amenities, and locations. *@
 @page "/home"
-@rendermode InteractiveServer
 @inject HomeViewModel Vm
 @inject IAuthService Auth
 @using Flexispace.Core.Helpers
 
 <PageTitle>Dashboard · Flexispace</PageTitle>
 
-@if (!Auth.IsAuthenticated)
+@if (!Auth.IsSessionReady)
 {
-    <RedirectToLogin />
+    <div class="fs-auth-page">
+        <p class="fs-muted" style="text-align:center;padding:48px 24px">Signing you in...</p>
+    </div>
+}
+else if (!Auth.IsAuthenticated)
+{
+    @if (!string.IsNullOrEmpty(Auth.SessionError))
+    {
+        <div class="fs-auth-page">
+            <div class="fs-login-form fs-stack" style="padding:48px 24px;max-width:420px;margin:0 auto">
+                <p class="fs-error">@Auth.SessionError</p>
+                <a class="fs-btn fs-btn--gold fs-btn--block" href="/login">Back to sign in</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <RedirectToLogin />
+    }
 }
 else
 {
     <div class="fs-hero-band">
         <FloatingDecor Variant="welcome" />
         <div class="fs-hero-band__inner">
-            <p class="fs-eyebrow fs-eyebrow--gold">Meeting rooms</p>
+            <p class="fs-eyebrow fs-eyebrow--gold">Dashboard</p>
             <h1 class="fs-heading" style="color:var(--fs-ivory)">@Vm.Greeting</h1>
             <p class="fs-hero-band__subtitle">@Vm.Subtitle</p>
-            @if (!string.IsNullOrEmpty(Vm.RoleBanner))
+            @if (Vm.UnreadCount > 0)
             {
-                <p class="fs-hero-band__meta">@Vm.RoleBanner</p>
+                <a class="fs-hero-band__meta" href="/notifications">@Vm.UnreadCount unread @(Vm.UnreadCount == 1 ? "alert" : "alerts")</a>
             }
-            <p class="fs-hero-band__meta">@Vm.UnreadCount unread alerts</p>
             <div class="fs-flex" style="margin-top:20px">
                 @if (Vm.CanBook)
                 {
-                    <button type="button" class="fs-btn fs-btn--gold" @onclick="Book">Book a boardroom</button>
+                    <button type="button" class="fs-btn fs-btn--gold" @onclick="Book">Book a room</button>
                 }
                 @if (Vm.CanAccessManage)
                 {
@@ -39,22 +55,9 @@ else
     </div>
 
     <div class="fs-content-wide" style="padding:32px">
-        @if (Vm.ShowPayPlaceholder)
-        {
-            <div class="fs-card" style="margin-bottom:28px">
-                <p class="fs-muted" style="margin:0; font-size:13px">Client Phase 2: online payments will appear here once billing APIs are live.</p>
-            </div>
-        }
-
         <section class="fs-section-block">
-            <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px">
-                <span class="fs-section-num">01</span>
-                <div>
-                    <h2 class="fs-section-title">Brilliant office solutions</h2>
-                    <p class="fs-muted" style="font-size:13px; margin:4px 0 0">Professionally appointed meeting rooms with the Flexispace essentials.</p>
-                </div>
-            </div>
-            <div class="fs-perk-grid">
+            <h2 class="fs-section-title">Included with every room</h2>
+            <div class="fs-perk-grid" style="margin-top:20px">
                 @foreach (var perk in Perks)
                 {
                     <div class="fs-perk-card">
@@ -68,17 +71,14 @@ else
         </section>
 
         <section class="fs-section-block">
-            <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px">
-                <span class="fs-section-num">02</span>
-                <h2 class="fs-section-title">Today at Flexispace</h2>
-            </div>
+            <h2 class="fs-section-title">Today</h2>
             @if (Vm.IsEmpty)
             {
-                <p class="fs-muted">No bookings for today yet. Reserve a room to get started.</p>
+                <p class="fs-muted" style="margin-top:12px">No bookings scheduled for today.</p>
             }
             else
             {
-                <div class="fs-grid-2">
+                <div class="fs-grid-2" style="margin-top:16px">
                     @foreach (var booking in Vm.TodaysBookings)
                     {
                         <div class="fs-card--elevated fs-card--clickable" @onclick="() => OpenBooking(booking)">
@@ -103,14 +103,10 @@ else
         </section>
 
         <section class="fs-section-block">
-            <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px">
-                <span class="fs-section-num">03</span>
-                <div>
-                    <h2 class="fs-section-title">Our spaces</h2>
-                    <p class="fs-muted" style="font-size:13px; margin:4px 0 0">Use arrow keys, chevrons, or click a location to explore.</p>
-                </div>
+            <h2 class="fs-section-title">Locations</h2>
+            <div style="margin-top:16px">
+                <LocationCarousel Items="Vm.Locations" OnSelect="OpenLocationAsync" />
             </div>
-            <LocationCarousel Items="Vm.Locations" OnSelect="OpenLocationAsync" />
         </section>
     </div>
 }
@@ -118,17 +114,20 @@ else
 @code {
     private static readonly (string Label, string Icon, string Tone)[] Perks =
     [
-        ("24/7 Access", "building", "gold"),
         ("Uncapped Wi-Fi", "wifi", "gold"),
         ("Backup power", "bolt", "teal"),
         ("Tea & coffee", "coffee", "clay"),
         ("Secure parking", "parking", "steel"),
-        ("From R150 / hour", "calendar", "success"),
-        ("No lease", "building", "gold")
+        ("Conference calling", "calendar", "success"),
+        ("From R150 / hour", "building", "gold")
     ];
 
-    protected override async Task OnInitializedAsync() =>
-        await Vm.AppearingCommand.ExecuteAsync(null);
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.EnsureSessionAsync();
+        if (Auth.IsAuthenticated)
+            await Vm.AppearingCommand.ExecuteAsync(null);
+    }
 
     private void Book() => Vm.BookRoomCommand.Execute(null);
     private void Manage() => Vm.OpenManageCommand.Execute(null);

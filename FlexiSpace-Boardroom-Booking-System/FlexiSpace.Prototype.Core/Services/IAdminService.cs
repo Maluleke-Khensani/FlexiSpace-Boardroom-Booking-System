@@ -1,10 +1,13 @@
-using Flexispace.CoreDev.Models;
+using Flexispace.Core.Models;
 
-namespace Flexispace.CoreDev.Services;
+namespace Flexispace.Core.Services;
 
 public interface IAdminService
 {
     Task<IReadOnlyList<User>> GetUsersAsync();
+    Task<(bool Ok, string Message)> CreateUserAsync(User user);
+    Task<(bool Ok, string Message)> UpdateUserAsync(User user);
+    Task<(bool Ok, string Message)> RemoveUserAsync(int apiId);
     Task<bool> AddRoomAsync(Boardroom room);
     Task<bool> RemoveRoomAsync(string roomId);
     Task<ReportSummary> GetReportSummaryAsync();

@@ -21,3 +21,8 @@
     document.addEventListener('DOMContentLoaded', init);
     document.addEventListener('enhancedload', init);
 })();
+
+window.flexispacePrivacy = {
+    hasAccepted: (key) => window.localStorage.getItem(key) === '1',
+    accept: (key) => window.localStorage.setItem(key, '1')
+};

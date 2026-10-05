@@ -1,6 +1,6 @@
-using Flexispace.CoreDev.Models;
+using Flexispace.Core.Models;
 
-namespace Flexispace.CoreDev.Helpers;
+namespace Flexispace.Core.Helpers;
 
 /// <summary>
 /// Role capabilities from FlexiTech Project Plan — Multi-Boardroom Booking System.
@@ -49,15 +49,12 @@ public static class RolePermissions
     public static bool CanAccessManageHub(UserRole role) =>
         role is UserRole.CentreManager or UserRole.Administrator;
 
-    public static bool CanSeePayPlaceholder(UserRole role) =>
-        role is UserRole.Client;
-
     public static string Describe(UserRole role) => role switch
     {
         UserRole.Administrator => "Add/remove rooms · configure locations · manage users · all bookings · reports",
-        UserRole.CentreManager => "View/approve/block/edit/cancel bookings for your centre",
+        UserRole.CentreManager => "View, edit, block, and cancel bookings for your centre",
         UserRole.Staff => "Book rooms · cancel own bookings · view live availability",
-        UserRole.Client => "Self-service booking · confirmations · (payments coming in Phase 2)",
+        UserRole.Client => "Self-service booking across Flexispace locations",
         _ => string.Empty
     };
 

@@ -1,6 +1,35 @@
-@* Auth guard: redirects unauthenticated users to the login page. *@
+@* Auth guard: waits for Microsoft/API session, then sends visitors to login or privacy. *@
 @inject INavigationService Nav
+@inject IAuthService Auth
+@inject PrivacyConsentService Consent
+
+@if (!string.IsNullOrEmpty(Auth.SessionError))
+{
+    <div class="fs-auth-page">
+        <div class="fs-login-form fs-stack" style="padding:48px 24px;max-width:420px;margin:0 auto">
+            <p class="fs-error">@Auth.SessionError</p>
+            <a class="fs-btn fs-btn--gold fs-btn--block" href="/login">Back to sign in</a>
+        </div>
+    </div>
+}
 
 @code {
-    protected override void OnInitialized() => Nav.NavigateTo("/login");
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await Auth.EnsureSessionAsync();
+        if (Auth.IsAuthenticated)
+        {
+            Nav.NavigateTo("/home");
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(Auth.SessionError))
+        {
+            StateHasChanged();
+            return;
+        }
+
+        Nav.NavigateTo(await Consent.HasAcceptedAsync() ? "/login" : "/");
+    }
 }

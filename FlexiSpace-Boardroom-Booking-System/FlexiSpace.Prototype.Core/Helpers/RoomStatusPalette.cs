@@ -1,4 +1,4 @@
-namespace Flexispace.CoreDev.Helpers;
+namespace Flexispace.Core.Helpers;
 
 public static class RoomStatusPalette
 {

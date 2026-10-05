@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Flexispace.Core.Helpers;
 using Flexispace.Core.Models;
 using Flexispace.Core.Services;
+using Flexispace.Web.Api;
 using Flexispace.Web.Services;
 
 namespace Flexispace.Web.ViewModels;
@@ -79,7 +80,7 @@ public partial class BookingDetailViewModel(IAuthService auth, IBookingService b
     [ObservableProperty] private bool canApprove;
     [ObservableProperty] private bool canDecline;
     [ObservableProperty] private bool canEdit;
-    [ObservableProperty] private string attendeesText = "4";
+    [ObservableProperty] private string attendeesText = string.Empty;
     [ObservableProperty] private string notes = string.Empty;
     [ObservableProperty] private DateTime editDate = DateTime.Today;
     [ObservableProperty] private TimeSpan editStart = new(9, 0, 0);
@@ -175,24 +176,32 @@ public partial class BookingDetailViewModel(IAuthService auth, IBookingService b
 }
 
 //Post-booking confirmation screen shown after a successful reservation is created.
-public partial class BookingConfirmationViewModel(IBookingService bookings, INavigationService nav) : ObservableObject
+public partial class BookingConfirmationViewModel(IBookingService bookings, INavigationService nav, BookingSessionCache session) : ObservableObject
 {
     [ObservableProperty] private string bookingId = string.Empty;
     [ObservableProperty] private Booking? booking;
     [ObservableProperty] private bool isPending;
+    [ObservableProperty] private bool isBusy;
 
-    public void SetBookingId(string id)
+    public async Task LoadAsync(string id)
     {
         BookingId = id;
-        _ = LoadAsync();
-    }
+        IsBusy = true;
+        try
+        {
+            if (!Guid.TryParse(id, out var bookingId))
+                return;
 
-    private async Task LoadAsync()
-    {
-        if (!Guid.TryParse(BookingId, out var id)) return;
-        Booking = await bookings.GetBookingAsync(id);
-        OnPropertyChanged(nameof(Booking));
-        IsPending = Booking?.Status == BookingStatus.Pending;
+            Booking = session.LastCreated?.Id == bookingId
+                ? session.LastCreated
+                : await bookings.GetBookingAsync(bookingId);
+            Booking ??= session.LastCreated;
+            IsPending = Booking?.Status == BookingStatus.Pending;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     [RelayCommand]

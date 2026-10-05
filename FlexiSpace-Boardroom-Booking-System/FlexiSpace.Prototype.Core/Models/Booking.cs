@@ -1,4 +1,4 @@
-namespace Flexispace.CoreDev.Models;
+namespace Flexispace.Core.Models;
 
 public class Booking
 {

@@ -15,11 +15,11 @@ public partial class WelcomeViewModel(INavigationService nav) : ObservableObject
     private void GetStarted() => nav.NavigateTo("/login");
 }
 
-//Sign-in form state: credentials, demo-account shortcuts, and login error handling.
+//Sign-in form state and login error handling.
 public partial class LoginViewModel(IAuthService auth, INavigationService nav) : ObservableObject
 {
-    [ObservableProperty] private string email = "staff@flexispace.net.za";
-    [ObservableProperty] private string password = "demo123";
+    [ObservableProperty] private string email = string.Empty;
+    [ObservableProperty] private string password = string.Empty;
     [ObservableProperty] private string? errorMessage;
     [ObservableProperty] private bool isBusy;
 
@@ -34,7 +34,7 @@ public partial class LoginViewModel(IAuthService auth, INavigationService nav) :
             var ok = await auth.LoginAsync(Email, Password);
             if (!ok)
             {
-                ErrorMessage = "Invalid email or password. Try a demo account below.";
+                ErrorMessage = "Use Sign in with Microsoft. Email and password are no longer used.";
                 return;
             }
 
@@ -47,27 +47,21 @@ public partial class LoginViewModel(IAuthService auth, INavigationService nav) :
     }
 
     [RelayCommand]
-    private async Task UseDemoAsync(string email)
-    {
-        Email = email;
-        Password = "demo123";
-        await LoginAsync();
-    }
+    private Task MicrosoftSignInAsync() => auth.MicrosoftSignInAsync();
+
 }
 
 //Dashboard state: role-aware greeting, today's bookings, location carousel, and quick actions.
 public partial class HomeViewModel(IAuthService auth, IBookingService bookings, IRoomService rooms, INotificationService notifications, INavigationService nav) : ObservableObject
 {
     [ObservableProperty] private string greeting = "Welcome";
-    [ObservableProperty] private string subtitle = "You run your business — we run the rest.";
-    [ObservableProperty] private string roleBanner = string.Empty;
+    [ObservableProperty] private string subtitle = "Book and manage your meeting rooms.";
     [ObservableProperty] private int unreadCount;
     [ObservableProperty] private bool isEmpty;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private bool canBook;
     [ObservableProperty] private bool canViewAvailability;
     [ObservableProperty] private bool canAccessManage;
-    [ObservableProperty] private bool showPayPlaceholder;
 
     public ObservableCollection<Booking> TodaysBookings { get; } = [];
     public ObservableCollection<OfficeLocation> Locations { get; } = [];
@@ -85,20 +79,20 @@ public partial class HomeViewModel(IAuthService auth, IBookingService bookings, 
                 CanBook = RolePermissions.CanBookRooms(user.Role);
                 CanViewAvailability = RolePermissions.CanViewAvailability(user.Role);
                 CanAccessManage = RolePermissions.CanAccessManageHub(user.Role);
-                ShowPayPlaceholder = RolePermissions.CanSeePayPlaceholder(user.Role);
-                RoleBanner = $"{RolePermissions.DisplayName(user.Role)} · {RolePermissions.Describe(user.Role)}";
+                var locationName = user.LocationId is null
+                    ? null
+                    : (await rooms.GetLocationAsync(user.LocationId))?.Name;
                 Subtitle = user.Role switch
                 {
-                    UserRole.Administrator => "All locations · rooms, users & reports",
-                    UserRole.CentreManager => $"Managing {user.LocationId ?? "your centre"}",
-                    UserRole.Client => "Self-service booking across Flexispace",
-                    _ => "You run your business — we run the rest."
+                    UserRole.Administrator => "All Flexispace locations",
+                    UserRole.CentreManager => $"Managing {locationName ?? "your centre"}",
+                    UserRole.Client => "Book a room at any Flexispace location",
+                    _ => "Book and manage your meeting rooms"
                 };
             }
             else
             {
-                CanBook = CanViewAvailability = CanAccessManage = ShowPayPlaceholder = false;
-                RoleBanner = string.Empty;
+                CanBook = CanViewAvailability = CanAccessManage = false;
             }
 
             UnreadCount = await notifications.GetUnreadCountAsync();
@@ -115,9 +109,9 @@ public partial class HomeViewModel(IAuthService auth, IBookingService bookings, 
             foreach (var loc in await rooms.GetLocationsAsync())
                 Locations.Add(loc);
         }
-        catch (Exception ex)
+        catch
         {
-            RoleBanner = $"Could not refresh home: {ex.Message}";
+            Subtitle = "Could not refresh the dashboard.";
         }
         finally
         {

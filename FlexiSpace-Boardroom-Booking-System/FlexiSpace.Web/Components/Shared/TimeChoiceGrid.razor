@@ -3,8 +3,10 @@
     @foreach (var slot in Slots)
     {
         var selected = slot == Selected;
+        var booked = Unavailable.Any(s => s == slot);
         <button type="button"
-                class="fs-time-btn @(selected ? "fs-time-btn--selected" : "")"
+                class="fs-time-btn @(selected ? "fs-time-btn--selected" : "") @(booked ? "fs-time-btn--booked" : "")"
+                disabled="@booked"
                 @onclick="() => OnSelect.InvokeAsync(slot)">
             @Format(slot)
         </button>
@@ -17,6 +19,7 @@
     [Parameter] public TimeSpan End { get; set; } = new(19, 0, 0);
     [Parameter] public int StepMinutes { get; set; } = 30;
     [Parameter] public EventCallback<TimeSpan> OnSelect { get; set; }
+    [Parameter] public IReadOnlyCollection<TimeSpan> Unavailable { get; set; } = [];
 
     private IEnumerable<TimeSpan> Slots
     {

@@ -1,9 +1,8 @@
-﻿@using Flexispace.CoreDev.Services
-@* Authenticated app shell: sidebar navigation, page header, and content area. *@
+﻿@* Authenticated app shell: sidebar navigation, page header, and content area. *@
 @inherits LayoutComponentBase
 @inject IAuthService Auth
-@inject AuthStateNotifier AuthNotifier
 @inject NavigationManager Navigation
+@inject PrivacyConsentService Consent
 @implements IDisposable
 
 @if (ShowAppShell)
@@ -12,7 +11,6 @@
         <aside class="fs-sidebar">
             <div class="fs-sidebar__brand">
                 <a href="/home"><img class="fs-sidebar__logo" src="/images/flexispace_logo.png" alt="Flexispace" /></a>
-                <p class="fs-sidebar__tagline">Work outside of the box</p>
             </div>
             <nav class="fs-sidebar__nav">
                 @foreach (var tab in VisibleTabs)
@@ -70,7 +68,7 @@ else
         get
         {
             var path = Navigation.ToBaseRelativePath(Navigation.Uri).Split('?')[0].TrimEnd('/');
-            return path is "" or "login" || path.EndsWith("/confirmation");
+            return path is "" or "login" or "privacy" or "auth/complete" || path.EndsWith("/confirmation");
         }
     }
 
@@ -81,7 +79,7 @@ else
         !IsConfirmationRoute && Navigation.ToBaseRelativePath(Navigation.Uri).Split('?')[0] is "book" or "live";
 
     private bool ShowPageHeader =>
-        ShowAppShell && !IsConfirmationRoute;
+        ShowAppShell && !IsConfirmationRoute && !IsFullBleed;
 
     private string ContentClass =>
         IsFullBleed ? "fs-page-content--full" : "fs-page-content--padded";
@@ -91,7 +89,7 @@ else
         get
         {
             var path = Navigation.ToBaseRelativePath(Navigation.Uri).Split('?')[0];
-            return path is "home" or "locations" || path.StartsWith("locations/");
+            return path is "home" or "profile" or "locations" || path.StartsWith("locations/");
         }
     }
 
@@ -101,6 +99,7 @@ else
         "book" => "Book a boardroom",
         "live" => "Live availability",
         "manage" => "Manage bookings",
+        "users" => "Users",
         "notifications" => "Alerts",
         "profile" => "My profile",
         "my-bookings" => "My bookings",
@@ -121,18 +120,30 @@ else
                 yield return new("live", "Live availability", "/live", NavLinkMatch.Prefix);
             if (role is null || RolePermissions.CanAccessManageHub(role.Value))
                 yield return new("manage", "Manage", "/manage", NavLinkMatch.Prefix);
+            if (role is null || RolePermissions.CanManageUsers(role.Value))
+                yield return new("users", "Users", "/users", NavLinkMatch.Prefix);
             yield return new("alerts", "Alerts", "/notifications", NavLinkMatch.Prefix);
             yield return new("profile", "Profile", "/profile", NavLinkMatch.Prefix);
         }
     }
 
-    protected override void OnInitialized() =>
-        AuthNotifier.StateChanged += OnAuthChanged;
+    protected override async Task OnInitializedAsync()
+    {
+        Auth.AuthStateChanged += OnAuthChanged;
+        await Auth.EnsureSessionAsync();
+    }
 
-    private void OnAuthChanged() => InvokeAsync(StateHasChanged);
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        if (Auth.IsAuthenticated && !IsAuthRoute && !await Consent.HasAcceptedAsync())
+            Navigation.NavigateTo("/");
+    }
+
+    private void OnAuthChanged(object? sender, EventArgs e) => InvokeAsync(StateHasChanged);
 
     public void Dispose() =>
-        AuthNotifier.StateChanged -= OnAuthChanged;
+        Auth.AuthStateChanged -= OnAuthChanged;
 
     private record TabItem(string Icon, string Label, string Href, NavLinkMatch Match);
 }

@@ -1,6 +1,7 @@
-using Flexispace.CoreDev.Models;
+using Flexispace.Core.Helpers;
+using Flexispace.Core.Models;
 
-namespace Flexispace.CoreDev.Services.Mock;
+namespace Flexispace.Core.Services.Mock;
 
 public class MockRoomService(MockDataStore store) : IRoomService
 {
@@ -12,7 +13,7 @@ public class MockRoomService(MockDataStore store) : IRoomService
 
     public Task<IReadOnlyList<Boardroom>> GetRoomsAsync(string? locationId = null)
     {
-        var rooms = SeedData.Rooms.AsEnumerable();
+        var rooms = SeedData.Rooms.Where(r => !r.IsCombined);
         if (!string.IsNullOrEmpty(locationId))
             rooms = rooms.Where(r => r.LocationId == locationId);
         return Task.FromResult<IReadOnlyList<Boardroom>>(rooms.ToList());
@@ -26,27 +27,21 @@ public class MockRoomService(MockDataStore store) : IRoomService
         var day = date.Date;
         var now = DateTime.Now;
         var rooms = SeedData.Rooms
+            .Where(r => !r.IsCombined)
             .Where(r => string.IsNullOrEmpty(locationId) || r.LocationId == locationId)
             .Select(r =>
             {
-                var clone = new Boardroom
-                {
-                    Id = r.Id,
-                    Name = r.Name,
-                    LocationId = r.LocationId,
-                    Capacity = r.Capacity,
-                    Equipment = [.. r.Equipment],
-                    ImageKey = r.ImageKey
-                };
+                var clone = Clone(r);
+                var conflictIds = RoomCombinations.GetConflictRoomIds(r.Id);
 
                 var active = store.Bookings
-                    .Where(b => b.RoomId == r.Id &&
+                    .Where(b => conflictIds.Contains(b.RoomId) &&
                                 b.Status != BookingStatus.Cancelled &&
                                 b.Start.Date == day)
                     .ToList();
 
                 if (store.BlockedPeriods.Any(b =>
-                        b.RoomId == r.Id &&
+                        conflictIds.Contains(b.RoomId) &&
                         b.Start.Date <= day &&
                         b.End > day))
                 {
@@ -61,15 +56,27 @@ public class MockRoomService(MockDataStore store) : IRoomService
                 else
                     clone.Status = RoomStatus.Available;
 
-                // Demo maintenance room when not otherwise blocked
-                if (r.Id == "cen-t" && day == DateTime.Today && clone.Status == RoomStatus.Available)
-                    clone.Status = RoomStatus.Maintenance;
-
                 return clone;
             })
             .ToList();
 
         return Task.FromResult<IReadOnlyList<Boardroom>>(rooms);
     }
-}
 
+    public Task<IReadOnlyList<string>> GetEquipmentCatalogAsync() =>
+        Task.FromResult<IReadOnlyList<string>>(SeedData.EquipmentOptions);
+
+    public Task<IReadOnlyList<string>> GetCateringCatalogAsync() =>
+        Task.FromResult<IReadOnlyList<string>>(SeedData.CateringOptions);
+
+    private static Boardroom Clone(Boardroom r) => new()
+    {
+        Id = r.Id,
+        Name = r.Name,
+        LocationId = r.LocationId,
+        Capacity = r.Capacity,
+        Equipment = [.. r.Equipment],
+        ImageKey = r.ImageKey,
+        CombinedRoomIds = [.. r.CombinedRoomIds]
+    };
+}
