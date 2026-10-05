@@ -1,6 +1,6 @@
-using Flexispace.CoreDev.Models;
+using Flexispace.Core.Models;
 
-namespace Flexispace.CoreDev.Services.Mock;
+namespace Flexispace.Core.Services.Mock;
 
 /// <summary>
 /// In-memory booking store shared by mock room + booking services.
@@ -77,7 +77,7 @@ public class MockDataStore
                 BookerName = "Client Guest",
                 Company = "Pro Tem",
                 Attendees = 10,
-                Status = BookingStatus.Pending
+                Status = BookingStatus.Confirmed
             }
         ]);
     }

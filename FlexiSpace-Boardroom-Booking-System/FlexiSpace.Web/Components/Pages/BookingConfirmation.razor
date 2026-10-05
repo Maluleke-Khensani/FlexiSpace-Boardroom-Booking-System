@@ -1,28 +1,44 @@
 @* Success screen shown after a booking is submitted. *@
 @page "/bookings/{BookingId:guid}/confirmation"
-@rendermode InteractiveServer
 @inject BookingConfirmationViewModel Vm
 @inject IAuthService Auth
 
 <PageTitle>Booking confirmed · Flexispace</PageTitle>
 
-@if (!Auth.IsAuthenticated)
+@if (!Auth.IsSessionReady)
+{
+    <div class="fs-content-narrow"><p class="fs-muted">Loading…</p></div>
+}
+else if (!Auth.IsAuthenticated)
 {
     <RedirectToLogin />
 }
-else if (Vm.Booking is null)
+else if (Vm.Booking is null && Vm.IsBusy)
 {
     <div class="fs-content-narrow"><p class="fs-muted">Loading…</p></div>
+}
+else if (Vm.Booking is null)
+{
+    <div class="fs-confirm">
+        <div class="fs-confirm__inner">
+            <p class="fs-confirm__badge">BOOKED</p>
+            <div class="fs-confirm__icon">✓</div>
+            <h1 class="fs-heading fs-heading--sm">Your boardroom is ready.</h1>
+            <p class="fs-muted" style="margin:16px 0 28px">The booking was saved. Open My bookings to see the details.</p>
+            <div class="fs-stack">
+                <button type="button" class="fs-btn fs-btn--ghost fs-btn--block" @onclick="ViewBookings">View my bookings</button>
+                <button type="button" class="fs-btn fs-btn--ghost fs-btn--block" @onclick="Done">Back to home</button>
+            </div>
+        </div>
+    </div>
 }
 else
 {
     <div class="fs-confirm">
         <div class="fs-confirm__inner">
-            <p class="fs-confirm__badge">@(Vm.IsPending ? "AWAITING APPROVAL" : "BOOKED")</p>
-            <div class="fs-confirm__icon">@(Vm.IsPending ? "…" : "✓")</div>
-            <h1 class="fs-heading fs-heading--sm">
-                @(Vm.IsPending ? "Your request has been sent for approval." : "Your boardroom is ready.")
-            </h1>
+            <p class="fs-confirm__badge">BOOKED</p>
+            <div class="fs-confirm__icon">✓</div>
+            <h1 class="fs-heading fs-heading--sm">Your boardroom is ready.</h1>
 
             <div class="fs-card" style="margin:28px 0; text-align:center">
                 <strong style="font-size:18px">@Vm.Booking.RoomName</strong>
@@ -31,17 +47,16 @@ else
                 <p style="color:var(--fs-gold-deep); font-weight:700; margin:0">Status · @Vm.Booking.Status</p>
             </div>
 
-            @if (Vm.IsPending)
-            {
-                <p class="fs-muted" style="margin-bottom:24px">A Centre Manager still needs to approve this booking before it's confirmed. An unread item was added to Alerts — tap it to open this booking.</p>
-            }
-            else
-            {
-                <p class="fs-muted" style="margin-bottom:24px">A confirmation was added to Alerts — tap it to open this booking. Outlook sync will be wired when the API is live.</p>
-            }
+            <div class="fs-confirm__app">
+                <p class="fs-confirm__app-title">Get alerts on your phone</p>
+                <p class="fs-muted" style="margin:8px 0 16px">
+                    Download the Flexispace app to receive booking notifications and live updates.
+                </p>
+                <button type="button" class="fs-btn fs-btn--gold fs-btn--block">Get the Flexispace app</button>
+            </div>
 
             <div class="fs-stack">
-                <button type="button" class="fs-btn fs-btn--gold fs-btn--block" @onclick="ViewAlerts">Open in Alerts</button>
+                <button type="button" class="fs-btn fs-btn--ghost fs-btn--block" @onclick="ViewAlerts">Open in Alerts</button>
                 <button type="button" class="fs-btn fs-btn--ghost fs-btn--block" @onclick="ViewBookings">View my bookings</button>
                 <button type="button" class="fs-btn fs-btn--ghost fs-btn--block" @onclick="Done">Back to home</button>
             </div>
@@ -52,8 +67,11 @@ else
 @code {
     [Parameter] public Guid BookingId { get; set; }
 
-    protected override void OnParametersSet() =>
-        Vm.SetBookingId(BookingId.ToString());
+    protected override async Task OnParametersSetAsync()
+    {
+        await Auth.EnsureSessionAsync();
+        await Vm.LoadAsync(BookingId.ToString());
+    }
 
     private void Done() => Vm.DoneCommand.Execute(null);
     private void ViewBookings() => Vm.ViewBookingsCommand.Execute(null);

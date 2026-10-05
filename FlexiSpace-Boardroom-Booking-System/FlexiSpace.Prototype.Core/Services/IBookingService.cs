@@ -1,6 +1,6 @@
-using Flexispace.CoreDev.Models;
+using Flexispace.Core.Models;
 
-namespace Flexispace.CoreDev.Services;
+namespace Flexispace.Core.Services;
 
 public interface IBookingService
 {
@@ -14,5 +14,12 @@ public interface IBookingService
     Task<bool> UpdateBookingAsync(Guid bookingId, DateTime start, DateTime end, int attendees, string notes);
     Task<bool> BlockRoomAsync(string roomId, DateTime start, DateTime end, string reason);
     Task<IReadOnlyList<Booking>> GetTodaysBookingsAsync();
+    Task<IReadOnlyList<OccupiedSlot>> GetOccupiedSlotsAsync(string roomId, DateTime day);
+}
+
+public sealed class OccupiedSlot
+{
+    public TimeSpan Start { get; init; }
+    public TimeSpan End { get; init; }
 }
 

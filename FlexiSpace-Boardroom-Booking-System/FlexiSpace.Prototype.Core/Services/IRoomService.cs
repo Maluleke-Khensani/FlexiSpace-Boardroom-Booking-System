@@ -1,6 +1,6 @@
-using Flexispace.CoreDev.Models;
+using Flexispace.Core.Models;
 
-namespace Flexispace.CoreDev.Services;
+namespace Flexispace.Core.Services;
 
 public interface IRoomService
 {
@@ -9,5 +9,7 @@ public interface IRoomService
     Task<IReadOnlyList<Boardroom>> GetRoomsAsync(string? locationId = null);
     Task<Boardroom?> GetRoomAsync(string roomId);
     Task<IReadOnlyList<Boardroom>> GetAvailabilityAsync(string? locationId, DateTime date);
+    Task<IReadOnlyList<string>> GetEquipmentCatalogAsync();
+    Task<IReadOnlyList<string>> GetCateringCatalogAsync();
 }
 

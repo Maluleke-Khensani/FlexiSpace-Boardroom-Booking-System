@@ -1,7 +1,7 @@
-using Flexispace.CoreDev.Helpers;
-using Flexispace.CoreDev.Models;
+using Flexispace.Core.Helpers;
+using Flexispace.Core.Models;
 
-namespace Flexispace.CoreDev.Services.Mock;
+namespace Flexispace.Core.Services.Mock;
 
 public class MockAdminService(MockDataStore store, IAuthService auth, IRoomService rooms) : IAdminService
 {
@@ -11,6 +11,55 @@ public class MockAdminService(MockDataStore store, IAuthService auth, IRoomServi
             return Task.FromResult<IReadOnlyList<User>>([]);
 
         return Task.FromResult<IReadOnlyList<User>>(SeedData.Users.ToList());
+    }
+
+    public Task<(bool Ok, string Message)> CreateUserAsync(User user)
+    {
+        if (auth.CurrentUser is null || !RolePermissions.CanManageUsers(auth.CurrentUser.Role))
+            return Task.FromResult((false, "Only Administrators can add users."));
+        if (SeedData.Users.Any(u => u.Email.Equals(user.Email.Trim(), StringComparison.OrdinalIgnoreCase)))
+            return Task.FromResult((false, "A FlexiSpace account already exists for this email address."));
+
+        user.Id = Guid.NewGuid();
+        user.ApiId = SeedData.Users.Count == 0 ? 1 : SeedData.Users.Max(u => u.ApiId) + 1;
+        user.Name = $"{user.FirstName} {user.LastName}".Trim();
+        user.IsActive = true;
+        user.CreatedAt = DateTime.UtcNow;
+        SeedData.Users.Add(user);
+        return Task.FromResult((true, "User added."));
+    }
+
+    public Task<(bool Ok, string Message)> UpdateUserAsync(User user)
+    {
+        if (auth.CurrentUser is null || !RolePermissions.CanManageUsers(auth.CurrentUser.Role))
+            return Task.FromResult((false, "Only Administrators can update users."));
+
+        var existing = SeedData.Users.FirstOrDefault(u => u.Id == user.Id || u.ApiId == user.ApiId);
+        if (existing is null)
+            return Task.FromResult((false, "User not found."));
+
+        existing.FirstName = user.FirstName;
+        existing.LastName = user.LastName;
+        existing.Email = user.Email;
+        existing.Name = $"{user.FirstName} {user.LastName}".Trim();
+        existing.Role = user.Role;
+        existing.LocationId = user.LocationId;
+        return Task.FromResult((true, "User updated."));
+    }
+
+    public Task<(bool Ok, string Message)> RemoveUserAsync(int apiId)
+    {
+        if (auth.CurrentUser is null || !RolePermissions.CanManageUsers(auth.CurrentUser.Role))
+            return Task.FromResult((false, "Only Administrators can remove users."));
+
+        var existing = SeedData.Users.FirstOrDefault(u => u.ApiId == apiId);
+        if (existing is null)
+            return Task.FromResult((false, "User not found."));
+        if (existing.Id == auth.CurrentUser.Id)
+            return Task.FromResult((false, "You cannot remove your own account."));
+
+        SeedData.Users.Remove(existing);
+        return Task.FromResult((true, "User removed."));
     }
 
     public async Task<bool> AddRoomAsync(Boardroom room)

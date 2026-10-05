@@ -1,4 +1,4 @@
-namespace Flexispace.CoreDev.Models;
+namespace Flexispace.Core.Models;
 
 public enum UserRole
 {
@@ -7,3 +7,4 @@ public enum UserRole
     Administrator,
     Client
 }
+

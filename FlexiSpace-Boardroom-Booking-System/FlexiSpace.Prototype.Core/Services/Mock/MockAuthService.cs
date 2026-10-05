@@ -1,11 +1,13 @@
-using Flexispace.CoreDev.Models;
+using Flexispace.Core.Models;
 
-namespace Flexispace.CoreDev.Services.Mock;
+namespace Flexispace.Core.Services.Mock;
 
 public class MockAuthService : IAuthService
 {
     public User? CurrentUser { get; private set; }
     public bool IsAuthenticated => CurrentUser is not null;
+    public bool IsSessionReady { get; private set; } = true;
+    public string? SessionError { get; private set; }
     public event EventHandler? AuthStateChanged;
 
     public Task<bool> LoginAsync(string email, string password)
@@ -18,6 +20,10 @@ public class MockAuthService : IAuthService
         AuthStateChanged?.Invoke(this, EventArgs.Empty);
         return Task.FromResult(user is not null);
     }
+
+    public Task EnsureSessionAsync() => Task.CompletedTask;
+
+    public Task MicrosoftSignInAsync() => Task.CompletedTask;
 
     public Task LogoutAsync()
     {

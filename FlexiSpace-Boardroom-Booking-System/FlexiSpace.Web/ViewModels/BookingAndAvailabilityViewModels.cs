@@ -20,14 +20,45 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     [ObservableProperty] private TimeSpan startTime = new(9, 0, 0);
     [ObservableProperty] private TimeSpan endTime = new(10, 0, 0);
     [ObservableProperty] private string company = string.Empty;
-    [ObservableProperty] private string attendeesText = "4";
+    [ObservableProperty] private string attendeesText = string.Empty;
     [ObservableProperty] private string notes = string.Empty;
     [ObservableProperty] private string? errorMessage;
     [ObservableProperty] private string? successMessage;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string suggestedSlotsText = string.Empty;
     [ObservableProperty] private bool canBook = true;
-    [ObservableProperty] private bool showClientPaymentNote;
+    [ObservableProperty] private bool conjoinEnabled;
+    [ObservableProperty] private bool canConjoin;
+    [ObservableProperty] private string? conjoinPartnerName;
+    [ObservableProperty] private int conjoinCapacity;
+
+    public List<OccupiedSlot> OccupiedSlots { get; } = [];
+
+    public IReadOnlyList<TimeSpan> UnavailableStartSlots =>
+        OccupiedSlots
+            .SelectMany(slot => EnumerateHalfHours(slot.Start, slot.End))
+            .Distinct()
+            .ToList();
+
+    public IReadOnlyList<TimeSpan> UnavailableEndSlots
+    {
+        get
+        {
+            var taken = new List<TimeSpan>();
+            for (var t = StartTime.Add(TimeSpan.FromMinutes(30)); t <= new TimeSpan(19, 0, 0); t = t.Add(TimeSpan.FromMinutes(30)))
+            {
+                if (OccupiedSlots.Any(slot => StartTime < slot.End && t > slot.Start))
+                    taken.Add(t);
+            }
+
+            return taken;
+        }
+    }
+
+    public string BookingRoomLabel =>
+        ConjoinEnabled && CanConjoin && SelectedRoom is not null && !string.IsNullOrEmpty(ConjoinPartnerName)
+            ? $"{SelectedRoom.Name} + {ConjoinPartnerName}"
+            : SelectedRoom?.Name ?? string.Empty;
 
     public ObservableCollection<OfficeLocation> Locations { get; } = [];
     public ObservableCollection<Boardroom> Rooms { get; } = [];
@@ -45,7 +76,6 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     {
         var user = auth.CurrentUser;
         CanBook = user is not null && RolePermissions.CanBookRooms(user.Role);
-        ShowClientPaymentNote = user?.Role == UserRole.Client;
         if (!CanBook)
         {
             ErrorMessage = "Your role cannot create bookings.";
@@ -65,9 +95,9 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
 
         if (EquipmentOptions.Count == 0)
         {
-            foreach (var e in SeedData.EquipmentOptions)
+            foreach (var e in await rooms.GetEquipmentCatalogAsync())
                 EquipmentOptions.Add(new SelectableOption { Label = e });
-            foreach (var c in SeedData.CateringOptions)
+            foreach (var c in await rooms.GetCateringCatalogAsync())
                 CateringOptions.Add(new SelectableOption { Label = c });
         }
 
@@ -95,6 +125,18 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
             }
             Step = Math.Max(Step, 2);
         }
+
+        if (SelectedRoom?.IsCombined == true)
+        {
+            var firstId = SelectedRoom.CombinedRoomIds.FirstOrDefault();
+            SelectedRoom = Rooms.FirstOrDefault(r => r.Id == firstId) ?? SelectedRoom;
+            RefreshConjoinState();
+            SetConjoin(true);
+        }
+        else
+        {
+            RefreshConjoinState();
+        }
     }
 
     [RelayCommand]
@@ -102,6 +144,7 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     {
         SelectedLocation = location;
         SelectedRoom = null;
+        ConjoinEnabled = false;
         await LoadRoomsAsync();
         Step = 2;
     }
@@ -115,17 +158,112 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     }
 
     [RelayCommand]
-    private void SelectRoom(Boardroom? room) => SelectedRoom = room;
-
-    [RelayCommand]
-    private void ContinueToSchedule()
+    private void SelectRoom(Boardroom? room)
     {
-        if (SelectedRoom is not null)
-            Step = 3;
+        SelectedRoom = room;
+        RefreshConjoinState();
+    }
+
+    public void SetConjoin(bool enabled)
+    {
+        ConjoinEnabled = CanConjoin && enabled;
+        OnPropertyChanged(nameof(BookingRoomLabel));
+    }
+
+    private void RefreshConjoinState()
+    {
+        var combo = SelectedRoom is null ? null : RoomCombinations.GetCombinationFor(SelectedRoom.Id);
+        CanConjoin = combo is not null;
+        if (combo is null)
+        {
+            ConjoinEnabled = false;
+            ConjoinPartnerName = null;
+            ConjoinCapacity = 0;
+            OnPropertyChanged(nameof(BookingRoomLabel));
+            return;
+        }
+
+        var partnerId = combo.CombinedRoomIds.First(id => id != SelectedRoom!.Id);
+        ConjoinPartnerName = Rooms.FirstOrDefault(r => r.Id == partnerId)?.Name
+                             ?? SeedData.Rooms.FirstOrDefault(r => r.Id == partnerId)?.Name;
+        ConjoinCapacity = combo.Capacity;
+        OnPropertyChanged(nameof(BookingRoomLabel));
     }
 
     [RelayCommand]
-    private void NextToDetails() => Step = 4;
+    private async Task ContinueToScheduleAsync()
+    {
+        if (SelectedRoom is null)
+            return;
+
+        await RefreshOccupiedAsync();
+        Step = 3;
+    }
+
+    [RelayCommand]
+    private async Task RefreshOccupiedAsync()
+    {
+        OccupiedSlots.Clear();
+        var roomId = ConjoinEnabled && CanConjoin
+            ? RoomCombinations.GetCombinationFor(SelectedRoom?.Id ?? "")?.Id ?? SelectedRoom?.Id
+            : SelectedRoom?.Id;
+        if (string.IsNullOrEmpty(roomId))
+        {
+            NotifyUnavailableSlots();
+            return;
+        }
+
+        foreach (var slot in await bookings.GetOccupiedSlotsAsync(roomId, SelectedDate))
+            OccupiedSlots.Add(slot);
+
+        if (UnavailableStartSlots.Contains(StartTime))
+        {
+            var next = FirstAvailableStart();
+            if (next.HasValue)
+                StartTime = next.Value;
+        }
+
+        if (EndTime <= StartTime || UnavailableEndSlots.Contains(EndTime))
+            EndTime = StartTime.Add(TimeSpan.FromHours(1));
+
+        NotifyUnavailableSlots();
+    }
+
+    private TimeSpan? FirstAvailableStart()
+    {
+        for (var t = new TimeSpan(7, 0, 0); t <= new TimeSpan(18, 0, 0); t = t.Add(TimeSpan.FromMinutes(30)))
+        {
+            if (!UnavailableStartSlots.Contains(t))
+                return t;
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<TimeSpan> EnumerateHalfHours(TimeSpan start, TimeSpan end)
+    {
+        for (var t = start; t < end; t = t.Add(TimeSpan.FromMinutes(30)))
+            yield return t;
+    }
+
+    private void NotifyUnavailableSlots()
+    {
+        OnPropertyChanged(nameof(UnavailableStartSlots));
+        OnPropertyChanged(nameof(UnavailableEndSlots));
+    }
+
+    [RelayCommand]
+    private void NextToDetails()
+    {
+        if (OccupiedSlots.Any(slot => StartTime < slot.End && EndTime > slot.Start))
+        {
+            ErrorMessage = "That time overlaps an existing booking. Choose a free slot.";
+            return;
+        }
+
+        ErrorMessage = null;
+        Step = 4;
+    }
 
     [RelayCommand]
     private void Back()
@@ -150,9 +288,13 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
         {
             var start = SelectedDate.Date + StartTime;
             var end = SelectedDate.Date + EndTime;
+            var roomId = ConjoinEnabled && CanConjoin
+                ? RoomCombinations.GetCombinationFor(SelectedRoom.Id)?.Id ?? SelectedRoom.Id
+                : SelectedRoom.Id;
+
             var result = await bookings.CreateBookingAsync(new BookingRequest
             {
-                RoomId = SelectedRoom.Id,
+                RoomId = roomId,
                 Start = start,
                 End = end,
                 Company = Company,

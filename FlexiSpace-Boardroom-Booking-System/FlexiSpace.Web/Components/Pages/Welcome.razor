@@ -1,34 +1,65 @@
-@* Welcome landing page for unauthenticated visitors. *@
+@* Welcome landing page. First-time visitors must accept the privacy policy before signing in. *@
 @page "/"
-@rendermode InteractiveServer
 @inject WelcomeViewModel Vm
-@inject IAuthService Auth
 @inject INavigationService Nav
+@inject PrivacyConsentService Consent
 
-<PageTitle>Flexispace — Flexible office solutions</PageTitle>
+<PageTitle>Flexispace — Meeting rooms</PageTitle>
 
-<div class="fs-auth-page fs-welcome">
-    <FloatingDecor Variant="welcome" />
-    <div class="fs-welcome__bg"></div>
-    <div class="fs-welcome__content">
-        <img class="fs-welcome__logo" src="/images/flexispace_logo.png" alt="Flexispace" />
-        <p class="fs-eyebrow fs-eyebrow--gold">Work outside of the box</p>
-        <h1>Meet your new <em>super flexible</em> private office solution</h1>
-        <p style="color:#c8c2b8; font-size:16px; max-width:520px; margin:0 auto">
-            You run your business — we run the rest. Book professionally appointed meeting rooms across Centurion, Houghton &amp; Eagle Canyon.
-        </p>
-        <div class="fs-stack" style="margin-top:36px; max-width:380px; margin-left:auto; margin-right:auto">
-            <button type="button" class="fs-btn fs-btn--gold fs-btn--block" @onclick="GetStarted">Get a quote · Book a room</button>
-            <p class="fs-muted" style="font-size:12px; text-align:center; color:#8a847c">Rent daily, weekly or monthly · No lease</p>
+@if (!Ready)
+{
+    <div class="fs-auth-page"></div>
+}
+else if (!HasStoredConsent)
+{
+    <div class="fs-privacy">
+        <PrivacyPolicyContent />
+        <PrivacyAcceptBar Accepted="Accepted" AcceptedChanged="OnAcceptedChanged" OnContinue="ContinueAsync" />
+    </div>
+}
+else
+{
+    <div class="fs-auth-page fs-welcome">
+        <FloatingDecor Variant="welcome" />
+        <div class="fs-welcome__bg"></div>
+        <div class="fs-welcome__content">
+            <img class="fs-welcome__logo" src="/images/flexispace_logo.png" alt="Flexispace" />
+            <p class="fs-eyebrow fs-eyebrow--gold">Meeting rooms</p>
+            <h1>Book a professionally appointed <em>boardroom</em></h1>
+            <p class="fs-welcome__lede">
+                Centurion, Houghton Estate, and Eagle Canyon.
+            </p>
+            <div class="fs-stack" style="margin-top:36px; max-width:320px; margin-left:auto; margin-right:auto">
+                <button type="button" class="fs-btn fs-btn--gold fs-btn--block" @onclick="GetStarted">Sign in</button>
+                <a class="fs-welcome__privacy-link" href="/privacy">Privacy policy</a>
+            </div>
         </div>
     </div>
-</div>
+}
 
 @code {
-    protected override void OnInitialized()
+    private bool Ready { get; set; }
+    private bool HasStoredConsent { get; set; }
+    private bool Accepted { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (Auth.IsAuthenticated)
-            Nav.NavigateTo("/home");
+        if (!firstRender) return;
+
+        HasStoredConsent = await Consent.HasAcceptedAsync();
+        Accepted = HasStoredConsent;
+        Ready = true;
+        StateHasChanged();
+    }
+
+    private void OnAcceptedChanged(bool value) => Accepted = value;
+
+    private async Task ContinueAsync()
+    {
+        if (!Accepted) return;
+        await Consent.AcceptAsync();
+        HasStoredConsent = true;
+        Nav.NavigateTo("/login");
     }
 
     private void GetStarted() => Vm.GetStartedCommand.Execute(null);

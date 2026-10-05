@@ -1,6 +1,6 @@
-using Flexispace.CoreDev.Models;
+using Flexispace.Core.Models;
 
-namespace Flexispace.CoreDev.Services.Mock;
+namespace Flexispace.Core.Services.Mock;
 
 public class MockNotificationService : INotificationService
 {

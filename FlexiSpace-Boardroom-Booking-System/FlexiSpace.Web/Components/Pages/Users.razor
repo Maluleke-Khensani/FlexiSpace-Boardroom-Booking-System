@@ -1,0 +1,146 @@
+@* Administrator user-control directory backed by the FlexiSpace Users table. *@
+@page "/users"
+@inject UsersViewModel Vm
+@inject IAuthService Auth
+
+<PageTitle>Users · Flexispace</PageTitle>
+
+@if (!Auth.IsAuthenticated)
+{
+    <RedirectToLogin />
+}
+else
+{
+    <div class="fs-content-wide">
+        <div class="fs-toolbar" style="margin-bottom:20px">
+            <p class="fs-subheading" style="margin:0">@Vm.Subtitle</p>
+            @if (Vm.HasAccess)
+            {
+                <button type="button" class="fs-btn fs-btn--gold" @onclick="Add">Add user</button>
+            }
+        </div>
+
+        @if (!string.IsNullOrEmpty(Vm.ErrorMessage))
+        {
+            <p class="fs-error" style="margin-bottom:16px">@Vm.ErrorMessage</p>
+        }
+        @if (!string.IsNullOrEmpty(Vm.Message))
+        {
+            <p class="fs-message" style="margin-bottom:16px">@Vm.Message</p>
+        }
+
+        @if (!Vm.HasAccess)
+        {
+            <div class="fs-card"><p class="fs-muted" style="margin:0">@Vm.Subtitle</p></div>
+        }
+        else
+        {
+            @if (Vm.IsFormOpen)
+            {
+                <div class="fs-card fs-stack" style="margin-bottom:24px">
+                    <strong>@(Vm.IsNewUser ? "Add user" : "Edit user")</strong>
+                    @if (Vm.IsNewUser)
+                    {
+                        <p class="fs-muted" style="margin:0">
+                            Sign-in uses Microsoft Entra. Use an existing FlexiSpace Development account
+                            (for example name@fspace.onmicrosoft.com), or an email we can invite as a guest.
+                            A FlexiSpace-only row is not enough.
+                        </p>
+                    }
+                    <div class="fs-user-form-grid">
+                        <div>
+                            <label class="fs-label" for="user-first">First name</label>
+                            <input id="user-first" class="fs-field" @bind="Vm.FormFirstName" />
+                        </div>
+                        <div>
+                            <label class="fs-label" for="user-last">Last name</label>
+                            <input id="user-last" class="fs-field" @bind="Vm.FormLastName" />
+                        </div>
+                        <div>
+                            <label class="fs-label" for="user-email">Email</label>
+                            <input id="user-email" class="fs-field" type="email" @bind="Vm.FormEmail" />
+                        </div>
+                        <div>
+                            <label class="fs-label" for="user-role">Permission</label>
+                            <select id="user-role" class="fs-field" @bind="Vm.FormRole">
+                                @foreach (var role in Vm.Roles)
+                                {
+                                    <option value="@role">@RolePermissions.DisplayName(role)</option>
+                                }
+                            </select>
+                        </div>
+                        <div>
+                            <label class="fs-label" for="user-location">Location</label>
+                            <select id="user-location" class="fs-field" @bind="Vm.FormLocationId">
+                                <option value="">All locations</option>
+                                @foreach (var location in Vm.Locations)
+                                {
+                                    <option value="@location.Id">@location.Name</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="fs-flex">
+                        <button type="button" class="fs-btn fs-btn--gold" disabled="@Vm.IsBusy" @onclick="Save">Save</button>
+                        <button type="button" class="fs-btn fs-btn--ghost" @onclick="Cancel">Cancel</button>
+                    </div>
+                </div>
+            }
+
+            @if (Vm.IsBusy)
+            {
+                <p class="fs-muted">Loading users…</p>
+            }
+            else if (Vm.IsEmpty)
+            {
+                <div class="fs-card"><p class="fs-muted" style="margin:0">No users have been saved to FlexiSpace yet.</p></div>
+            }
+            else
+            {
+                <div class="fs-user-table-wrap">
+                    <table class="fs-user-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Permission</th>
+                                <th>Location</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var user in Vm.Users)
+                            {
+                                <tr>
+                                    <td><strong>@user.Name</strong></td>
+                                    <td>@user.Email</td>
+                                    <td><span class="fs-pill" style="background:var(--fs-gold-deep)">@user.RoleLabel</span></td>
+                                    <td>@user.Location</td>
+                                    <td>@user.Status</td>
+                                    <td>@user.CreatedAt</td>
+                                    <td class="fs-user-table__actions">
+                                        <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="() => Edit(user)">Edit</button>
+                                        <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="() => Remove(user)">Remove</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    </div>
+}
+
+@code {
+    protected override async Task OnInitializedAsync() =>
+        await Vm.AppearingCommand.ExecuteAsync(null);
+
+    private void Add() => Vm.StartAddCommand.Execute(null);
+    private void Edit(UserDirectoryRow user) => Vm.StartEditCommand.Execute(user);
+    private void Cancel() => Vm.CancelFormCommand.Execute(null);
+    private Task Save() => Vm.SaveCommand.ExecuteAsync(null);
+    private Task Remove(UserDirectoryRow user) => Vm.DeleteUserAsync(user);
+}

@@ -1,6 +1,6 @@
-using Flexispace.CoreDev.Models;
+using Flexispace.Core.Models;
 
-namespace Flexispace.CoreDev.Services;
+namespace Flexispace.Core.Services;
 
 public interface INotificationService
 {

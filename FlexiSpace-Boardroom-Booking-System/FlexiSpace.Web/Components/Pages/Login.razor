@@ -1,54 +1,80 @@
-@* Sign-in page with demo account shortcuts. *@
+@* Sign-in page. Requires privacy-policy acceptance first. *@
 @page "/login"
-@rendermode InteractiveServer
 @inject LoginViewModel Vm
 @inject IAuthService Auth
 @inject INavigationService Nav
+@inject PrivacyConsentService Consent
 
 <PageTitle>Sign in · Flexispace</PageTitle>
 
-<div class="fs-auth-page">
-    <div class="fs-login-header">
-        <img src="/images/flexispace_logo.png" alt="Flexispace" />
-        <h1 class="fs-heading" style="color:var(--fs-ivory); font-size:26px; margin-top:20px">Sign in to Flexispace</h1>
-        <p style="color:var(--fs-gold-soft); margin-top:8px">You run your business — we run the rest.</p>
-    </div>
-
-    <div class="fs-login-form fs-stack">
-        <div>
-            <label class="fs-label">Email</label>
-            <input class="fs-field" type="email" @bind="Vm.Email" placeholder="you@company.com" />
-        </div>
-        <div>
-            <label class="fs-label">Password</label>
-            <input class="fs-field" type="password" @bind="Vm.Password" placeholder="Password" />
+@if (!Ready)
+{
+    <div class="fs-auth-page"></div>
+}
+else
+{
+    <div class="fs-auth-page">
+        <div class="fs-login-header">
+            <img src="/images/flexispace_logo.png" alt="Flexispace" />
+            <h1 class="fs-heading" style="color:var(--fs-ivory); font-size:26px; margin-top:20px">Sign in</h1>
         </div>
 
-        @if (!string.IsNullOrEmpty(Vm.ErrorMessage))
-        {
-            <p class="fs-error">@Vm.ErrorMessage</p>
-        }
+        <div class="fs-login-form fs-stack">
+            <div>
+                <label class="fs-label" for="login-email">Email</label>
+                <input id="login-email" class="fs-field" type="email" @bind="Vm.Email" autocomplete="username" />
+            </div>
+            <div>
+                <label class="fs-label" for="login-password">Password</label>
+                <input id="login-password" class="fs-field" type="password" @bind="Vm.Password" autocomplete="current-password" />
+            </div>
 
-        <button type="button" class="fs-btn fs-btn--gold fs-btn--block" disabled="@Vm.IsBusy" @onclick="SignIn">Sign in</button>
-        @if (Vm.IsBusy) { <p class="fs-muted">Signing in…</p> }
+            @if (!string.IsNullOrEmpty(Vm.ErrorMessage))
+            {
+                <p class="fs-error">@Vm.ErrorMessage</p>
+            }
+            @if (!string.IsNullOrEmpty(Auth.SessionError))
+            {
+                <p class="fs-error">@Auth.SessionError</p>
+            }
 
-        <hr style="border:none; border-top:1px solid var(--fs-line)" />
-        <p class="fs-muted" style="font-size:12px; text-align:center">Demo accounts · password demo123</p>
+            <button type="button" class="fs-btn fs-btn--gold fs-btn--block" disabled="@Vm.IsBusy" @onclick="SignIn">Sign in</button>
+            @if (Vm.IsBusy) { <p class="fs-muted">Signing in…</p> }
 
-        <button type="button" class="fs-btn fs-btn--ghost fs-btn--block" @onclick='() => Demo("staff@flexispace.net.za")'>Staff · book &amp; cancel own</button>
-        <button type="button" class="fs-btn fs-btn--ghost fs-btn--block" @onclick='() => Demo("rebecca@flexispace.net.za")'>Centre Manager · approve / block / edit</button>
-        <button type="button" class="fs-btn fs-btn--ghost fs-btn--block" @onclick='() => Demo("admin@flexispace.net.za")'>Admin · rooms, users, reports</button>
-        <button type="button" class="fs-btn fs-btn--ghost fs-btn--block" @onclick='() => Demo("client@example.com")'>Client · self-service booking</button>
+            <div class="fs-login-divider" role="separator"><span>or</span></div>
+
+            <button type="button" class="fs-btn fs-btn--microsoft fs-btn--block" @onclick="MicrosoftSignIn">
+                <svg class="fs-ms-logo" viewBox="0 0 21 21" aria-hidden="true" focusable="false">
+                    <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+                    <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+                    <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+                    <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+                </svg>
+                Sign in with Microsoft
+            </button>
+
+            <a class="fs-welcome__privacy-link" href="/privacy" style="text-align:center">Privacy policy</a>
+        </div>
     </div>
-</div>
+}
 
 @code {
-    protected override void OnInitialized()
+    private bool Ready { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (Auth.IsAuthenticated)
-            Nav.NavigateTo("/home");
+        if (!firstRender) return;
+
+        if (!await Consent.HasAcceptedAsync())
+        {
+            Nav.NavigateTo("/");
+            return;
+        }
+
+        Ready = true;
+        StateHasChanged();
     }
 
     private Task SignIn() => Vm.LoginCommand.ExecuteAsync(null);
-    private Task Demo(string email) => Vm.UseDemoCommand.ExecuteAsync(email);
+    private Task MicrosoftSignIn() => Vm.MicrosoftSignInCommand.ExecuteAsync(null);
 }
