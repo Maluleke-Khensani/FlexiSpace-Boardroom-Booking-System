@@ -51,7 +51,9 @@ public sealed class ApiSettings
                 Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                     "Flexispace",
-                    "azuread.local.json")
+                    "azuread.local.json"),
+                Path.Combine(AppContext.BaseDirectory, "azuread.local.example.json"),
+                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "azuread.local.example.json")
             };
 
             var path = candidates.Select(Path.GetFullPath).FirstOrDefault(File.Exists);
