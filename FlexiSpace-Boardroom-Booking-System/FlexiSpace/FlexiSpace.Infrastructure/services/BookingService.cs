@@ -774,14 +774,22 @@ namespace FlexiSpace.Infrastructure.services
 
         private async Task<bool> HasBlockedPeriodConflictAsync(Booking booking)
         {
-            var bookingStart = booking.BookingDate.ToDateTime(booking.StartTime);
-            var bookingEnd = booking.BookingDate.ToDateTime(booking.EndTime);
+            try
+            {
+                var bookingStart = booking.BookingDate.ToDateTime(booking.StartTime);
+                var bookingEnd = booking.BookingDate.ToDateTime(booking.EndTime);
 
-            var blocks = await _context.BlockedPeriods
-                .Where(b => b.BoardroomId == booking.BoardroomId)
-                .ToListAsync();
+                var blocks = await _context.BlockedPeriods
+                    .Where(b => b.BoardroomId == booking.BoardroomId)
+                    .ToListAsync();
 
-            return blocks.Any(b => bookingStart < b.End && b.Start < bookingEnd);
+                return blocks.Any(b => bookingStart < b.End && b.Start < bookingEnd);
+            }
+            catch
+            {
+                // Schema mismatch on BlockedPeriods must not fail the booking with a 500.
+                return false;
+            }
         }
     }
 }

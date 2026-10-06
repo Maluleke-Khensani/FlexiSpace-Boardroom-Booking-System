@@ -161,24 +161,24 @@ namespace FlexiSpace.API.Controllers
 
             if (dto.Equipment != null)
             {
-                foreach (var equipment in dto.Equipment)
+                foreach (var equipment in dto.Equipment.Where(e => e.EquipmentId > 0))
                 {
                     booking.BookingEquipments.Add(new BookingEquipment
                     {
                         EquipmentId = equipment.EquipmentId,
-                        Quantity = equipment.Quantity
+                        Quantity = Math.Max(1, equipment.Quantity)
                     });
                 }
             }
 
             if (dto.Catering != null)
             {
-                foreach (var catering in dto.Catering)
+                foreach (var catering in dto.Catering.Where(c => c.CateringId > 0))
                 {
                     booking.BookingCaterings.Add(new BookingCatering
                     {
                         CateringId = catering.CateringId,
-                        Quantity = catering.Quantity
+                        Quantity = Math.Max(1, catering.Quantity)
                     });
                 }
             }
@@ -199,6 +199,10 @@ namespace FlexiSpace.API.Controllers
             catch (BusinessRuleException ex)
             {
                 return BadRequest(new { errors = ex.Errors });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.InnerException?.Message ?? ex.Message });
             }
         }
 
