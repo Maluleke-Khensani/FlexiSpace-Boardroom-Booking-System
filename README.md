@@ -4,6 +4,7 @@ INSY7315 WIL Project — boardroom booking system for FlexiSpace's Centurion, Ho
 
 ## What's in this repo
 
+The website is `Flexispace.Web` (Blazor Server). That is the web project for this assignment; there is no React frontend in this repo.
 | Folder | What it is | Open with |
 |---|---|---|
 | `FlexiSpace/` | Backend: ASP.NET Core Web API (.NET 8), EF Core, SQL Server | `FlexiSpace/FlexiSpace.slnx` |
@@ -13,7 +14,6 @@ INSY7315 WIL Project — boardroom booking system for FlexiSpace's Centurion, Ho
 | `FlexiSpace/FlexiSpace.Tests` | xUnit tests for the backend services (run by GitHub Actions) | |
 | `Flexispace.Web/` | Blazor Server web app (.NET 10); signs in with Microsoft and calls the API | `Flexispace.Web/Flexispace.Web.sln` |
 | `Flexispace.Mobile/` | .NET MAUI app (.NET 10, Windows-first) | `Flexispace.Mobile/Flexispace.Mobile.sln` |
-| `FlexiSpace.TestClient/` | Small React + MSAL page for testing API sign-in | `npm install`, then `npm run dev` |
 | `DATABASE_BACKEND_HANDOVER.md` | How the database, backend, auth and Azure deployment work | |
 
 ## Tech stack

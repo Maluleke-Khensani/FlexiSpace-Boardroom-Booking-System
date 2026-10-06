@@ -559,7 +559,7 @@ if (app.Environment.IsDevelopment())
 }
 ```
 
-The mobile and web prototypes also contain mock data. That data is separate from the API database and should be replaced with real HTTP services when connected to the backend.
+The Blazor web app (Flexispace.Web) and the MAUI app call the FlexiSpace API over HTTP. Do not treat leftover mock services as the live data store.
 
 ## 17. Azure hosting architecture
 
