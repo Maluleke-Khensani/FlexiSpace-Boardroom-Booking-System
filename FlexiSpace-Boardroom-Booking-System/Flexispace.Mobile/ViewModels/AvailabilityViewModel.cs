@@ -82,7 +82,8 @@ public partial class AvailabilityViewModel(IAuthService auth, IRoomService rooms
         IsBusy = true;
         try
         {
-            var locMap = (await rooms.GetLocationsAsync()).ToDictionary(l => l.Id, l => l.Name);
+            var locMap = DistinctById(await rooms.GetLocationsAsync())
+                .ToDictionary(l => l.Id, l => l.Name, StringComparer.OrdinalIgnoreCase);
             var roomsList = await rooms.GetAvailabilityAsync(
                 string.IsNullOrEmpty(SelectedLocationId) ? null : SelectedLocationId,
                 DateTime.Today);
@@ -134,4 +135,11 @@ public partial class AvailabilityViewModel(IAuthService auth, IRoomService rooms
             $"{item.LocationName} · Seats {item.Room.Capacity}\nStatus: {item.StatusText}\nEquipment: {equipment}",
             "OK");
     }
+
+    private static List<OfficeLocation> DistinctById(IEnumerable<OfficeLocation> locations) =>
+        locations
+            .Where(l => !string.IsNullOrWhiteSpace(l.Id))
+            .GroupBy(l => l.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
 }

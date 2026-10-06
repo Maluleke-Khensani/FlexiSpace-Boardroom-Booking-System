@@ -18,7 +18,8 @@ public static class CompanyLinks
         }
         catch
         {
-            // Browser unavailable on this device/session.
+            if (Shell.Current is not null)
+                await Shell.Current.DisplayAlertAsync("Could not open link", url, "OK");
         }
     }
 }

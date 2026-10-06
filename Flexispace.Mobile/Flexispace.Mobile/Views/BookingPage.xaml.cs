@@ -141,6 +141,8 @@ public partial class BookingPage : ContentPage
 
     private void OnBookingPreviousClicked(object? sender, EventArgs e) => MoveBooking(-1);
     private void OnBookingNextClicked(object? sender, EventArgs e) => MoveBooking(1);
+    private void OnBookingPreviousClicked(object? sender, TappedEventArgs e) => MoveBooking(-1);
+    private void OnBookingNextClicked(object? sender, TappedEventArgs e) => MoveBooking(1);
     private void OnBookingSwipedLeft(object? sender, SwipedEventArgs e) => MoveBooking(1);
     private void OnBookingSwipedRight(object? sender, SwipedEventArgs e) => MoveBooking(-1);
     private async void OnBookingCenterTapped(object? sender, TappedEventArgs e) => await ChooseCurrentLocationAsync();

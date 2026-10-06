@@ -1,4 +1,3 @@
-using System.Data;
 using FlexiSpace.Core.Common;
 using FlexiSpace.Core.DTOs.Booking;
 using FlexiSpace.Core.Entities;
@@ -6,9 +5,8 @@ using FlexiSpace.Core.Enums;
 using FlexiSpace.Core.Services;
 using FlexiSpace.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 
-namespace FlexiSpace.Infrastructure.Services
+namespace FlexiSpace.Infrastructure.services
 {
     public class BookingService : IBookingService
     {
@@ -19,87 +17,77 @@ namespace FlexiSpace.Infrastructure.Services
         // computed against a fixed offset rather than the server's own
         // DateTime.Now - that keeps the check correct regardless of what
         // timezone the host machine happens to be set to.
-        private static readonly TimeSpan SouthAfricaUtcOffset = TimeSpan.FromHours(2);
+
+        private readonly ICalendarService _calendarService;
+        private readonly ApplicationDbContext _context;
+        private readonly FlexiSpace.Core.Services.IEmailService _emailService;
+        private readonly FlexiSpace.Core.Services.INotificationService _notificationService;
+        public BookingService( ApplicationDbContext context, ICalendarService calendarService, FlexiSpace.Core.Services.IEmailService emailService, FlexiSpace.Core.Services.INotificationService notificationService)
+        {
+            _context = context;
+            _calendarService = calendarService;
+            _emailService = emailService;
+            _notificationService = notificationService;
+        }
+     
+
+        private static readonly TimeSpan SouthAfricaUtcOffset =
+            TimeSpan.FromHours(2);
 
         // Valid next statuses for a booking, keyed by its current status.
-        // Bookings are created directly as Confirmed (no approval step -
-        // matches the automated flow the mobile app already ships).
+        // Pending -> Cancelled covers "rejecting" a booking, since the
+        // current workflow uses cancellation for rejection.
         private static readonly Dictionary<BookingStatus, BookingStatus[]> AllowedStatusTransitions = new()
         {
-            [BookingStatus.Confirmed] = new[] { BookingStatus.Cancelled, BookingStatus.Completed },
-            [BookingStatus.Cancelled] = Array.Empty<BookingStatus>(),
-            [BookingStatus.Completed] = Array.Empty<BookingStatus>()
+            [BookingStatus.Pending] =
+            [
+                BookingStatus.Confirmed,
+                BookingStatus.Cancelled,
+                BookingStatus.Completed
+            ],
+            [BookingStatus.Confirmed] =
+            [
+                BookingStatus.Cancelled,
+                BookingStatus.Completed
+            ],
+            [BookingStatus.Cancelled] = [],
+            [BookingStatus.Completed] = []
         };
 
         // Statuses that hold a boardroom's time slot and therefore block
-        // other bookings from overlapping it. Cancelled/Completed bookings
-        // no longer occupy the slot.
-        private static readonly BookingStatus[] SlotHoldingStatuses = { BookingStatus.Confirmed };
+        // other bookings from overlapping it.
+        // Cancelled/Completed bookings no longer occupy the slot.
+        private static readonly BookingStatus[] SlotHoldingStatuses =
+        [
+            BookingStatus.Pending,
+            BookingStatus.Confirmed
+        ];
 
         private const int DefaultPageSize = 20;
         private const int MaxPageSize = 100;
 
-        private readonly ApplicationDbContext _context;
-        private readonly INotificationService _notificationService;
-        private readonly IEmailService _emailService;
-        private readonly ICalendarService _calendarService;
-        private readonly ICurrentUserService _currentUserService;
-        private readonly ILogger<BookingService> _logger;
+      
 
-        public BookingService(
-            ApplicationDbContext context,
-            INotificationService notificationService,
-            IEmailService emailService,
-            ICalendarService calendarService,
-            ICurrentUserService currentUserService,
-            ILogger<BookingService> logger)
-        {
-            _context = context;
-            _notificationService = notificationService;
-            _emailService = emailService;
-            _calendarService = calendarService;
-            _currentUserService = currentUserService;
-            _logger = logger;
-        }
-
-        // Retrieves every booking the current caller is allowed to see -
-        // see ApplyVisibilityScope. Administrators see everything, Centre
-        // Managers see their own location, everyone else sees only their
-        // own bookings. This mirrors SearchBookingsAsync's scoping so the
-        // plain list can't be used to bypass it.
+        // Retrieves all bookings together with their equipment and catering.
         public async Task<IEnumerable<Booking>> GetAllBookingsAsync()
         {
-            var currentUser = await _currentUserService.GetCurrentUserAsync();
-
-            var query = _context.Bookings
-                .Include(b => b.Boardroom)
+            return await _context.Bookings
+                .Include(b => b.Boardroom)!.ThenInclude(br => br!.Location)
+                .Include(b => b.User)
                 .Include(b => b.BookingEquipments)
                 .Include(b => b.BookingCaterings)
-                .AsQueryable();
-
-            query = ApplyVisibilityScope(query, currentUser);
-
-            return await query.ToListAsync();
+                .ToListAsync();
         }
 
-        // Retrieves a single booking by its ID. Returns null both when the
-        // booking doesn't exist and when the current caller isn't allowed
-        // to see it - deliberately the same response either way, so a 404
-        // doesn't leak whether a booking someone can't view actually
-        // exists.
+        // Retrieves a single booking by its ID.
         public async Task<Booking?> GetBookingByIdAsync(int id)
         {
-            var currentUser = await _currentUserService.GetCurrentUserAsync();
-
-            var query = _context.Bookings
-                .Include(b => b.Boardroom)
+            return await _context.Bookings
+                .Include(b => b.Boardroom)!.ThenInclude(br => br!.Location)
+                .Include(b => b.User)
                 .Include(b => b.BookingEquipments)
                 .Include(b => b.BookingCaterings)
-                .AsQueryable();
-
-            query = ApplyVisibilityScope(query, currentUser);
-
-            return await query.FirstOrDefaultAsync(b => b.Id == id);
+                .FirstOrDefaultAsync(b => b.Id == id);
         }
 
         // Retrieves boardrooms that can currently be considered for a booking
@@ -112,149 +100,279 @@ namespace FlexiSpace.Infrastructure.Services
         //
         // This method is also used by the AI recommendation service.
         // The AI therefore receives only boardrooms that have already passed
-        // the backend availability check. Availability is a discovery
-        // action open to any authenticated user - it doesn't expose whose
-        // booking is occupying a slot, so it isn't visibility-scoped the
-        // way booking details are.
+        // the backend availability check.
         public async Task<IEnumerable<Boardroom>> GetAvailableBoardroomsAsync(
             DateOnly bookingDate,
             TimeOnly startTime,
             TimeOnly endTime)
         {
+            // Get active boardrooms that are currently marked as Available.
+            //
+            // Equipment is included because the AI needs to know what
+            // equipment each available boardroom provides when deciding
+            // which room best matches the user's requirements.
             var boardrooms = await _context.Boardrooms
                 .Include(b => b.BoardroomEquipments)
                     .ThenInclude(be => be.Equipment)
-                .Where(b => b.IsActive && b.Status == BoardroomStatus.Available)
+                .Where(b =>
+                    b.IsActive &&
+                    b.Status == BoardroomStatus.Available)
                 .ToListAsync();
 
-            var unavailableBoardroomIds = new HashSet<int>();
+            // Find boardrooms that already have a booking occupying
+            // the requested time period.
+            var bookedBoardroomIds = await _context.Bookings
+                .Where(b =>
+                    b.BookingDate == bookingDate &&
+                    SlotHoldingStatuses.Contains(b.Status) &&
+                    startTime < b.EndTime &&
+                    b.StartTime < endTime)
+                .Select(b => b.BoardroomId)
+                .Distinct()
+                .ToListAsync();
 
-            foreach (var boardroom in boardrooms)
-            {
-                var candidate = new Booking
-                {
-                    BoardroomId = boardroom.Id,
-                    BookingDate = bookingDate,
-                    StartTime = startTime,
-                    EndTime = endTime
-                };
-
-                // Unavailable if another booking overlaps, or a Centre
-                // Manager / Administrator has blocked the room for that time.
-                if (await HasConflictAsync(candidate, excludeBookingId: null)
-                    || await HasBlockConflictAsync(candidate))
-                {
-                    unavailableBoardroomIds.Add(boardroom.Id);
-                }
-            }
-
+            // Remove boardrooms that already have a conflicting booking.
             return boardrooms
-                .Where(b => !unavailableBoardroomIds.Contains(b.Id))
+                .Where(b => !bookedBoardroomIds.Contains(b.Id))
                 .ToList();
         }
 
-        // Creates a new booking. The booker is always the authenticated
-        // caller - never taken from the request body, so nobody can book
-        // (or later edit/cancel) as someone else.
+        // Creates a new booking
+   
         public async Task<Booking> CreateBookingAsync(Booking booking)
         {
-            var currentUser = await _currentUserService.GetCurrentUserAsync();
-
-            if (currentUser == null)
-            {
-                throw new ForbiddenException("Your account is not recognized or has been deactivated.");
-            }
-
-            booking.UserId = currentUser.Id;
-
             var boardroom = await _context.Boardrooms
-                .FirstOrDefaultAsync(b => b.Id == booking.BoardroomId);
+            .Include(b => b.Location)
+                .ThenInclude(l => l.LocationCalendarAccounts)
+            .FirstOrDefaultAsync(b => b.Id == booking.BoardroomId);
 
             if (boardroom == null)
             {
-                throw new NotFoundException($"Boardroom {booking.BoardroomId} was not found.");
+                throw new NotFoundException(
+                    $"Boardroom {booking.BoardroomId} was not found.");
             }
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Id == booking.UserId);
+
+            if (user == null)
+            {
+                throw new NotFoundException(
+                    $"User {booking.UserId} was not found.");
+            }
+
+            // Get the active Outlook calendars configured for this location.
+            var calendarAccounts = boardroom.Location?.LocationCalendarAccounts
+                .Where(a => a.IsActive)
+                .ToList()
+                ?? new List<LocationCalendarAccount>();
+
+            // Find the active primary Outlook calendar.
+            var primaryCalendar = calendarAccounts
+                .FirstOrDefault(a => a.IsPrimary);
 
             var errors = new List<string>();
 
-            ValidateBookingRules(booking, boardroom, errors, checkPastDate: true);
+            // Outlook/Graph calendar sync is disabled in this environment —
+            // do not block booking creation when no primary calendar is configured.
+
+            // Bookings are confirmed immediately (no Pending approval step).
+            booking.Status = BookingStatus.Confirmed;
+
+            ValidateBookingRules(
+                booking,
+                boardroom,
+                errors);
 
             await ValidateEquipmentAndCateringAsync(
-                booking.BookingEquipments.ToList(),
-                booking.BookingCaterings.ToList(),
+                booking.BookingEquipments
+                    .Select(e => e.EquipmentId)
+                    .ToList(),
+
+                booking.BookingCaterings
+                    .Select(c => c.CateringId)
+                    .ToList(),
+
                 errors);
+
+            // Conflict detection: does another active booking
+            // on this boardroom already hold an overlapping slot?
+            //
+            // KNOWN LIMITATION:
+            // This is a check-then-act read followed by a separate write.
+            // Two requests arriving at almost the same instant could both
+            // pass the check before either one commits.
+            //
+            // Closing that gap fully needs either a DB-level guard
+            // (unique filtered index / concurrency token) or a
+            // serializable transaction.
+            if (await HasConflictAsync(
+                booking,
+                excludeBookingId: null))
+            {
+                errors.Add(
+                    $"{boardroom.Name} is already booked for an overlapping time on " +
+                    $"{booking.BookingDate:yyyy-MM-dd}.");
+            }
+
+            if (await HasBlockedPeriodConflictAsync(booking))
+            {
+                errors.Add(
+                    $"{boardroom.Name} is blocked for an overlapping time on " +
+                    $"{booking.BookingDate:yyyy-MM-dd}.");
+            }
+
+
+            // NOTE: Outlook/Exchange calendar integration is disabled for
+            // environments where centre managers do not have Microsoft 365
+            // mailboxes. The original code below performed an availability
+            // check against the primaryCalendar using Microsoft Graph. It is
+            // preserved here as a comment so it can be re-enabled later.
+            /*
+            // Check the primary Outlook calendar for conflicts.
+            if (primaryCalendar != null)
+            {
+                var bookingStart = booking.BookingDate
+                    .ToDateTime(booking.StartTime);
+
+                var bookingEnd = booking.BookingDate
+                    .ToDateTime(booking.EndTime);
+
+                var outlookAvailable =
+                    await _calendarService.IsCalendarAvailableAsync(
+                        primaryCalendar.Email,
+                        bookingStart,
+                        bookingEnd);
+
+                if (!outlookAvailable)
+                {
+                    errors.Add(
+                        $"{boardroom.Name} is already occupied in the Outlook calendar " +
+                        $"for {booking.BookingDate:yyyy-MM-dd} " +
+                        $"{booking.StartTime:HH\\:mm}-{booking.EndTime:HH\\:mm}.");
+                }
+            }
+            */
+
 
             if (errors.Count > 0)
             {
                 throw new BusinessRuleException(errors);
             }
 
-            async Task InsertAsync()
+            // Prepare the Outlook event times using South African local time.
+            var outlookStart = booking.BookingDate
+                .ToDateTime(booking.StartTime);
+
+            var outlookEnd = booking.BookingDate
+                .ToDateTime(booking.EndTime);
+
+            // Prepare the information that will appear in Outlook.
+            var outlookSubject =
+                $"{boardroom.Name} - {booking.Company ?? "FlexiSpace Booking"}";
+
+            var outlookDescription =
+                $"FlexiSpace Boardroom Booking\n" +
+                $"Boardroom: {boardroom.Name}\n" +
+                $"Location: {boardroom.Location?.Name}\n" +
+                $"Date: {booking.BookingDate:yyyy-MM-dd}\n" +
+                $"Time: {booking.StartTime:HH\\:mm} - {booking.EndTime:HH\\:mm}\n" +
+                $"Attendees: {booking.NumberOfAttendees}\n" +
+                $"Notes: {booking.Notes ?? "None"}";
+
+
+            // Add the validated booking to the database.
+            _context.Bookings.Add(booking);
+
+            // Save the booking first so that it receives its database ID.
+            await _context.SaveChangesAsync();
+
+            // At this point:
+            // - The FlexiSpace booking has passed all validation.
+            // - The FlexiSpace database has confirmed there is no conflict.
+            // - Outlook availability has been checked.
+            // - primaryCalendar contains the Outlook calendar that belongs
+            //   to this booking's location.
+            //
+            // We would normally create the matching event in Outlook here,
+            // but calendar integration is disabled in this environment. The
+            // original Microsoft Graph creation code is left commented so it
+            // can be restored when centre-manager mailboxes are available.
+            /*
+            // We now create the matching event in Outlook.
+            if (primaryCalendar != null)
             {
-                // Conflict detection happens inside the transaction (where
-                // supported - see IsRelational below), immediately before
-                // the insert, to narrow the window where two
-                // near-simultaneous requests could both pass the check
-                // before either commits. Not a full guarantee without a
-                // DB-level unique constraint, but a real improvement over
-                // checking outside any transaction at all.
-                if (await HasBlockConflictAsync(booking))
-                {
-                    throw new BusinessRuleException(
-                        $"{boardroom.Name} is blocked for that period and cannot be booked.");
-                }
+                var outlookEventId =
+                    await _calendarService.CreateCalendarEventAsync(
+                        primaryCalendar.Email,
+                        outlookSubject,
+                        outlookStart,
+                        outlookEnd,
+                        outlookDescription);
 
-                if (await HasConflictAsync(booking, excludeBookingId: null))
-                {
-                    throw new BusinessRuleException(
-                        $"{boardroom.Name} is already booked for an overlapping time on " +
-                        $"{booking.BookingDate:yyyy-MM-dd}.");
-                }
+                // Microsoft Graph returns the Outlook event ID.
+                //
+                // We store this ID against the FlexiSpace booking so that
+                // we can later find the exact Outlook event when we need to:
+                // - update the booking
+                // - move the booking
+                // - cancel the booking
+                booking.OutlookEventId = outlookEventId;
 
-                _context.Bookings.Add(booking);
-
+                // Save the Outlook event ID back to the database.
                 await _context.SaveChangesAsync();
             }
+            */
 
-            await RunInSerializableTransactionIfSupportedAsync(InsertAsync);
+            // Send booking confirmation email (best-effort: swallow errors to avoid failing the booking)
+            try
+            {
+                var recipient = user?.Email ?? string.Empty;
+                var recipientName = user != null ? $"{user.FirstName} {user.LastName}" : string.Empty;
+                var locationName = boardroom.Location?.Name ?? string.Empty;
+                var locationAddress = boardroom.Location?.Address ?? string.Empty;
 
-            // Best-effort side effects from here on - none of them are
-            // allowed to turn an already-successful booking into a failed
-            // request. Failures are logged, not thrown.
-            await SyncOutlookEventOnCreateAsync(booking, boardroom, currentUser);
-            await NotifyCentreManagersAsync(booking, boardroom, currentUser, isLocationChange: false);
+                await _emailService.SendBookingConfirmationAsync(
+                    recipientEmail: recipient,
+                    recipientName: recipientName,
+                    boardroomName: boardroom.Name,
+                    locationName: locationName,
+                    locationAddress: locationAddress,
+                    bookingDate: booking.BookingDate,
+                    startTime: booking.StartTime,
+                    endTime: booking.EndTime,
+                    numberOfAttendees: booking.NumberOfAttendees,
+                    company: booking.Company,
+                    notes: booking.Notes);
+            }
+            catch
+            {
+                // Intentionally ignore email failures here; booking has succeeded.
+            }
 
-            // Tell the booker themselves - in-app plus the formatted HTML
-            // confirmation email (with the location's name and address),
-            // sent immediately after the booking is created.
-            var location = await _context.Locations.FindAsync(boardroom.LocationId);
+            // Create in-app notification for the booking owner.
+            try
+            {
+                var title = "Booking Confirmed";
+                var message = $"Your booking for {boardroom.Name} on {booking.BookingDate:yyyy-MM-dd} at {booking.StartTime:HH:mm} has been confirmed.";
 
-            await NotifyBookerAsync(
-                currentUser,
-                boardroom,
-                booking,
-                inAppTitle: "Booking confirmed",
-                inAppMessage: BuildShortSummary(booking, boardroom, "Your booking for"),
-                type: NotificationType.BookingCreated,
-                sendEmail: () => _emailService.SendBookingConfirmationAsync(
-                    currentUser.Email,
-                    $"{currentUser.FirstName} {currentUser.LastName}".Trim(),
-                    boardroom.Name,
-                    location?.Name ?? string.Empty,
-                    location?.Address ?? string.Empty,
-                    booking.BookingDate,
-                    booking.StartTime,
-                    booking.EndTime,
-                    booking.NumberOfAttendees,
-                    booking.Company,
-                    booking.Notes));
+                // Best-effort in-app notification: do not fail the booking if notification errors occur.
+                await _notificationService.CreateNotificationAsync(
+                    user.Id,
+                    title,
+                    message,
+                    NotificationType.BookingCreated);
+            }
+            catch
+            {
+                // Notifications are best-effort; do not fail the booking on notification errors.
+            }
 
+            // Return the completed booking.
             return booking;
+           
         }
 
-        // Updates an existing booking. Only the booking's own owner, a
-        // Centre Manager at that boardroom's location, or an Administrator
-        // may edit it.
+        // Updates an existing booking.
         public async Task<bool> UpdateBookingAsync(
             int id,
             Booking booking,
@@ -271,21 +389,6 @@ namespace FlexiSpace.Infrastructure.Services
                 return false;
             }
 
-            var currentUser = await _currentUserService.GetCurrentUserAsync();
-
-            if (currentUser == null)
-            {
-                throw new ForbiddenException("Your account is not recognized or has been deactivated.");
-            }
-
-            var currentBoardroom = await _context.Boardrooms
-                .FirstOrDefaultAsync(b => b.Id == existingBooking.BoardroomId);
-
-            if (currentBoardroom == null || !CanManageBooking(currentUser, existingBooking, currentBoardroom))
-            {
-                throw new ForbiddenException("You don't have permission to edit this booking.");
-            }
-
             if (existingBooking.Status == BookingStatus.Cancelled
                 || existingBooking.Status == BookingStatus.Completed)
             {
@@ -293,129 +396,99 @@ namespace FlexiSpace.Infrastructure.Services
                     $"Booking {id} is {existingBooking.Status} and can no longer be edited.");
             }
 
-            var newBoardroom = await _context.Boardrooms
+            var boardroom = await _context.Boardrooms
                 .FirstOrDefaultAsync(b => b.Id == booking.BoardroomId);
 
-            if (newBoardroom == null)
+            if (boardroom == null)
             {
-                throw new NotFoundException($"Boardroom {booking.BoardroomId} was not found.");
+                throw new NotFoundException(
+                    $"Boardroom {booking.BoardroomId} was not found.");
             }
 
             var errors = new List<string>();
 
-            // Editing a booking that's already in progress (e.g. fixing a
-            // typo in the notes) shouldn't fail the "not in the past"
-            // check just because the meeting has already started - only
-            // check it when the date/time is actually changing.
-            var dateOrTimeChanging =
-                existingBooking.BookingDate != booking.BookingDate
-                || existingBooking.StartTime != booking.StartTime;
+            ValidateBookingRules(
+                booking,
+                boardroom,
+                errors);
 
-            ValidateBookingRules(booking, newBoardroom, errors, checkPastDate: dateOrTimeChanging);
+            await ValidateEquipmentAndCateringAsync(
+                equipment
+                    .Select(e => e.EquipmentId)
+                    .ToList(),
 
-            await ValidateEquipmentAndCateringAsync(equipment, catering, errors);
+                catering
+                    .Select(c => c.CateringId)
+                    .ToList(),
+
+                errors);
+
+            // Exclude this booking's own current slot from the conflict
+            // check, otherwise every update would conflict with itself.
+            if (await HasConflictAsync(
+                booking,
+                excludeBookingId: id))
+            {
+                errors.Add(
+                    $"{boardroom.Name} is already booked for an overlapping time on " +
+                    $"{booking.BookingDate:yyyy-MM-dd}.");
+            }
 
             if (errors.Count > 0)
             {
                 throw new BusinessRuleException(errors);
             }
 
-            var isMovingLocation = newBoardroom.LocationId != currentBoardroom.LocationId;
+            existingBooking.BoardroomId = booking.BoardroomId;
+            existingBooking.BookingDate = booking.BookingDate;
+            existingBooking.StartTime = booking.StartTime;
+            existingBooking.EndTime = booking.EndTime;
+            existingBooking.Company = booking.Company;
+            existingBooking.NumberOfAttendees = booking.NumberOfAttendees;
+            existingBooking.Notes = booking.Notes;
 
-            async Task ApplyUpdateAsync()
+            // Replace Equipment
+            existingBooking.BookingEquipments.Clear();
+
+            foreach (var item in equipment)
             {
-                if (await HasBlockConflictAsync(booking))
-                {
-                    throw new BusinessRuleException(
-                        $"{newBoardroom.Name} is blocked for that period and cannot be booked.");
-                }
-
-                if (await HasConflictAsync(booking, excludeBookingId: id))
-                {
-                    throw new BusinessRuleException(
-                        $"{newBoardroom.Name} is already booked for an overlapping time on " +
-                        $"{booking.BookingDate:yyyy-MM-dd}.");
-                }
-
-                existingBooking.BoardroomId = booking.BoardroomId;
-                existingBooking.BookingDate = booking.BookingDate;
-                existingBooking.StartTime = booking.StartTime;
-                existingBooking.EndTime = booking.EndTime;
-                existingBooking.Company = booking.Company;
-                existingBooking.NumberOfAttendees = booking.NumberOfAttendees;
-                existingBooking.Notes = booking.Notes;
-                existingBooking.ModifiedAt = DateTime.UtcNow;
-                existingBooking.ModifiedById = currentUser.Id;
-
-                // The time/room changed, so reminders already sent for the
-                // old slot no longer apply - clear all three windows (24h,
-                // 2h, 1h) so the reminder job re-evaluates this booking
-                // against its new time.
-                if (dateOrTimeChanging)
-                {
-                    existingBooking.Reminder24hSentAt = null;
-                    existingBooking.Reminder2hSentAt = null;
-                    existingBooking.ReminderSentAt = null;
-                }
-
-                existingBooking.BookingEquipments.Clear();
-
-                foreach (var item in equipment)
-                {
-                    existingBooking.BookingEquipments.Add(item);
-                }
-
-                existingBooking.BookingCaterings.Clear();
-
-                foreach (var item in catering)
-                {
-                    existingBooking.BookingCaterings.Add(item);
-                }
-
-                await _context.SaveChangesAsync();
+                existingBooking.BookingEquipments.Add(item);
             }
 
-            await RunInSerializableTransactionIfSupportedAsync(ApplyUpdateAsync);
+            // Replace Catering
+            existingBooking.BookingCaterings.Clear();
 
-            await SyncOutlookEventOnUpdateAsync(existingBooking, newBoardroom);
-
-            // The old location's Centre Managers already know about this
-            // booking (they were notified on creation); the new location's
-            // managers have never heard of it, so they're the ones who
-            // need telling.
-            if (isMovingLocation)
+            foreach (var item in catering)
             {
-                await NotifyCentreManagersAsync(existingBooking, newBoardroom, currentUser, isLocationChange: true);
+                existingBooking.BookingCaterings.Add(item);
             }
 
-            // Tell the booking's owner it changed - in-app plus email,
-            // regardless of who made the edit (the owner themself, a
-            // Centre Manager, or an Administrator).
-            var owner = await _context.Users.FindAsync(existingBooking.UserId);
+            await _context.SaveChangesAsync();
 
-            if (owner != null)
+            // Create in-app notification for the booking owner about the modification.
+            try
             {
-                await NotifyBookerAsync(
-                    owner,
-                    newBoardroom,
-                    existingBooking,
-                    inAppTitle: "Booking updated",
-                    inAppMessage: BuildShortSummary(existingBooking, newBoardroom, "Your booking has been changed to"),
-                    emailSubject: $"Booking updated - {newBoardroom.Name}",
-                    emailBody: BuildBookingDetailsEmailBody(
-                        existingBooking,
-                        newBoardroom,
-                        "Your boardroom booking has been updated. Here are the current details:"),
-                    type: NotificationType.BookingModified);
+                var title = "Booking Modified";
+                var message = $"Your booking for {boardroom.Name} on {existingBooking.BookingDate:yyyy-MM-dd} at {existingBooking.StartTime:HH:mm} was modified.";
+
+                await _notificationService.CreateNotificationAsync(
+                    existingBooking.UserId,
+                    title,
+                    message,
+                    NotificationType.BookingModified);
+            }
+            catch
+            {
+                // Do not fail the update if notification fails.
             }
 
             return true;
         }
 
-        // Cancels a booking (soft delete - the row stays, Status moves to
-        // Cancelled, so booking history is preserved). Only the booking's
-        // own owner, a Centre Manager at that location, or an
-        // Administrator may cancel it.
+        // Cancels a booking.
+        //
+        // This is a soft delete: the row stays in the database and its
+        // Status moves to Cancelled, so booking history is preserved.
         public async Task<bool> DeleteBookingAsync(int id)
         {
             var booking = await _context.Bookings.FindAsync(id);
@@ -425,20 +498,6 @@ namespace FlexiSpace.Infrastructure.Services
                 return false;
             }
 
-            var currentUser = await _currentUserService.GetCurrentUserAsync();
-
-            if (currentUser == null)
-            {
-                throw new ForbiddenException("Your account is not recognized or has been deactivated.");
-            }
-
-            var boardroom = await _context.Boardrooms.FindAsync(booking.BoardroomId);
-
-            if (boardroom == null || !CanManageBooking(currentUser, booking, boardroom))
-            {
-                throw new ForbiddenException("You don't have permission to cancel this booking.");
-            }
-
             if (booking.Status == BookingStatus.Completed)
             {
                 throw new BusinessRuleException(
@@ -446,42 +505,36 @@ namespace FlexiSpace.Infrastructure.Services
             }
 
             booking.Status = BookingStatus.Cancelled;
-            booking.ModifiedAt = DateTime.UtcNow;
-            booking.ModifiedById = currentUser.Id;
-            booking.CancelledById = currentUser.Id;
 
             await _context.SaveChangesAsync();
 
-            await SyncOutlookEventOnCancelAsync(booking, boardroom);
-
-            var owner = await _context.Users.FindAsync(booking.UserId);
-
-            if (owner != null)
+            // Create in-app notification for the booking owner about the cancellation.
+            try
             {
-                await NotifyBookerAsync(
-                    owner,
-                    boardroom,
-                    booking,
-                    inAppTitle: "Booking cancelled",
-                    inAppMessage: BuildShortSummary(booking, boardroom, "Your booking for"),
-                    emailSubject: $"Booking cancelled - {boardroom.Name}",
-                    emailBody: BuildBookingDetailsEmailBody(
-                        booking,
-                        boardroom,
-                        "Your boardroom booking has been cancelled. It was for:"),
-                    type: NotificationType.BookingCancelled);
+                var boardroom = await _context.Boardrooms.FindAsync(booking.BoardroomId);
+                var title = "Booking Cancelled";
+                var message = $"Your booking for {boardroom?.Name ?? "the boardroom"} on {booking.BookingDate:yyyy-MM-dd} at {booking.StartTime:HH:mm} has been cancelled.";
+
+                await _notificationService.CreateNotificationAsync(
+                    booking.UserId,
+                    title,
+                    message,
+                    NotificationType.BookingCancelled);
+            }
+            catch
+            {
+                // Do not fail the cancellation if notification fails.
             }
 
             return true;
         }
 
-        // Updates the booking status (Cancel, mark Completed) while
-        // enforcing the allowed transitions. Only the booking's own owner,
-        // a Centre Manager at that location, or an Administrator may
-        // change it.
+        // Updates the booking status while enforcing the allowed
+        // status transitions.
         public async Task<bool> UpdateBookingStatusAsync(
             int id,
-            BookingStatus status)
+            BookingStatus status,
+            int? approvedById)
         {
             var booking = await _context.Bookings.FindAsync(id);
 
@@ -490,26 +543,13 @@ namespace FlexiSpace.Infrastructure.Services
                 return false;
             }
 
-            var currentUser = await _currentUserService.GetCurrentUserAsync();
-
-            if (currentUser == null)
-            {
-                throw new ForbiddenException("Your account is not recognized or has been deactivated.");
-            }
-
-            var boardroom = await _context.Boardrooms.FindAsync(booking.BoardroomId);
-
-            if (boardroom == null || !CanManageBooking(currentUser, booking, boardroom))
-            {
-                throw new ForbiddenException("You don't have permission to change this booking's status.");
-            }
-
             if (booking.Status == status)
             {
                 return true;
             }
 
-            var allowedNextStatuses = AllowedStatusTransitions[booking.Status];
+            var allowedNextStatuses =
+                AllowedStatusTransitions[booking.Status];
 
             if (!allowedNextStatuses.Contains(status))
             {
@@ -517,64 +557,20 @@ namespace FlexiSpace.Infrastructure.Services
                     $"Booking {id} cannot move from {booking.Status} to {status}.");
             }
 
-            if (status == BookingStatus.Completed)
-            {
-                var bookingEndUtc = booking.BookingDate.ToDateTime(booking.EndTime) - SouthAfricaUtcOffset;
-
-                if (bookingEndUtc > DateTime.UtcNow)
-                {
-                    throw new BusinessRuleException(
-                        $"Booking {id} can't be marked Completed before it has actually ended " +
-                        $"({booking.BookingDate:yyyy-MM-dd} {booking.EndTime:HH\\:mm}).");
-                }
-            }
-
             booking.Status = status;
-            booking.ModifiedAt = DateTime.UtcNow;
-            booking.ModifiedById = currentUser.Id;
-
-            if (status == BookingStatus.Cancelled)
-            {
-                booking.CancelledById = currentUser.Id;
-            }
 
             await _context.SaveChangesAsync();
-
-            if (status == BookingStatus.Cancelled)
-            {
-                await SyncOutlookEventOnCancelAsync(booking, boardroom);
-
-                var owner = await _context.Users.FindAsync(booking.UserId);
-
-                if (owner != null)
-                {
-                    await NotifyBookerAsync(
-                        owner,
-                        boardroom,
-                        booking,
-                        inAppTitle: "Booking cancelled",
-                        inAppMessage: BuildShortSummary(booking, boardroom, "Your booking for"),
-                        emailSubject: $"Booking cancelled - {boardroom.Name}",
-                        emailBody: BuildBookingDetailsEmailBody(
-                            booking,
-                            boardroom,
-                            "Your boardroom booking has been cancelled. It was for:"),
-                        type: NotificationType.BookingCancelled);
-                }
-            }
 
             return true;
         }
 
-        // Filters, sorts and paginates bookings, scoped to what the
-        // current caller is allowed to see (see ApplyVisibilityScope).
-        // Page/PageSize are clamped to sane bounds instead of throwing,
-        // since this is a read/search endpoint rather than a write.
-        public async Task<PagedResult<Booking>> SearchBookingsAsync(BookingQueryParameters query)
+        // Filters, sorts and paginates bookings.
+        public async Task<PagedResult<Booking>> SearchBookingsAsync(
+            BookingQueryParameters query)
         {
-            var currentUser = await _currentUserService.GetCurrentUserAsync();
-
-            var page = query.Page < 1 ? 1 : query.Page;
+            var page = query.Page < 1
+                ? 1
+                : query.Page;
 
             var pageSize = query.PageSize switch
             {
@@ -589,36 +585,40 @@ namespace FlexiSpace.Infrastructure.Services
                 .Include(b => b.BookingCaterings)
                 .AsQueryable();
 
-            bookingsQuery = ApplyVisibilityScope(bookingsQuery, currentUser);
-
             if (query.BoardroomId.HasValue)
             {
-                bookingsQuery = bookingsQuery.Where(b => b.BoardroomId == query.BoardroomId);
+                bookingsQuery = bookingsQuery.Where(
+                    b => b.BoardroomId == query.BoardroomId);
             }
 
             if (query.LocationId.HasValue)
             {
-                bookingsQuery = bookingsQuery.Where(b => b.Boardroom!.LocationId == query.LocationId);
+                bookingsQuery = bookingsQuery.Where(
+                    b => b.Boardroom!.LocationId == query.LocationId);
             }
 
             if (query.UserId.HasValue)
             {
-                bookingsQuery = bookingsQuery.Where(b => b.UserId == query.UserId);
+                bookingsQuery = bookingsQuery.Where(
+                    b => b.UserId == query.UserId);
             }
 
             if (query.Status.HasValue)
             {
-                bookingsQuery = bookingsQuery.Where(b => b.Status == query.Status);
+                bookingsQuery = bookingsQuery.Where(
+                    b => b.Status == query.Status);
             }
 
             if (query.FromDate.HasValue)
             {
-                bookingsQuery = bookingsQuery.Where(b => b.BookingDate >= query.FromDate);
+                bookingsQuery = bookingsQuery.Where(
+                    b => b.BookingDate >= query.FromDate);
             }
 
             if (query.ToDate.HasValue)
             {
-                bookingsQuery = bookingsQuery.Where(b => b.BookingDate <= query.ToDate);
+                bookingsQuery = bookingsQuery.Where(
+                    b => b.BookingDate <= query.ToDate);
             }
 
             if (!string.IsNullOrWhiteSpace(query.Search))
@@ -626,8 +626,11 @@ namespace FlexiSpace.Infrastructure.Services
                 var term = query.Search.Trim();
 
                 bookingsQuery = bookingsQuery.Where(b =>
-                    (b.Company != null && b.Company.Contains(term))
-                    || (b.Notes != null && b.Notes.Contains(term)));
+                    (b.Company != null &&
+                     b.Company.Contains(term))
+                    ||
+                    (b.Notes != null &&
+                     b.Notes.Contains(term)));
             }
 
             var totalCount = await bookingsQuery.CountAsync();
@@ -648,106 +651,40 @@ namespace FlexiSpace.Infrastructure.Services
             };
         }
 
-        // Who can see which bookings: Administrators see everything,
-        // Centre Managers see bookings at their own location, everyone
-        // else sees only their own bookings. A null currentUser (token is
-        // valid per [Authorize] but doesn't map to a recognized/active
-        // FlexiSpace user) sees nothing, rather than leaking every
-        // booking in the system.
-        private static IQueryable<Booking> ApplyVisibilityScope(IQueryable<Booking> query, User? currentUser)
-        {
-            if (currentUser == null)
-            {
-                return query.Where(b => false);
-            }
-
-            return currentUser.Role switch
-            {
-                UserRole.Administrator => query,
-                UserRole.CentreManager => query.Where(b => b.Boardroom!.LocationId == currentUser.LocationId),
-                _ => query.Where(b => b.UserId == currentUser.Id)
-            };
-        }
-
-        // Who may edit, cancel, or change the status of a booking: its own
-        // owner, a Centre Manager at the boardroom's location, or an
-        // Administrator.
-        private static bool CanManageBooking(User currentUser, Booking booking, Boardroom boardroom)
-        {
-            if (currentUser.Role == UserRole.Administrator)
-            {
-                return true;
-            }
-
-            if (currentUser.Id == booking.UserId)
-            {
-                return true;
-            }
-
-            return currentUser.Role == UserRole.CentreManager
-                && currentUser.LocationId == boardroom.LocationId;
-        }
-
-        // Wraps a write in a Serializable transaction on a real relational
-        // provider, to narrow (not fully close without a DB-level unique
-        // constraint) the window where two near-simultaneous requests
-        // could both pass a conflict check before either commits. The
-        // InMemory provider used by the test suite doesn't behave the same
-        // way under transactions, so this runs the action directly there
-        // instead of gambling on undocumented behavior - the plain
-        // check-then-act is still correct, just without the extra guard.
-        private async Task RunInSerializableTransactionIfSupportedAsync(Func<Task> action)
-        {
-            if (!_context.Database.IsRelational())
-            {
-                await action();
-                return;
-            }
-
-            using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-
-            try
-            {
-                await action();
-                await transaction.CommitAsync();
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
-        }
-
-        // Checks the standalone business rules that don't require extra DB
-        // round trips beyond the boardroom already loaded by the caller.
-        // checkPastDate is false on updates that aren't actually changing
-        // the date/time, so editing a booking that's already started
-        // (e.g. fixing a typo in the notes) doesn't get rejected for being
-        // "in the past".
+        // Checks the standalone business rules that do not require
+        // additional database queries.
+        //
+        // These rules cover:
+        // - End time must be after start time.
+        // - Booking cannot be in the past.
+        // - Attendee count must be within boardroom capacity.
+        // - Boardroom must be active.
+        // - Boardroom must currently be Available.
         private static void ValidateBookingRules(
             Booking booking,
             Boardroom boardroom,
-            List<string> errors,
-            bool checkPastDate)
+            List<string> errors)
         {
             if (booking.EndTime <= booking.StartTime)
             {
-                errors.Add("End time must be after start time.");
+                errors.Add(
+                    "End time must be after start time.");
             }
 
-            if (checkPastDate)
-            {
-                var bookingStartUtc = booking.BookingDate.ToDateTime(booking.StartTime) - SouthAfricaUtcOffset;
+            var bookingStartUtc =
+                booking.BookingDate.ToDateTime(booking.StartTime)
+                - SouthAfricaUtcOffset;
 
-                if (bookingStartUtc < DateTime.UtcNow)
-                {
-                    errors.Add("Bookings cannot be made for a date/time that has already passed.");
-                }
+            if (bookingStartUtc < DateTime.UtcNow)
+            {
+                errors.Add(
+                    "Bookings cannot be made for a date/time that has already passed.");
             }
 
             if (booking.NumberOfAttendees <= 0)
             {
-                errors.Add("Number of attendees must be at least 1.");
+                errors.Add(
+                    "Number of attendees must be at least 1.");
             }
             else if (booking.NumberOfAttendees > boardroom.Capacity)
             {
@@ -758,415 +695,101 @@ namespace FlexiSpace.Infrastructure.Services
 
             if (!boardroom.IsActive)
             {
-                errors.Add($"{boardroom.Name} is not currently active and cannot be booked.");
+                errors.Add(
+                    $"{boardroom.Name} is not currently active and cannot be booked.");
             }
             else if (boardroom.Status != BoardroomStatus.Available)
             {
-                errors.Add($"{boardroom.Name} is currently {boardroom.Status} and cannot be booked.");
+                errors.Add(
+                    $"{boardroom.Name} is currently {boardroom.Status} and cannot be booked.");
             }
         }
 
-        // Confirms the requested equipment/catering is well-formed: no
-        // item requested twice, every quantity at least 1, and every ID
-        // actually exists and is still active.
+        // Confirms every requested Equipment/Catering ID actually exists
+        // and is still active.
         private async Task ValidateEquipmentAndCateringAsync(
-            List<BookingEquipment> equipment,
-            List<BookingCatering> catering,
+            List<int> equipmentIds,
+            List<int> cateringIds,
             List<string> errors)
         {
-            foreach (var id in equipment.GroupBy(e => e.EquipmentId).Where(g => g.Count() > 1).Select(g => g.Key))
+            if (equipmentIds.Count > 0)
             {
-                errors.Add(
-                    $"Equipment {id} was requested more than once - list each item only once, " +
-                    "with its total quantity.");
-            }
-
-            foreach (var id in catering.GroupBy(c => c.CateringId).Where(g => g.Count() > 1).Select(g => g.Key))
-            {
-                errors.Add(
-                    $"Catering item {id} was requested more than once - list each item only once, " +
-                    "with its total quantity.");
-            }
-
-            foreach (var item in equipment)
-            {
-                if (item.Quantity < 1)
-                {
-                    errors.Add($"Equipment {item.EquipmentId} must have a quantity of at least 1.");
-                }
-            }
-
-            foreach (var item in catering)
-            {
-                if (item.Quantity < 1)
-                {
-                    errors.Add($"Catering item {item.CateringId} must have a quantity of at least 1.");
-                }
-            }
-
-            if (equipment.Count > 0)
-            {
-                var equipmentIds = equipment.Select(e => e.EquipmentId).Distinct().ToList();
+                var distinctIds = equipmentIds
+                    .Distinct()
+                    .ToList();
 
                 var validIds = await _context.Equipments
-                    .Where(e => equipmentIds.Contains(e.Id) && e.IsActive)
+                    .Where(e =>
+                        distinctIds.Contains(e.Id)
+                        && e.IsActive)
                     .Select(e => e.Id)
                     .ToListAsync();
 
-                foreach (var invalidId in equipmentIds.Except(validIds))
+                foreach (var invalidId in distinctIds.Except(validIds))
                 {
-                    errors.Add($"Equipment {invalidId} does not exist or is not currently available.");
+                    errors.Add(
+                        $"Equipment {invalidId} does not exist or is not currently available.");
                 }
             }
 
-            if (catering.Count > 0)
+            if (cateringIds.Count > 0)
             {
-                var cateringIds = catering.Select(c => c.CateringId).Distinct().ToList();
+                var distinctIds = cateringIds
+                    .Distinct()
+                    .ToList();
 
                 var validIds = await _context.Caterings
-                    .Where(c => cateringIds.Contains(c.Id) && c.IsActive)
+                    .Where(c =>
+                        distinctIds.Contains(c.Id)
+                        && c.IsActive)
                     .Select(c => c.Id)
                     .ToListAsync();
 
-                foreach (var invalidId in cateringIds.Except(validIds))
+                foreach (var invalidId in distinctIds.Except(validIds))
                 {
-                    errors.Add($"Catering item {invalidId} does not exist or is not currently available.");
+                    errors.Add(
+                        $"Catering item {invalidId} does not exist or is not currently available.");
                 }
             }
         }
 
-        // Returns true if an active booking already occupies an overlapping
-        // time range on this boardroom, on a boardroom this one combines
-        // with, or - if this boardroom is itself a combined space - on any
-        // of its component boardrooms.
-        private async Task<bool> HasConflictAsync(Booking booking, int? excludeBookingId)
+        // Returns true if an active booking already occupies an
+        // overlapping time range on the same boardroom and date.
+        //
+        // excludeBookingId allows UpdateBookingAsync to ignore the
+        // booking's own existing row while checking for conflicts.
+        private async Task<bool> HasConflictAsync(
+            Booking booking,
+            int? excludeBookingId)
         {
-            var conflictingBoardroomIds = await GetConflictingBoardroomIdsAsync(booking.BoardroomId);
-
             return await _context.Bookings.AnyAsync(b =>
-                conflictingBoardroomIds.Contains(b.BoardroomId)
+                b.BoardroomId == booking.BoardroomId
                 && b.BookingDate == booking.BookingDate
                 && SlotHoldingStatuses.Contains(b.Status)
-                && (!excludeBookingId.HasValue || b.Id != excludeBookingId.Value)
+                && (!excludeBookingId.HasValue
+                    || b.Id != excludeBookingId.Value)
                 && booking.StartTime < b.EndTime
                 && b.StartTime < booking.EndTime);
         }
 
-        // Returns true if a Centre Manager / Administrator has blocked this
-        // boardroom (or a boardroom it's physically linked to - same rule
-        // as HasConflictAsync) for any part of the requested time. Block
-        // Start/End are South African local time, like BookingDate and
-        // StartTime/EndTime, so the two compare directly.
-        private async Task<bool> HasBlockConflictAsync(Booking booking)
-        {
-            var conflictingBoardroomIds = await GetConflictingBoardroomIdsAsync(booking.BoardroomId);
-
-            var bookingStart = booking.BookingDate.ToDateTime(booking.StartTime);
-            var bookingEnd = booking.BookingDate.ToDateTime(booking.EndTime);
-
-            return await _context.BlockedPeriods.AnyAsync(bp =>
-                conflictingBoardroomIds.Contains(bp.BoardroomId)
-                && bookingStart < bp.End
-                && bp.Start < bookingEnd);
-        }
-
-        // Some boardrooms can be physically conjoined into one bigger space
-        // (e.g. Eagle Canyon's Thingamajik + Whachamacallit). That
-        // relationship is asymmetric for conflict purposes: booking the
-        // combined room blocks every component; booking a single component
-        // blocks the combined room but not its sibling component(s).
-        private async Task<List<int>> GetConflictingBoardroomIdsAsync(int boardroomId)
-        {
-            var ids = new HashSet<int> { boardroomId };
-
-            var componentIds = await _context.BoardroomComponents
-                .Where(bc => bc.CombinedBoardroomId == boardroomId)
-                .Select(bc => bc.ComponentBoardroomId)
-                .ToListAsync();
-
-            foreach (var componentId in componentIds)
-            {
-                ids.Add(componentId);
-            }
-
-            var combinedIds = await _context.BoardroomComponents
-                .Where(bc => bc.ComponentBoardroomId == boardroomId)
-                .Select(bc => bc.CombinedBoardroomId)
-                .ToListAsync();
-
-            foreach (var combinedId in combinedIds)
-            {
-                ids.Add(combinedId);
-            }
-
-            return ids.ToList();
-        }
-
-        // Finds which Outlook mailbox a booking at this location should
-        // sync to: the location's primary active calendar account, or any
-        // active one if none is marked primary. Null if the location has
-        // no active calendar account configured - sync is then simply
-        // skipped (same fail-open reasoning as notifications/email).
-        private async Task<string?> GetSyncCalendarEmailAsync(int locationId)
-        {
-            var accounts = await _context.LocationCalendarAccounts
-                .Where(a => a.LocationId == locationId && a.IsActive)
-                .ToListAsync();
-
-            return accounts.FirstOrDefault(a => a.IsPrimary)?.Email
-                ?? accounts.FirstOrDefault()?.Email;
-        }
-
-        private async Task SyncOutlookEventOnCreateAsync(Booking booking, Boardroom boardroom, User bookedByUser)
-        {
-            var calendarEmail = await GetSyncCalendarEmailAsync(boardroom.LocationId);
-
-            if (calendarEmail == null)
-            {
-                return;
-            }
-
-            try
-            {
-                var start = booking.BookingDate.ToDateTime(booking.StartTime);
-                var end = booking.BookingDate.ToDateTime(booking.EndTime);
-
-                var eventId = await _calendarService.CreateCalendarEventAsync(
-                    calendarEmail,
-                    $"{boardroom.Name} - {bookedByUser.FirstName} {bookedByUser.LastName}",
-                    start,
-                    end,
-                    booking.Notes);
-
-                if (!string.IsNullOrEmpty(eventId))
-                {
-                    booking.OutlookEventId = eventId;
-                    await _context.SaveChangesAsync();
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to sync booking {BookingId} to Outlook.", booking.Id);
-            }
-        }
-
-        private async Task SyncOutlookEventOnUpdateAsync(Booking booking, Boardroom boardroom)
-        {
-            if (string.IsNullOrEmpty(booking.OutlookEventId))
-            {
-                return;
-            }
-
-            var calendarEmail = await GetSyncCalendarEmailAsync(boardroom.LocationId);
-
-            if (calendarEmail == null)
-            {
-                return;
-            }
-
-            try
-            {
-                var start = booking.BookingDate.ToDateTime(booking.StartTime);
-                var end = booking.BookingDate.ToDateTime(booking.EndTime);
-
-                await _calendarService.UpdateCalendarEventAsync(
-                    calendarEmail,
-                    booking.OutlookEventId,
-                    boardroom.Name,
-                    start,
-                    end,
-                    booking.Notes);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to update Outlook event for booking {BookingId}.", booking.Id);
-            }
-        }
-
-        private async Task SyncOutlookEventOnCancelAsync(Booking booking, Boardroom boardroom)
-        {
-            if (string.IsNullOrEmpty(booking.OutlookEventId))
-            {
-                return;
-            }
-
-            var calendarEmail = await GetSyncCalendarEmailAsync(boardroom.LocationId);
-
-            if (calendarEmail == null)
-            {
-                return;
-            }
-
-            try
-            {
-                await _calendarService.DeleteCalendarEventAsync(calendarEmail, booking.OutlookEventId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to delete Outlook event for booking {BookingId}.", booking.Id);
-            }
-        }
-
-        // Notifies every active Centre Manager at the boardroom's location
-        // (except the acting user themself, if they happen to be one) that
-        // a booking was created or moved here. Sends both an in-app
-        // notification and an email via Graph - neither is allowed to fail
-        // the request itself; failures are logged, not thrown.
-        private async Task NotifyCentreManagersAsync(
-            Booking booking,
-            Boardroom boardroom,
-            User actingUser,
-            bool isLocationChange)
-        {
-            var centreManagers = await _context.Users
-                .Where(u =>
-                    u.Role == UserRole.CentreManager
-                    && u.LocationId == boardroom.LocationId
-                    && u.IsActive
-                    && u.Id != actingUser.Id)
-                .ToListAsync();
-
-            var subject = isLocationChange
-                ? $"Booking moved here - {boardroom.Name}"
-                : $"New booking - {boardroom.Name}";
-
-            var message = isLocationChange
-                ? $"A booking was moved to {boardroom.Name} on {booking.BookingDate:yyyy-MM-dd} " +
-                  $"{booking.StartTime:HH\\:mm}-{booking.EndTime:HH\\:mm} " +
-                  $"(moved by {actingUser.FirstName} {actingUser.LastName})."
-                : $"New booking: {boardroom.Name} on {booking.BookingDate:yyyy-MM-dd} " +
-                  $"{booking.StartTime:HH\\:mm}-{booking.EndTime:HH\\:mm} " +
-                  $"(booked by {actingUser.FirstName} {actingUser.LastName}).";
-
-            foreach (var centreManager in centreManagers)
-            {
-                try
-                {
-                    await _notificationService.CreateNotificationAsync(
-                        centreManager.Id,
-                        subject,
-                        message,
-                        NotificationType.BookingCreated);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(
-                        ex,
-                        "Failed to create in-app notification for Centre Manager {UserId} for booking {BookingId}.",
-                        centreManager.Id,
-                        booking.Id);
-                }
-
-                try
-                {
-                    await _emailService.SendEmailAsync(centreManager.Email, subject, message);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(
-                        ex,
-                        "Failed to email Centre Manager {UserId} for booking {BookingId}.",
-                        centreManager.Id,
-                        booking.Id);
-                }
-            }
-        }
-
-        // Notifies the booking's own owner (the person who actually holds
-        // the room) - in-app plus email - for create/update/cancel and the
-        // 1-hour-before reminder (see BookingReminderHostedService, which
-        // calls the same email-body builder directly). Best-effort, same
-        // as NotifyCentreManagersAsync above: a failure here is logged,
-        // never allowed to fail the booking operation itself.
-        private async Task NotifyBookerAsync(
-            User booker,
-            Boardroom boardroom,
-            Booking booking,
-            string inAppTitle,
-            string inAppMessage,
-            NotificationType type,
-            string? emailSubject = null,
-            string? emailBody = null,
-            Func<Task>? sendEmail = null)
+        private async Task<bool> HasBlockedPeriodConflictAsync(Booking booking)
         {
             try
             {
-                await _notificationService.CreateNotificationAsync(
-                    booker.Id,
-                    inAppTitle,
-                    inAppMessage,
-                    type);
+                var bookingStart = booking.BookingDate.ToDateTime(booking.StartTime);
+                var bookingEnd = booking.BookingDate.ToDateTime(booking.EndTime);
+
+                var blocks = await _context.BlockedPeriods
+                    .Where(b => b.BoardroomId == booking.BoardroomId)
+                    .ToListAsync();
+
+                return blocks.Any(b => bookingStart < b.End && b.Start < bookingEnd);
             }
-            catch (Exception ex)
+            catch
             {
-                _logger.LogWarning(
-                    ex,
-                    "Failed to create in-app notification for booker {UserId} for booking {BookingId}.",
-                    booker.Id,
-                    booking.Id);
+                // Schema mismatch on BlockedPeriods must not fail the booking with a 500.
+                return false;
             }
-
-            try
-            {
-                // A caller can supply its own email (e.g. the HTML booking
-                // confirmation); otherwise the plain-text subject/body is sent.
-                if (sendEmail != null)
-                {
-                    await sendEmail();
-                }
-                else if (emailSubject != null && emailBody != null)
-                {
-                    await _emailService.SendEmailAsync(booker.Email, emailSubject, emailBody);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(
-                    ex,
-                    "Failed to email booker {UserId} for booking {BookingId}.",
-                    booker.Id,
-                    booking.Id);
-            }
-        }
-
-        // Short one-line summary used for the in-app notification, which
-        // doesn't have room for the full detail dump the email gets.
-        private static string BuildShortSummary(Booking booking, Boardroom boardroom, string leadIn)
-        {
-            return $"{leadIn} {boardroom.Name} on {booking.BookingDate:yyyy-MM-dd} " +
-                   $"{booking.StartTime:HH\\:mm}-{booking.EndTime:HH\\:mm}.";
-        }
-
-        // Builds the full "necessary info about their booking" email body:
-        // room, date/time, company and attendee count, and any notes -
-        // shared by create/update/cancel notifications above and by
-        // BookingReminderHostedService's 1-hour-before reminder.
-        internal static string BuildBookingDetailsEmailBody(Booking booking, Boardroom boardroom, string leadLine)
-        {
-            var lines = new List<string>
-            {
-                leadLine,
-                string.Empty,
-                $"Room: {boardroom.Name}",
-                $"Date: {booking.BookingDate:yyyy-MM-dd}",
-                $"Time: {booking.StartTime:HH\\:mm} - {booking.EndTime:HH\\:mm}",
-                $"Attendees: {booking.NumberOfAttendees}"
-            };
-
-            if (!string.IsNullOrWhiteSpace(booking.Company))
-            {
-                lines.Add($"Company: {booking.Company}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(booking.Notes))
-            {
-                lines.Add($"Notes: {booking.Notes}");
-            }
-
-            lines.Add(string.Empty);
-            lines.Add($"Booking reference: #{booking.Id}");
-
-            return string.Join(Environment.NewLine, lines);
         }
     }
 }

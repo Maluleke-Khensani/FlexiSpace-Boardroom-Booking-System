@@ -92,6 +92,9 @@ public partial class NotificationsViewModel(INotificationService notifications) 
     {
         await notifications.MarkAllAsReadAsync();
         ApplyFilter();
+        await ActionFeedback.SuccessAsync(
+            UnreadCount == 0 ? "Inbox zero. You're in the clear." : "Marked what we could as read.",
+            "Alerts cleared");
     }
 
     /// <summary>
@@ -160,6 +163,7 @@ public partial class NotificationsViewModel(INotificationService notifications) 
         if (notification is null) return;
         await notifications.DeleteAsync(notification.Id);
         await AppearingAsync();
+        await ActionFeedback.InfoAsync("Alert removed from your inbox.", "Cleared");
     }
 }
 
@@ -168,6 +172,7 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
     [ObservableProperty] private string name = string.Empty;
     [ObservableProperty] private string firstName = string.Empty;
     [ObservableProperty] private string email = string.Empty;
+    [ObservableProperty] private string currentEmail = string.Empty;
     [ObservableProperty] private string role = string.Empty;
     [ObservableProperty] private string rankTitle = string.Empty;
     [ObservableProperty] private string rankLine = string.Empty;
@@ -182,6 +187,8 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
     [ObservableProperty] private int upcomingCount;
     [ObservableProperty] private int unreadAlerts;
 
+    public ObservableCollection<User> DemoUsers { get; } = [];
+
     [RelayCommand]
     private async Task AppearingAsync()
     {
@@ -189,6 +196,7 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
         Name = user?.Name ?? "Guest";
         FirstName = string.IsNullOrWhiteSpace(Name) ? "there" : Name.Split(' ')[0];
         Email = user?.Email ?? string.Empty;
+        CurrentEmail = Email;
         Role = user is null ? "—" : RolePermissions.DisplayName(user.Role);
         RankTitle = user is null ? "Guest" : RolePermissions.RankTitle(user.Role);
         AccessLevel = user is null ? 0 : RolePermissions.AccessLevel(user.Role);
@@ -199,6 +207,10 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
         CanViewAvailability = user is not null && RolePermissions.CanViewAvailability(user.Role);
         CanViewReports = user is not null && RolePermissions.CanViewReports(user.Role);
         ShowPayPlaceholder = user is not null && RolePermissions.CanSeePayPlaceholder(user.Role);
+
+        DemoUsers.Clear();
+        foreach (var u in auth.GetDemoUsers())
+            DemoUsers.Add(u);
 
         try
         {
@@ -214,9 +226,22 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
     }
 
     [RelayCommand]
+    private async Task SwitchUserAsync(User? user)
+    {
+        if (user is null) return;
+        await auth.SwitchDemoUserAsync(user.Email);
+        await ActionFeedback.SuccessAsync(
+            $"Now playing as {user.Name} · {RolePermissions.DisplayName(user.Role)}.",
+            "Character select");
+        // Rebuild the Shell so the tab bar matches the new role's permissions exactly.
+        await ShellReloader.ReloadAsync();
+    }
+
+    [RelayCommand]
     private async Task LogoutAsync()
     {
         await auth.LogoutAsync();
+        await ActionFeedback.InfoAsync("Signed out. See you next round.", "Session ended");
         await Shell.Current.GoToAsync("//WelcomePage");
     }
 
@@ -256,6 +281,10 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
     [RelayCommand]
     private async Task OpenPrivacyAsync() =>
         await Shell.Current.GoToAsync("PrivacyPage");
+
+    [RelayCommand]
+    private async Task OpenSettingsAsync() =>
+        await Shell.Current.GoToAsync("SettingsPage");
 }
 
 [QueryProperty(nameof(LocationId), "locationId")]
@@ -274,6 +303,14 @@ public partial class LocationDetailViewModel(IAuthService auth, IRoomService roo
     private async Task LoadAsync()
     {
         CanBook = auth.CurrentUser is not null && RolePermissions.CanBookRooms(auth.CurrentUser.Role);
+        if (!RolePermissions.CanAccessLocation(auth.CurrentUser, LocationId))
+        {
+            Location = null;
+            Rooms.Clear();
+            IsEmpty = true;
+            return;
+        }
+
         Location = await rooms.GetLocationAsync(LocationId);
         Rooms.Clear();
         foreach (var room in await rooms.GetRoomsAsync(LocationId))

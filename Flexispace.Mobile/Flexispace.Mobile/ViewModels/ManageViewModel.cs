@@ -10,9 +10,7 @@ namespace Flexispace.Mobile.ViewModels;
 
 /// <summary>
 /// Centre Manager / Administrator booking console — view and edit bookings in scope,
-/// and block rooms. Room/user administration and reporting are deliberately not built
-/// here: per the team's project plan, those are the React website's admin dashboard, and
-/// mobile is scoped to core on-the-go booking features only.
+/// and block rooms.
 /// </summary>
 public partial class ManageViewModel(IAuthService auth, IBookingService bookings, IRoomService rooms) : ObservableObject
 {
@@ -66,8 +64,8 @@ public partial class ManageViewModel(IAuthService auth, IBookingService bookings
         IsAdministrator = user.Role == UserRole.Administrator;
         Title = IsAdministrator ? "Admin console" : "Centre management";
         Subtitle = IsAdministrator
-            ? "View and manage bookings across every location."
-            : $"View and manage bookings for {user.LocationId ?? "your centre"}.";
+            ? "View bookings, edit status and details, and block rooms across every location. New bookings are confirmed automatically."
+            : "View bookings at your centre, edit status and details, and block rooms. New bookings are confirmed automatically.";
 
         IsBusy = true;
         Message = null;
@@ -249,15 +247,6 @@ public partial class ManageViewModel(IAuthService auth, IBookingService bookings
     }
 
     [RelayCommand]
-    private async Task CancelAsync(Booking? booking)
-    {
-        if (booking is null) return;
-        var ok = await bookings.CancelBookingAsync(booking.Id);
-        Message = ok ? "Booking cancelled." : "Could not cancel booking.";
-        await AppearingAsync();
-    }
-
-    [RelayCommand]
     private async Task OpenBookingAsync(Booking? booking)
     {
         if (booking is null) return;
@@ -270,19 +259,22 @@ public partial class ManageViewModel(IAuthService auth, IBookingService bookings
         if (!HasAccess) return;
         if (SelectedRoomToBlock is null)
         {
-            Message = "Select a room to block.";
+            Message = null;
+            await ActionFeedback.FailAsync("Pick a room before you block a window.");
             return;
         }
 
         if (BlockDate.Date < DateTime.Today)
         {
-            Message = "A room cannot be blocked for a date before today.";
+            Message = null;
+            await ActionFeedback.FailAsync("A room cannot be blocked for a date before today.");
             return;
         }
 
         if (BlockEnd <= BlockStart)
         {
-            Message = "Block end time must be after start time.";
+            Message = null;
+            await ActionFeedback.FailAsync("Block end time must be after start time.");
             return;
         }
 
@@ -292,12 +284,12 @@ public partial class ManageViewModel(IAuthService auth, IBookingService bookings
         var relatedId = SelectedMeetingOption?.Booking?.Id;
         var result = await bookings.BlockRoomAsync(SelectedRoomToBlock.Id, start, end, reason, relatedId);
         await AppearingAsync();
-        Message = result.Success
-            ? $"{SelectedRoomToBlock.Name} blocked {start:g}–{end:t}."
-            : result.Message;
+        Message = null;
 
-        if (Shell.Current is not null)
-            await Shell.Current.DisplayAlertAsync(result.Title, result.Message, "OK");
+        if (result.Success)
+            await ActionFeedback.SuccessAsync(result.Message, "Room blocked");
+        else
+            await ActionFeedback.FailAsync(result.Message, result.Title);
     }
 }
 

@@ -3,127 +3,120 @@ using FlexiSpace.Core.Common;
 using FlexiSpace.Core.DTOs.BlockedPeriod;
 using FlexiSpace.Core.Entities;
 using FlexiSpace.Core.Enums;
-using FlexiSpace.Core.Services;
+using FlexiSpace.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
-namespace FlexiSpace.API.Controllers
+namespace FlexiSpace.API.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+[Authorize]
+public class BlockedPeriodController(
+    ApplicationDbContext context,
+    ICurrentUserService currentUserService) : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    [Authorize]
-    public class BlockedPeriodController : ControllerBase
+    [HttpGet]
+    public async Task<IActionResult> GetAll([FromQuery] int? boardroomId, [FromQuery] int? locationId)
     {
-        private readonly IBlockedPeriodService _blockedPeriodService;
+        var user = await currentUserService.GetCurrentUserAsync();
+        if (user is null) return Unauthorized();
 
-        public BlockedPeriodController(IBlockedPeriodService blockedPeriodService)
-        {
-            _blockedPeriodService = blockedPeriodService;
-        }
+        var query = context.BlockedPeriods
+            .Include(b => b.Boardroom)
+            .Include(b => b.CreatedByUser)
+            .AsQueryable();
 
-        // Lists blocks, soonest first. Any authenticated user can read
-        // them - clients need them to show a room as blocked. Optional
-        // filters: ?boardroomId=1&from=2026-10-01T00:00:00&to=2026-10-31T23:59:00
-        [HttpGet]
-        public async Task<IActionResult> GetBlockedPeriods(
-            [FromQuery] int? boardroomId,
-            [FromQuery] DateTime? from,
-            [FromQuery] DateTime? to)
-        {
-            var blockedPeriods = await _blockedPeriodService.GetBlockedPeriodsAsync(boardroomId, from, to);
+        if (user.Role == UserRole.CentreManager)
+            query = query.Where(b => b.Boardroom != null && b.Boardroom.LocationId == user.LocationId);
 
-            return Ok(blockedPeriods.Select(MapToResponseDto));
-        }
+        if (boardroomId is not null)
+            query = query.Where(b => b.BoardroomId == boardroomId);
 
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetBlockedPeriodById(int id)
-        {
-            var blockedPeriod = await _blockedPeriodService.GetBlockedPeriodByIdAsync(id);
+        if (locationId is not null)
+            query = query.Where(b => b.Boardroom != null && b.Boardroom.LocationId == locationId);
 
-            if (blockedPeriod == null)
-            {
-                return NotFound();
-            }
+        var items = await query
+            .OrderByDescending(b => b.Start)
+            .ToListAsync();
 
-            return Ok(MapToResponseDto(blockedPeriod));
-        }
-
-        // Blocks a boardroom for a period. Administrators can block any
-        // boardroom; Centre Managers only at their own location (checked
-        // again in the service, since the role attribute alone can't see
-        // which boardroom the request is about).
-        [AuthorizeRoles(UserRole.CentreManager, UserRole.Administrator)]
-        [HttpPost]
-        public async Task<IActionResult> CreateBlockedPeriod(BlockedPeriodCreateDto dto)
-        {
-            var blockedPeriod = new BlockedPeriod
-            {
-                BoardroomId = dto.BoardroomId,
-                Start = dto.Start,
-                End = dto.End,
-                Reason = dto.Reason
-            };
-
-            try
-            {
-                var created = await _blockedPeriodService.CreateBlockedPeriodAsync(blockedPeriod);
-
-                return CreatedAtAction(
-                    nameof(GetBlockedPeriodById),
-                    new { id = created.Id },
-                    MapToResponseDto(created));
-            }
-            catch (ForbiddenException ex)
-            {
-                return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
-            }
-            catch (NotFoundException ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
-            catch (BusinessRuleException ex)
-            {
-                return BadRequest(new { errors = ex.Errors });
-            }
-        }
-
-        [AuthorizeRoles(UserRole.CentreManager, UserRole.Administrator)]
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteBlockedPeriod(int id)
-        {
-            try
-            {
-                var deleted = await _blockedPeriodService.DeleteBlockedPeriodAsync(id);
-
-                if (!deleted)
-                {
-                    return NotFound();
-                }
-
-                return NoContent();
-            }
-            catch (ForbiddenException ex)
-            {
-                return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
-            }
-        }
-
-        private static BlockedPeriodResponseDto MapToResponseDto(BlockedPeriod blockedPeriod)
-        {
-            return new BlockedPeriodResponseDto
-            {
-                Id = blockedPeriod.Id,
-                BoardroomId = blockedPeriod.BoardroomId,
-                Start = blockedPeriod.Start,
-                End = blockedPeriod.End,
-                Reason = blockedPeriod.Reason,
-                CreatedById = blockedPeriod.CreatedById,
-                CreatedByName = blockedPeriod.CreatedBy is null
-                    ? string.Empty
-                    : $"{blockedPeriod.CreatedBy.FirstName} {blockedPeriod.CreatedBy.LastName}".Trim(),
-                CreatedAt = blockedPeriod.CreatedAt
-            };
-        }
+        return Ok(items.Select(Map));
     }
+
+    [HttpPost]
+    [AuthorizeRoles(UserRole.CentreManager, UserRole.Administrator)]
+    public async Task<IActionResult> Create(CreateBlockedPeriodDto dto)
+    {
+        var user = await currentUserService.GetCurrentUserAsync();
+        if (user is null) return Unauthorized();
+
+        var boardroom = await context.Boardrooms.FindAsync(dto.BoardroomId);
+        if (boardroom is null)
+            return NotFound(new { message = "Boardroom not found." });
+
+        if (user.Role == UserRole.CentreManager && boardroom.LocationId != user.LocationId)
+            return Forbid();
+
+        var start = dto.StartDate.ToDateTime(dto.StartTime);
+        var end = dto.EndDate.ToDateTime(dto.EndTime);
+        if (end <= start)
+            return BadRequest(new { message = "End must be after start." });
+
+        var block = new BlockedPeriod
+        {
+            BoardroomId = dto.BoardroomId,
+            Start = start,
+            End = end,
+            Reason = string.IsNullOrWhiteSpace(dto.Reason) ? "Blocked by Centre Manager" : dto.Reason.Trim(),
+            CreatedById = user.Id
+        };
+
+        context.BlockedPeriods.Add(block);
+        await context.SaveChangesAsync();
+
+        await context.Entry(block).Reference(b => b.Boardroom).LoadAsync();
+        await context.Entry(block).Reference(b => b.CreatedByUser).LoadAsync();
+
+        return CreatedAtAction(nameof(GetAll), new { id = block.Id }, Map(block));
+    }
+
+    [HttpDelete("{id:int}")]
+    [AuthorizeRoles(UserRole.CentreManager, UserRole.Administrator)]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var user = await currentUserService.GetCurrentUserAsync();
+        if (user is null) return Unauthorized();
+
+        var block = await context.BlockedPeriods
+            .Include(b => b.Boardroom)
+            .FirstOrDefaultAsync(b => b.Id == id);
+
+        if (block is null) return NotFound();
+
+        if (user.Role == UserRole.CentreManager &&
+            (block.Boardroom is null || block.Boardroom.LocationId != user.LocationId))
+            return Forbid();
+
+        context.BlockedPeriods.Remove(block);
+        await context.SaveChangesAsync();
+        return NoContent();
+    }
+
+    private static BlockedPeriodResponseDto Map(BlockedPeriod b) => new()
+    {
+        Id = b.Id,
+        BoardroomId = b.BoardroomId,
+        BoardroomName = b.Boardroom?.Name ?? string.Empty,
+        LocationId = b.Boardroom?.LocationId ?? 0,
+        StartDate = DateOnly.FromDateTime(b.Start),
+        StartTime = TimeOnly.FromDateTime(b.Start),
+        EndDate = DateOnly.FromDateTime(b.End),
+        EndTime = TimeOnly.FromDateTime(b.End),
+        Reason = b.Reason,
+        CreatedByUserId = b.CreatedById,
+        CreatedByName = b.CreatedByUser is null
+            ? string.Empty
+            : $"{b.CreatedByUser.FirstName} {b.CreatedByUser.LastName}".Trim()
+    };
 }

@@ -5,7 +5,7 @@
              x:Class="Flexispace.Mobile.Views.BookingConfirmationPage"
              x:DataType="vm:BookingConfirmationViewModel"
              Title="Confirmed"
-             BackgroundColor="{StaticResource BrandIvory}"
+             BackgroundColor="{DynamicResource BrandPage}"
              Shell.NavBarIsVisible="False">
 
     <Grid>
@@ -18,7 +18,7 @@
                         BackgroundColor="{StaticResource BrandGold}"
                         IsVisible="{Binding IsConfirmed}">
                     <Border.Shadow>
-                        <Shadow Brush="{StaticResource BrandGoldDeep}" Opacity="0.5" Radius="18" Offset="0,6" />
+                        <Shadow Brush="{DynamicResource BrandGoldDeep}" Opacity="0.5" Radius="18" Offset="0,6" />
                     </Border.Shadow>
                     <Label Style="{StaticResource MaterialGlyph}" Text="&#xe86c;" FontSize="40" TextColor="{StaticResource BrandBlack}" />
                 </Border>
@@ -38,17 +38,17 @@
                     <Grid ColumnDefinitions="4,*">
                         <BoxView Color="{StaticResource BrandGold}" />
                         <VerticalStackLayout Grid.Column="1" Spacing="8" Padding="18,16">
-                            <Label Text="{Binding Booking.RoomName}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="20" HorizontalTextAlignment="Center" />
+                            <Label Text="{Binding Booking.RoomName}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="20" HorizontalTextAlignment="Center" />
                             <HorizontalStackLayout Spacing="6" HorizontalOptions="Center">
                                 <Label Style="{StaticResource MaterialGlyph}" Text="&#xe55f;" FontSize="14" TextColor="{StaticResource BrandGold}" />
-                                <Label Text="{Binding Booking.LocationName}" TextColor="{StaticResource BrandMuted}" FontSize="14" VerticalOptions="Center" />
+                                <Label Text="{Binding Booking.LocationName}" TextColor="{DynamicResource BrandMuted}" FontSize="14" VerticalOptions="Center" />
                             </HorizontalStackLayout>
                             <HorizontalStackLayout Spacing="6" HorizontalOptions="Center">
                                 <Label Style="{StaticResource MaterialGlyph}" Text="&#xe878;" FontSize="14" TextColor="{StaticResource BrandGold}" />
-                                <Label Text="{Binding Booking.Start, StringFormat='{0:ddd d MMM · HH:mm}'}" TextColor="{StaticResource BrandInk}" FontSize="14" VerticalOptions="Center" />
-                                <Label Text="{Binding Booking.End, StringFormat='– {0:HH:mm}'}" TextColor="{StaticResource BrandMuted}" FontSize="14" VerticalOptions="Center" />
+                                <Label Text="{Binding Booking.Start, StringFormat='{0:ddd d MMM · HH:mm}'}" TextColor="{DynamicResource BrandInk}" FontSize="14" VerticalOptions="Center" />
+                                <Label Text="{Binding Booking.End, StringFormat='– {0:HH:mm}'}" TextColor="{DynamicResource BrandMuted}" FontSize="14" VerticalOptions="Center" />
                             </HorizontalStackLayout>
-                            <Border Style="{StaticResource StatusPillBorder}" BackgroundColor="{StaticResource BrandSuccess}"
+                            <Border Style="{StaticResource StatusPillBorder}" BackgroundColor="{DynamicResource BrandSuccess}"
                                     HorizontalOptions="Center" IsVisible="{Binding IsConfirmed}">
                                 <Label Text="Confirmed" Style="{StaticResource StatusPillText}" />
                             </Border>

@@ -73,13 +73,22 @@ public partial class BookingDetailViewModel(IAuthService auth, IBookingService b
     [ObservableProperty] private string bookingId = string.Empty;
     [ObservableProperty] private Booking? booking;
     [ObservableProperty] private string? message;
-    [ObservableProperty] private bool canCancel;
     [ObservableProperty] private bool canEdit;
+    [ObservableProperty] private bool canEditStatus;
     [ObservableProperty] private string attendeesText = "4";
     [ObservableProperty] private string notes = string.Empty;
     [ObservableProperty] private DateTime editDate = DateTime.Today;
     [ObservableProperty] private TimeSpan editStart = new(9, 0, 0);
     [ObservableProperty] private TimeSpan editEnd = new(10, 0, 0);
+    [ObservableProperty] private BookingStatus selectedStatus = BookingStatus.Confirmed;
+
+    /// <summary>Statuses a Centre Manager / Admin may set. Pending is not used.</summary>
+    public BookingStatus[] EditableStatuses { get; } =
+    [
+        BookingStatus.Confirmed,
+        BookingStatus.Cancelled,
+        BookingStatus.Completed
+    ];
 
     public string DurationLabel => Booking is null
         ? string.Empty
@@ -119,39 +128,53 @@ public partial class BookingDetailViewModel(IAuthService auth, IBookingService b
         var user = auth.CurrentUser;
         if (Booking is null || user is null)
         {
-            CanCancel = CanEdit = false;
+            CanEdit = CanEditStatus = false;
             return;
         }
 
-        var isOwner = Booking.BookerId == user.Id;
         var inScope = user.Role == UserRole.Administrator ||
                       (user.Role == UserRole.CentreManager && user.LocationId == Booking.LocationId);
 
-        CanCancel = (isOwner && RolePermissions.CanCancelOwnBookings(user.Role) &&
-                     Booking.Status == BookingStatus.Confirmed) ||
-                    (!isOwner && RolePermissions.CanCancelAnyBooking(user.Role) && inScope &&
-                     Booking.Status == BookingStatus.Confirmed);
+        CanEditStatus = RolePermissions.CanEditBookings(user.Role) && inScope;
+        CanEdit = CanEditStatus && Booking.Status == BookingStatus.Confirmed;
 
-        CanEdit = Booking.Status != BookingStatus.Cancelled &&
-                  RolePermissions.CanEditBookings(user.Role) && inScope;
+        ResetEditFields();
+    }
 
-        if (Booking is not null)
-        {
-            EditDate = Booking.Start.Date;
-            EditStart = Booking.Start.TimeOfDay;
-            EditEnd = Booking.End.TimeOfDay;
-            AttendeesText = Booking.Attendees.ToString();
-            Notes = Booking.Notes;
-        }
+    /// <summary>
+    /// WinUI DatePicker/TimePicker/Entry keep values until blur. Call this from the
+    /// page before Save so the VM has what is on screen.
+    /// </summary>
+    public void ApplyScheduleDraft(DateTime date, TimeSpan start, TimeSpan end, string attendees, string notes)
+    {
+        EditDate = date;
+        EditStart = start;
+        EditEnd = end;
+        AttendeesText = attendees;
+        Notes = notes;
+    }
+
+    private void ResetEditFields()
+    {
+        if (Booking is null) return;
+
+        EditDate = Booking.Start.Date;
+        EditStart = Booking.Start.TimeOfDay;
+        EditEnd = Booking.End.TimeOfDay;
+        AttendeesText = Booking.Attendees.ToString();
+        Notes = Booking.Notes;
+        SelectedStatus = Booking.Status is BookingStatus.Confirmed or BookingStatus.Cancelled or BookingStatus.Completed
+            ? Booking.Status
+            : BookingStatus.Confirmed;
     }
 
     [RelayCommand]
-    private async Task CancelAsync()
+    private async Task CancelEditsAsync()
     {
         if (Booking is null) return;
-        var ok = await bookings.CancelBookingAsync(Booking.Id);
-        Message = ok ? "Booking cancelled." : "You don't have permission to cancel this booking.";
-        await LoadAsync();
+        ResetEditFields();
+        Message = null;
+        await ActionFeedback.InfoAsync("Your unsaved edits were discarded. The booking is unchanged.", "Edits cancelled");
     }
 
     [RelayCommand]
@@ -160,19 +183,47 @@ public partial class BookingDetailViewModel(IAuthService auth, IBookingService b
         if (Booking is null) return;
         if (EditDate.Date < DateTime.Today)
         {
-            Message = "Bookings cannot be moved to a date before today.";
+            await ActionFeedback.FailAsync("Bookings cannot be moved to a date before today.");
             return;
         }
 
-        _ = int.TryParse(AttendeesText, out var attendees);
+        if (EditEnd <= EditStart)
+        {
+            await ActionFeedback.FailAsync("End time must be after start time.");
+            return;
+        }
+
+        if (!int.TryParse(AttendeesText, out var attendees) || attendees < 1)
+        {
+            await ActionFeedback.FailAsync("Enter a valid number of attendees.");
+            return;
+        }
+
         var ok = await bookings.UpdateBookingAsync(
             Booking.Id,
             EditDate.Date + EditStart,
             EditDate.Date + EditEnd,
             attendees,
             Notes);
-        Message = ok ? "Booking updated." : "Update failed — check times/permissions.";
         await LoadAsync();
+        Message = null;
+        if (ok)
+            await ActionFeedback.SuccessAsync("Schedule, headcount, and notes are locked in.", "Booking updated");
+        else
+            await ActionFeedback.FailAsync("That time overlaps another booking, or you do not have permission.");
+    }
+
+    [RelayCommand]
+    private async Task SaveStatusAsync()
+    {
+        if (Booking is null) return;
+        var ok = await bookings.UpdateBookingStatusAsync(Booking.Id, SelectedStatus);
+        await LoadAsync();
+        Message = null;
+        if (ok)
+            await ActionFeedback.SuccessAsync($"Status is now {SelectedStatus}.", "Status saved");
+        else
+            await ActionFeedback.FailAsync("Could not update the status. Check your permissions and try again.");
     }
 }
 

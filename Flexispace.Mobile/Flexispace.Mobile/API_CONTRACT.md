@@ -3,9 +3,11 @@
 This document is the contract the mobile app expects from the .NET 8 Web API.
 Today the app uses **mock services** (`Services/Mock/*`). Swap them in `MauiProgram.cs` for HTTP implementations without rewriting the UI.
 
-Base URL (example): `https://api.flexispace.net.za/api/v1`
+Base URL (local Development): `http://localhost:5073/`
 
-Auth: Microsoft Entra ID / Bearer token (mock login until Entra is wired).
+Auth today: **DevAuth** demo JWT (`POST /api/DevAuth/token`) stored in SecureStorage. MSAL/Entra public-client steps are in `MSAL_SETUP.md`.
+
+Set `UseMockServices = true` in `MauiProgram.cs` to fall back to offline mocks.
 
 ---
 
@@ -13,9 +15,9 @@ Auth: Microsoft Entra ID / Bearer token (mock login until Entra is wired).
 
 | Method | Path | Notes |
 |--------|------|--------|
-| POST | `/auth/login` | Body: `{ email, password }` → `{ token, user }` |
-| POST | `/auth/logout` | Invalidate session |
-| GET | `/auth/me` | Current user profile |
+| POST | `/api/DevAuth/token` | Body: `{ "email": "rebecca@flexispace.net.za" }` → `{ accessToken, user }` (Development only) |
+| GET | `/api/User/me` | Current user profile (Bearer) |
+| — | logout | Client clears SecureStorage |
 
 **User:** `{ id, name, email, role, locationId }`  
 **Roles:** `Staff` · `CentreManager` · `Administrator` · `Client`
@@ -96,11 +98,12 @@ Reminders: 24h and 1h before start (server-side job / queue).
 | Cancel own bookings | yes | yes | yes | yes |
 | View live availability | yes | — | yes (own site) | yes |
 | Edit / cancel any (in scope) | — | — | yes | yes |
+| Edit booking status (Confirmed / Cancelled / Completed) | — | — | yes (own site) | yes |
 | Block rooms | — | — | yes | yes |
 | Add/remove rooms · users · reports | — | — | — | yes |
 | Online payment | — | Phase 2 | — | — |
 
-Bookings are created as **Confirmed** automatically — no Centre Manager or Admin approval step.
+Bookings are created as **Confirmed** automatically. There is no Pending / approval step. Manage lets a Centre Manager open a booking, see its status, change the status, and edit booking details.
 
 Per the team's project plan, mobile only builds UI for the rows above through "Edit /
 cancel any (in scope)" — block rooms and add/remove rooms · users · reports are Administrator

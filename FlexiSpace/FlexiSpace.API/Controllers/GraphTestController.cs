@@ -15,7 +15,7 @@ namespace FlexiSpace.API.Controllers
         {
             _calendarService = calendarService;
         }
-
+/*
         [HttpPost("create-test-event")]
         public async Task<IActionResult> CreateTestEvent()
         {
@@ -33,5 +33,6 @@ namespace FlexiSpace.API.Controllers
                 eventId
             });
         }
+*/
     }
 }

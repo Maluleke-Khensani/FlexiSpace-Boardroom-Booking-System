@@ -29,13 +29,5 @@ namespace FlexiSpace.Core.Entities
 
         public ICollection<BoardroomEquipment> BoardroomEquipments { get; set; } = new List<BoardroomEquipment>();
 
-        // Component boardrooms that combine to form this boardroom (empty
-        // unless this row IS a combined space, e.g. "Thingamajik + Whachamacallit").
-        public ICollection<BoardroomComponent> Components { get; set; } = new List<BoardroomComponent>();
-
-        // Combined boardroom(s) this boardroom is a component of (empty
-        // unless this room can be conjoined with another into a bigger space).
-        public ICollection<BoardroomComponent> PartOfCombinations { get; set; } = new List<BoardroomComponent>();
-
     }
 }

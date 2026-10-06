@@ -5,13 +5,12 @@ using CommunityToolkit.Mvvm.Input;
 using Flexispace.Mobile.Helpers;
 using Flexispace.Mobile.Models;
 using Flexispace.Mobile.Services;
-using Flexispace.Mobile.Views;
 
 namespace Flexispace.Mobile.ViewModels;
 
 /// <summary>
 /// Centre Manager / Administrator booking console — view and edit bookings in scope,
-/// and block rooms. Administrators can open Users for directory add/remove.
+/// and block rooms.
 /// </summary>
 public partial class ManageViewModel(IAuthService auth, IBookingService bookings, IRoomService rooms) : ObservableObject
 {
@@ -47,10 +46,6 @@ public partial class ManageViewModel(IAuthService auth, IBookingService bookings
     public ObservableCollection<CalendarDayItem> CalendarDays { get; } = [];
     public ObservableCollection<Booking> DayMeetings { get; } = [];
     public ObservableCollection<BlockedPeriod> DayBlocks { get; } = [];
-
-    [RelayCommand]
-    private async Task OpenUsersAsync() =>
-        await Shell.Current.GoToAsync(nameof(UsersPage));
 
     [RelayCommand]
     private async Task AppearingAsync()

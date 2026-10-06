@@ -5,7 +5,7 @@
              x:Class="Flexispace.Mobile.Views.BookingDetailPage"
              x:DataType="vm:BookingDetailViewModel"
              Title="Booking"
-             BackgroundColor="{StaticResource BrandIvory}">
+             BackgroundColor="{DynamicResource BrandPage}">
 
     <ScrollView>
         <VerticalStackLayout Padding="16,12,16,28" Spacing="14" MaximumWidthRequest="480" HorizontalOptions="Center">
@@ -42,13 +42,13 @@
                     IsVisible="{Binding Message, Converter={StaticResource StringNotEmptyConverter}}"
                     BackgroundColor="#22C4A035"
                     Stroke="{StaticResource BrandGold}">
-                <Label Text="{Binding Message}" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" FontSize="13" />
+                <Label Text="{Binding Message}" TextColor="{DynamicResource BrandGoldDeep}" FontAttributes="Bold" FontSize="13" />
             </Border>
 
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                 <Border Style="{StaticResource StatTile}">
                     <VerticalStackLayout Spacing="2">
-                        <Label Text="{Binding Booking.Start, StringFormat='{0:HH:mm}'}" Style="{StaticResource StatNumber}" FontSize="20" TextColor="{StaticResource BrandGoldDeep}" />
+                        <Label Text="{Binding Booking.Start, StringFormat='{0:HH:mm}'}" Style="{StaticResource StatNumber}" FontSize="20" TextColor="{DynamicResource BrandGoldDeep}" />
                         <Label Text="Starts" Style="{StaticResource StatCaption}" />
                     </VerticalStackLayout>
                 </Border>
@@ -71,8 +71,8 @@
                     <Grid ColumnDefinitions="108,*" Padding="16,14" ColumnSpacing="8">
                         <Label Text="WHEN" Style="{StaticResource EyebrowLabel}" VerticalOptions="Start" />
                         <VerticalStackLayout Grid.Column="1" Spacing="2">
-                            <Label Text="{Binding Booking.Start, StringFormat='{0:dddd, d MMMM yyyy}'}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="15" />
-                            <Label Text="{Binding WhenRange}" TextColor="{StaticResource BrandMuted}" FontSize="13" />
+                            <Label Text="{Binding Booking.Start, StringFormat='{0:dddd, d MMMM yyyy}'}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="15" />
+                            <Label Text="{Binding WhenRange}" TextColor="{DynamicResource BrandMuted}" FontSize="13" />
                         </VerticalStackLayout>
                     </Grid>
                     <BoxView Style="{StaticResource SectionRule}" Margin="16,0" />
@@ -80,8 +80,8 @@
                     <Grid ColumnDefinitions="108,*" Padding="16,14" ColumnSpacing="8">
                         <Label Text="BOOKED BY" Style="{StaticResource EyebrowLabel}" VerticalOptions="Start" />
                         <VerticalStackLayout Grid.Column="1" Spacing="2">
-                            <Label Text="{Binding Booking.BookerName}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="15" />
-                            <Label Text="{Binding Booking.Company}" TextColor="{StaticResource BrandMuted}" FontSize="13" />
+                            <Label Text="{Binding Booking.BookerName}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="15" />
+                            <Label Text="{Binding Booking.Company}" TextColor="{DynamicResource BrandMuted}" FontSize="13" />
                         </VerticalStackLayout>
                     </Grid>
                     <BoxView Style="{StaticResource SectionRule}" Margin="16,0" IsVisible="{Binding HasExtraDetails}" />
@@ -89,14 +89,14 @@
                     <Grid ColumnDefinitions="108,*" Padding="16,14" ColumnSpacing="8"
                           IsVisible="{Binding HasOutlook}">
                         <Label Text="OUTLOOK" Style="{StaticResource EyebrowLabel}" VerticalOptions="Center" />
-                        <Label Grid.Column="1" Text="{Binding Booking.OutlookEventId}" TextColor="{StaticResource BrandInk}" FontSize="13" LineBreakMode="TailTruncation" />
+                        <Label Grid.Column="1" Text="{Binding Booking.OutlookEventId}" TextColor="{DynamicResource BrandInk}" FontSize="13" LineBreakMode="TailTruncation" />
                     </Grid>
                     <BoxView Style="{StaticResource SectionRule}" Margin="16,0" IsVisible="{Binding HasNotes}" />
 
                     <Grid ColumnDefinitions="108,*" Padding="16,14" ColumnSpacing="8"
                           IsVisible="{Binding HasNotes}">
                         <Label Text="NOTES" Style="{StaticResource EyebrowLabel}" VerticalOptions="Start" />
-                        <Label Grid.Column="1" Text="{Binding Booking.Notes}" TextColor="{StaticResource BrandInk}" FontSize="14" LineBreakMode="WordWrap" />
+                        <Label Grid.Column="1" Text="{Binding Booking.Notes}" TextColor="{DynamicResource BrandInk}" FontSize="14" LineBreakMode="WordWrap" />
                     </Grid>
                 </VerticalStackLayout>
             </Border>
@@ -107,7 +107,7 @@
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="x:String">
                             <Border Style="{StaticResource PerkChip}" Margin="0,0,8,8" Padding="12,8">
-                                <Label Text="{Binding .}" TextColor="{StaticResource BrandInk}" FontSize="12" FontAttributes="Bold" />
+                                <Label Text="{Binding .}" TextColor="{DynamicResource BrandInk}" FontSize="12" FontAttributes="Bold" />
                             </Border>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
@@ -120,11 +120,41 @@
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="x:String">
                             <Border Style="{StaticResource PerkChip}" Margin="0,0,8,8" Padding="12,8">
-                                <Label Text="{Binding .}" TextColor="{StaticResource BrandInk}" FontSize="12" FontAttributes="Bold" />
+                                <Label Text="{Binding .}" TextColor="{DynamicResource BrandInk}" FontSize="12" FontAttributes="Bold" />
                             </Border>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </FlexLayout>
+            </VerticalStackLayout>
+
+            <VerticalStackLayout IsVisible="{Binding CanEditStatus}" Spacing="10">
+                <Grid ColumnDefinitions="Auto,*">
+                    <Border Style="{StaticResource SectionIndexBadge}">
+                        <Label Text="STATUS" TextColor="{StaticResource BrandBlack}" FontSize="11" FontAttributes="Bold" />
+                    </Border>
+                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                        <Label Text="Edit booking status" Style="{StaticResource SectionTitle}" FontSize="18" />
+                        <Label Text="Confirmed, Cancelled, or Completed. Bookings are confirmed when created." Style="{StaticResource MutedLabel}" FontSize="12" />
+                    </VerticalStackLayout>
+                </Grid>
+
+                <Border Style="{StaticResource ElevatedCard}" Padding="16">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="STATUS" Style="{StaticResource MutedLabel}" FontSize="11" FontAttributes="Bold" />
+                        <Border BackgroundColor="{DynamicResource BrandSurface}"
+                                Stroke="{DynamicResource BrandMuted}" StrokeThickness="1"
+                                StrokeShape="RoundRectangle 8" Padding="12,2">
+                            <Picker x:Name="StatusPicker"
+                                    Title="Select status"
+                                    ItemsSource="{Binding EditableStatuses}"
+                                    SelectedItem="{Binding SelectedStatus}"
+                                    TextColor="{DynamicResource BrandInk}"
+                                    TitleColor="{DynamicResource BrandMuted}"
+                                    BackgroundColor="Transparent" />
+                        </Border>
+                        <Button Text="Save status" Clicked="OnSaveStatusClicked" Style="{StaticResource GoldButton}" />
+                    </VerticalStackLayout>
+                </Border>
             </VerticalStackLayout>
 
             <VerticalStackLayout IsVisible="{Binding CanEdit}" Spacing="10">
@@ -133,8 +163,8 @@
                         <Label Text="EDIT" TextColor="{StaticResource BrandBlack}" FontSize="11" FontAttributes="Bold" />
                     </Border>
                     <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
-                        <Label Text="Reschedule this booking" Style="{StaticResource SectionTitle}" FontSize="18" />
-                        <Label Text="Date, start, end, and headcount." Style="{StaticResource MutedLabel}" FontSize="12" />
+                        <Label Text="Edit booking details" Style="{StaticResource SectionTitle}" FontSize="18" />
+                        <Label Text="Date, start, end, headcount, and notes." Style="{StaticResource MutedLabel}" FontSize="12" />
                     </VerticalStackLayout>
                 </Grid>
 
@@ -142,56 +172,53 @@
                     <VerticalStackLayout Spacing="12">
                         <HorizontalStackLayout Spacing="8">
                             <Label Style="{StaticResource MaterialGlyph}" Text="&#xe935;" FontSize="18" TextColor="{StaticResource BrandGold}" />
-                            <Label Text="Date" TextColor="{StaticResource BrandMuted}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
+                            <Label Text="Date" TextColor="{DynamicResource BrandMuted}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
                         </HorizontalStackLayout>
-                        <DatePicker Date="{Binding EditDate}" TextColor="{StaticResource BrandInk}" />
+                        <DatePicker x:Name="EditDatePicker" Date="{Binding EditDate}" TextColor="{DynamicResource BrandInk}" />
 
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
                             <VerticalStackLayout Spacing="6">
                                 <HorizontalStackLayout Spacing="8">
                                     <Label Style="{StaticResource MaterialGlyph}" Text="&#xe8b5;" FontSize="16" TextColor="{StaticResource BrandGold}" />
-                                    <Label Text="Starts" TextColor="{StaticResource BrandMuted}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
+                                    <Label Text="Starts" TextColor="{DynamicResource BrandMuted}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
                                 </HorizontalStackLayout>
-                                <TimePicker Time="{Binding EditStart}" TextColor="{StaticResource BrandInk}" />
+                                <TimePicker x:Name="EditStartPicker" Time="{Binding EditStart}" TextColor="{DynamicResource BrandInk}" />
                             </VerticalStackLayout>
                             <VerticalStackLayout Grid.Column="1" Spacing="6">
                                 <HorizontalStackLayout Spacing="8">
                                     <Label Style="{StaticResource MaterialGlyph}" Text="&#xe192;" FontSize="16" TextColor="{StaticResource BrandGold}" />
-                                    <Label Text="Ends" TextColor="{StaticResource BrandMuted}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
+                                    <Label Text="Ends" TextColor="{DynamicResource BrandMuted}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
                                 </HorizontalStackLayout>
-                                <TimePicker Time="{Binding EditEnd}" TextColor="{StaticResource BrandInk}" />
+                                <TimePicker x:Name="EditEndPicker" Time="{Binding EditEnd}" TextColor="{DynamicResource BrandInk}" />
                             </VerticalStackLayout>
                         </Grid>
 
                         <HorizontalStackLayout Spacing="8">
                             <Label Style="{StaticResource MaterialGlyph}" Text="&#xe7fb;" FontSize="18" TextColor="{StaticResource BrandGold}" />
-                            <Label Text="Attendees" TextColor="{StaticResource BrandMuted}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
+                            <Label Text="Attendees" TextColor="{DynamicResource BrandMuted}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
                         </HorizontalStackLayout>
-                        <Entry Text="{Binding AttendeesText}" Keyboard="Numeric" Placeholder="How many people?" Style="{StaticResource FieldEntry}" />
+                        <Entry x:Name="AttendeesEntry" Text="{Binding AttendeesText}" Keyboard="Numeric" Placeholder="How many people?" Style="{StaticResource FieldEntry}" />
 
                         <HorizontalStackLayout Spacing="8">
                             <Label Style="{StaticResource MaterialGlyph}" Text="&#xe0d8;" FontSize="18" TextColor="{StaticResource BrandGold}" />
-                            <Label Text="Notes" TextColor="{StaticResource BrandMuted}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
+                            <Label Text="Notes" TextColor="{DynamicResource BrandMuted}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
                         </HorizontalStackLayout>
-                        <Editor Text="{Binding Notes}"
+                        <Editor x:Name="NotesEditor"
+                                Text="{Binding Notes}"
                                 Placeholder="Anything the room should know"
                                 AutoSize="TextChanges"
                                 HeightRequest="80"
-                                TextColor="{StaticResource BrandInk}"
-                                PlaceholderColor="{StaticResource BrandMuted}"
-                                BackgroundColor="{StaticResource BrandSurface}" />
+                                TextColor="{DynamicResource BrandInk}"
+                                PlaceholderColor="{DynamicResource BrandMuted}"
+                                BackgroundColor="{DynamicResource BrandSurface}" />
                     </VerticalStackLayout>
                 </Border>
 
-                <Button Text="Save changes" Command="{Binding SaveEditsCommand}" Style="{StaticResource GoldButton}" />
+                <Button Text="Save changes" Clicked="OnSaveChangesClicked" Style="{StaticResource GoldButton}" />
+                <Button Text="Cancel edits"
+                        Clicked="OnCancelEditsClicked"
+                        Style="{StaticResource GhostButton}" />
             </VerticalStackLayout>
-
-            <Button Text="Cancel booking"
-                    Command="{Binding CancelCommand}"
-                    IsVisible="{Binding CanCancel}"
-                    Style="{StaticResource GhostButton}"
-                    TextColor="{StaticResource BrandDanger}"
-                    BorderColor="{StaticResource BrandDanger}" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

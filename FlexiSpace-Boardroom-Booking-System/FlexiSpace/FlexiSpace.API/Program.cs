@@ -173,7 +173,6 @@ namespace FlexiSpace.API
                     // Known FlexiSpace registrations (safe defaults if secrets omit the extras).
                     AddAudience("77163347-59be-48f4-8675-535af30a3a53");
                     AddAudience("85378c65-ead1-4b71-956a-389142bd3342");
-                    AddAudience("300b9a6d-f490-4342-9cd0-a0f9bc23f2b5");
 
                     if (audiences.Count > 0)
                         options.TokenValidationParameters.ValidAudiences = audiences;

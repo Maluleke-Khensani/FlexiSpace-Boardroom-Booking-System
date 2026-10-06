@@ -231,5 +231,63 @@ namespace FlexiSpace.Infrastructure.services
             await _context.SaveChangesAsync();
             return user;
         }
+
+        public async Task<string?> DeleteUserAsync(int id, int actingUserId)
+        {
+            if (id == actingUserId)
+                return "You cannot remove your own account.";
+
+            var user = await _context.Users.FindAsync(id);
+            if (user == null)
+                return "User not found.";
+
+            var bookings = await _context.Bookings
+                .Where(b => b.UserId == id)
+                .ToListAsync();
+            if (bookings.Count > 0)
+                _context.Bookings.RemoveRange(bookings);
+
+            var edited = await _context.Bookings
+                .Where(b => b.ModifiedById == id)
+                .ToListAsync();
+            foreach (var booking in edited)
+                booking.ModifiedById = null;
+
+            var cancelled = await _context.Bookings
+                .Where(b => b.CancelledById == id)
+                .ToListAsync();
+            foreach (var booking in cancelled)
+                booking.CancelledById = null;
+
+            var notifications = await _context.Notifications
+                .Where(n => n.UserId == id)
+                .ToListAsync();
+            if (notifications.Count > 0)
+                _context.Notifications.RemoveRange(notifications);
+
+            var auditLogs = await _context.AuditLogs
+                .Where(a => a.UserId == id)
+                .ToListAsync();
+            if (auditLogs.Count > 0)
+                _context.AuditLogs.RemoveRange(auditLogs);
+
+            var blocks = await _context.BlockedPeriods
+                .Where(b => b.CreatedById == id)
+                .ToListAsync();
+            foreach (var block in blocks)
+                block.CreatedById = actingUserId;
+
+            _context.Users.Remove(user);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                return "This user could not be removed because other records still reference them.";
+            }
+
+            return null;
+        }
     }
 }

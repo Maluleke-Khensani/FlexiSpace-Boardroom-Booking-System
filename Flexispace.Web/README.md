@@ -1,52 +1,65 @@
 # Flexispace Web
 
-**Web application** — UI designed and built by **Khumo-Thato Chabeli (ST10448834)**; connected to the FlexiSpace API by Denzel.
+**Prototype web application** — completed by **Khumo-Thato Chabeli (ST10448834)**
 
-This is the browser-based counterpart to the Flexispace mobile app. Staff, centre managers, administrators and clients sign in with their Microsoft (Entra ID) account and manage boardroom bookings through an interface aligned with the [Flexispace brand](https://flexispace.net.za).
+This project is the browser-based counterpart to the Flexispace mobile app. It demonstrates how staff, centre managers, administrators, and clients can manage meeting-room bookings through a professional web interface aligned with the [Flexispace brand](https://flexispace.net.za).
 
 ## What it does
 
-- **Browse and book boardrooms** across Centurion, Houghton Estate and Eagle Canyon with a four-step wizard (location → room → date/time → details)
-- **View rooms by location** in map and list layouts
-- **Track bookings** and open a booking to edit or cancel it
-- **Receive alerts** for confirmations, reminders and cancellations
-- **Manage console** for centre managers and administrators
+Flexispace Web lets users:
 
-All data comes from the FlexiSpace API (`FlexiSpace/FlexiSpace.API`); what a user can see and do depends on their role in the API's `Users` table.
+- **Browse and book boardrooms** across Centurion, Houghton, and Eagle Canyon via a four-step wizard (location → room → date/time → details)
+- **View live room availability** with location filters and map/list layouts
+- **Manage bookings** — approve or decline pending requests (Centre Manager / Admin roles)
+- **Track personal bookings** and open booking detail pages for edit, cancel, or approval actions
+- **Receive alerts** for confirmations, reminders, and cancellations
+- **Switch demo roles** from the profile page to preview different permission levels
+
+The app uses **mock data and services** (no live API). It is intended as a functional prototype for demonstration and assessment purposes.
 
 ## Tech stack
 
-- **ASP.NET Core Blazor Server** (.NET 10, interactive server render mode)
-- **Microsoft.Identity.Web** for Microsoft sign-in and calling the API
-- **FlexiSpace.Prototype.Core** — shared models, interfaces and helpers for this app
-- **CommunityToolkit.Mvvm** — view models with `RelayCommand`
+- **ASP.NET Core Blazor Server** (interactive server render mode)
+- **Flexispace.Core** — shared models, helpers, and mock services
+- **CommunityToolkit.Mvvm** — ViewModels with RelayCommand
 - Custom CSS design system (`wwwroot/flexispace.css`) matching Flexispace branding
+
+This folder is a **standalone web project**. It does not include the FlexiSpace API or the MAUI mobile app. Open `Flexispace.Web.sln` to work on the web client only.
 
 ## How to run
 
-1. Start the API first (see the root `README.md`).
-2. Set this app's user secrets (Entra tenant, client ID, client secret and the API scope); the commands are in the root `README.md`.
-3. From `Flexispace.Web/FlexiSpace.Web`:
+From this folder (`Flexispace.Web`):
 
 ```powershell
-dotnet run --launch-profile https
+dotnet run --project FlexiSpace.Web
 ```
 
-Or open `Flexispace.Web.sln` in Visual Studio and run the `https` profile. Then open `https://localhost:7269` (or the URL shown in the terminal).
+Or open `Flexispace.Web.sln` in Visual Studio / Cursor and run `Flexispace.Web`.
+
+Then open the URL shown in the terminal (typically `http://localhost:5282`).
+
+## Demo accounts
+
+Password for all accounts: **`demo123`**
+
+| Email | Role |
+|-------|------|
+| `staff@flexispace.net.za` | Staff — book and cancel own bookings |
+| `rebecca@flexispace.net.za` | Centre Manager — approve, block, edit |
+| `admin@flexispace.net.za` | Administrator — full scope |
+| `client@example.com` | Client — self-service booking |
 
 ## Project structure
 
 | Folder | Purpose |
 |--------|---------|
-| `FlexiSpace.Web/Components/Pages/` | Routable Blazor pages (one per app screen) |
-| `FlexiSpace.Web/Components/Shared/` | Reusable UI (room map, choice grids, modals) |
-| `FlexiSpace.Web/Components/Layout/` | App shell with sidebar navigation |
-| `FlexiSpace.Web/ViewModels/` | Page logic and state (MVVM) |
-| `FlexiSpace.Web/Services/Real/` | API client, token handling and the services that call the API |
-| `FlexiSpace.Web/Services/` | Navigation, privacy consent and auth-state helpers |
-| `FlexiSpace.Web/Helpers/` | Display formatting utilities |
-| `FlexiSpace.Web/wwwroot/` | CSS, JavaScript, and location/room images |
-| `FlexiSpace.Prototype.Core/` | Models, service interfaces and helpers shared by the pages |
+| `Components/Pages/` | Routable Blazor pages (one per app screen) |
+| `Components/Shared/` | Reusable UI (room map, choice grids, modals) |
+| `Components/Layout/` | App shell with sidebar navigation |
+| `ViewModels/` | Page logic and state (MVVM pattern) |
+| `Services/` | Web-specific navigation and auth UI bridge |
+| `Helpers/` | Display formatting utilities |
+| `wwwroot/` | CSS, JavaScript, and location/room images |
 
 ## Routes
 
@@ -56,7 +69,7 @@ Or open `Flexispace.Web.sln` in Visual Studio and run the `https` profile. Then 
 | `/login` | Sign in |
 | `/home` | Dashboard |
 | `/book` | Book a room wizard |
-| `/live` | Rooms by location |
+| `/live` | Live availability |
 | `/manage` | Manage console |
 | `/notifications` | Alerts |
 | `/profile` | User profile |

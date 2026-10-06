@@ -1,3 +1,4 @@
+using Flexispace.Mobile.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -45,7 +46,7 @@ public static class ChatbotWindowOverlay
         ("Where are your centres?",
             "Flexispace has professionally appointed rooms in Houghton Estate, Centurion, and Eagle Canyon."),
         ("When is my booking confirmed?",
-            "Immediately. The system confirms every booking automatically — no Centre Manager or Admin approval step."),
+            "Immediately. Every booking is confirmed automatically when it is made. From Manage, a Centre Manager can open a booking to change its status or edit the details."),
         ("Can I combine rooms?",
             "At Eagle Canyon, Thingamajik and Whachamacallit open into one suite for larger groups (up to 14 seats). Pick the Combined option when booking, or follow the tip if your headcount is too big for one room."),
         ("How do I cancel?",
@@ -141,7 +142,7 @@ public static class ChatbotWindowOverlay
             IsLightDismissEnabled = false,
             ShouldConstrainToRootBounds = true,
             XamlRoot = root.XamlRoot,
-            IsOpen = true
+            IsOpen = AppPreferences.ShowAssistant
         };
 
         _sheetPopup = new Popup
@@ -321,5 +322,17 @@ public static class ChatbotWindowOverlay
         _offsetY = Math.Clamp(_offsetY, 8, Math.Max(8, h - FabSize - 8));
         _fabPopup.HorizontalOffset = _offsetX;
         _fabPopup.VerticalOffset = _offsetY;
+    }
+
+    /// <summary>Show or hide the floating assistant from Settings.</summary>
+    public static void SetVisible(bool visible)
+    {
+        if (_fabPopup is null)
+            return;
+
+        if (!visible && _sheetPopup is not null)
+            _sheetPopup.IsOpen = false;
+
+        _fabPopup.IsOpen = visible;
     }
 }

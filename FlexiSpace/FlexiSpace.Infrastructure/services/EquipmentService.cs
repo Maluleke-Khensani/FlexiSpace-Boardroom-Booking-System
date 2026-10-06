@@ -1,10 +1,9 @@
-﻿using FlexiSpace.Core.Common;
-using FlexiSpace.Core.Entities;
+﻿using FlexiSpace.Core.Entities;
 using FlexiSpace.Core.Services;
 using FlexiSpace.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
-namespace FlexiSpace.Infrastructure.Services
+namespace FlexiSpace.Infrastructure.services
 {
     public class EquipmentService : IEquipmentService
     {
@@ -17,16 +16,26 @@ namespace FlexiSpace.Infrastructure.Services
 
         public async Task<IEnumerable<Equipment>> GetAllEquipmentAsync()
         {
-            return await _context.Equipments.ToListAsync();
+            return await _context.Equipments
+                .OrderBy(e => e.Name)
+                .ToListAsync();
         }
 
         public async Task<Equipment?> GetEquipmentByIdAsync(int id)
         {
-            return await _context.Equipments.FindAsync(id);
+            return await _context.Equipments
+                .FirstOrDefaultAsync(e => e.Id == id);
         }
 
         public async Task<Equipment> CreateEquipmentAsync(Equipment equipment)
         {
+            equipment.Name = equipment.Name.Trim();
+            equipment.Description = equipment.Description.Trim();
+
+            // New equipment is available by default.
+            equipment.IsActive = true;
+            equipment.CreatedAt = DateTime.UtcNow;
+
             _context.Equipments.Add(equipment);
 
             await _context.SaveChangesAsync();
@@ -34,17 +43,24 @@ namespace FlexiSpace.Infrastructure.Services
             return equipment;
         }
 
-        public async Task<bool> UpdateEquipmentAsync(int id, Equipment equipment)
+        public async Task<bool> UpdateEquipmentAsync(
+            int id,
+            Equipment equipment)
         {
-            var existingEquipment = await _context.Equipments.FindAsync(id);
+            var existingEquipment = await _context.Equipments
+                .FirstOrDefaultAsync(e => e.Id == id);
 
             if (existingEquipment == null)
             {
                 return false;
             }
 
-            existingEquipment.Name = equipment.Name;
-            existingEquipment.Description = equipment.Description;
+            existingEquipment.Name = equipment.Name.Trim();
+
+            existingEquipment.Description =
+                equipment.Description.Trim();
+
+            existingEquipment.IsActive = equipment.IsActive;
 
             await _context.SaveChangesAsync();
 
@@ -53,24 +69,23 @@ namespace FlexiSpace.Infrastructure.Services
 
         public async Task<bool> DeleteEquipmentAsync(int id)
         {
-            var equipment = await _context.Equipments.FindAsync(id);
+            var equipment = await _context.Equipments
+                .FirstOrDefaultAsync(e => e.Id == id);
 
             if (equipment == null)
             {
                 return false;
             }
 
-            // NEW: delete guard. Equipment still attached to a boardroom's
-            // inventory, or referenced by a booking's requested extras,
-            // can't be removed - that would strip it out from under
-            // records that still expect it.
-            var inUse = await _context.BoardroomEquipments.AnyAsync(be => be.EquipmentId == id)
-                || await _context.BookingEquipments.AnyAsync(be => be.EquipmentId == id);
+            // Equipment that has been requested in a booking
+            // must not be permanently deleted because it forms
+            // part of booking history.
+            var isUsedInBooking = await _context.BookingEquipments
+                .AnyAsync(be => be.EquipmentId == id);
 
-            if (inUse)
+            if (isUsedInBooking)
             {
-                throw new BusinessRuleException(
-                    "This equipment can't be deleted because it's still assigned to a boardroom or booking.");
+                return false;
             }
 
             _context.Equipments.Remove(equipment);

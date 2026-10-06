@@ -1,6 +1,4 @@
-using FlexiSpace.API.Authorization;
-using FlexiSpace.API.Controllers.Base;
-using FlexiSpace.Core.Common;
+﻿using FlexiSpace.API.Authorization;
 using FlexiSpace.Core.DTOs.Catering;
 using FlexiSpace.Core.Entities;
 using FlexiSpace.Core.Enums;
@@ -10,25 +8,20 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FlexiSpace.API.Controllers
 {
-    // Any authenticated user can read the catering catalogue (they need it
-    // to request items on a booking). Managing the catalogue itself is
-    // Administrator-only.
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class CateringController : AuditableControllerBase
+    public class CateringController : ControllerBase
     {
         private readonly ICateringService _cateringService;
 
-        public CateringController(
-            ICateringService cateringService,
-            IAuditService auditService,
-            ICurrentUserService currentUserService)
-            : base(auditService, currentUserService)
+        public CateringController(ICateringService cateringService)
         {
             _cateringService = cateringService;
         }
 
+        // GET: api/Catering
+        // Authenticated users can view available catering options.
         [HttpGet]
         public async Task<IActionResult> GetAllCatering()
         {
@@ -45,14 +38,20 @@ namespace FlexiSpace.API.Controllers
             return Ok(response);
         }
 
-        [HttpGet("{id}")]
+        // GET: api/Catering/{id}
+        [HttpGet("{id:int}")]
         public async Task<IActionResult> GetCateringById(int id)
         {
+            if (id <= 0)
+            {
+                return BadRequest("Catering ID must be greater than 0.");
+            }
+
             var catering = await _cateringService.GetCateringByIdAsync(id);
 
             if (catering == null)
             {
-                return NotFound();
+                return NotFound($"Catering item with ID {id} was not found.");
             }
 
             var response = new CateringResponseDto
@@ -66,23 +65,29 @@ namespace FlexiSpace.API.Controllers
             return Ok(response);
         }
 
-        [AuthorizeRoles(UserRole.Administrator, UserRole.CentreManager)]
+        // POST: api/Catering
+        // Only administrators can create catering options.
         [HttpPost]
-        public async Task<IActionResult> CreateCatering(CateringCreateDto dto)
+        [AuthorizeRoles(UserRole.Administrator)]
+        public async Task<IActionResult> CreateCatering(
+            [FromBody] CateringCreateDto dto)
         {
+            if (string.IsNullOrWhiteSpace(dto.Name))
+            {
+                return BadRequest("Catering name is required.");
+            }
+
             var catering = new Catering
             {
-                Name = dto.Name,
-                Description = dto.Description
+                Name = dto.Name.Trim(),
+                Description = string.IsNullOrWhiteSpace(dto.Description)
+                    ? null
+                    : dto.Description.Trim(),
+                IsActive = true
             };
 
-            var createdCatering = await _cateringService.CreateCateringAsync(catering);
-
-            await LogActionAsync(
-                AuditAction.Create,
-                nameof(Catering),
-                createdCatering.Id.ToString(),
-                newValues: new { createdCatering.Name, createdCatering.Description });
+            var createdCatering =
+                await _cateringService.CreateCateringAsync(catering);
 
             var response = new CateringResponseDto
             {
@@ -92,82 +97,78 @@ namespace FlexiSpace.API.Controllers
                 IsActive = createdCatering.IsActive
             };
 
-            return CreatedAtAction(nameof(GetCateringById),
+            return CreatedAtAction(
+                nameof(GetCateringById),
                 new { id = response.Id },
                 response);
         }
 
-        // Administrator-only.
+        // PUT: api/Catering/{id}
+        // Only administrators can update catering options.
+        [HttpPut("{id:int}")]
         [AuthorizeRoles(UserRole.Administrator)]
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateCatering(int id, CateringUpdateDto dto)
+        public async Task<IActionResult> UpdateCatering(
+            int id,
+            [FromBody] CateringUpdateDto dto)
         {
-            var before = await _cateringService.GetCateringByIdAsync(id);
-
-            if (before == null)
+            if (id <= 0)
             {
-                return NotFound();
+                return BadRequest("Catering ID must be greater than 0.");
+            }
+
+            if (string.IsNullOrWhiteSpace(dto.Name))
+            {
+                return BadRequest("Catering name is required.");
             }
 
             var catering = new Catering
             {
-                Name = dto.Name,
-                Description = dto.Description,
+                Name = dto.Name.Trim(),
+                Description = string.IsNullOrWhiteSpace(dto.Description)
+                    ? null
+                    : dto.Description.Trim(),
                 IsActive = dto.IsActive
             };
 
-            var updated = await _cateringService.UpdateCateringAsync(id, catering);
+            var updated =
+                await _cateringService.UpdateCateringAsync(id, catering);
 
             if (!updated)
             {
-                return NotFound();
+                return NotFound($"Catering item with ID {id} was not found.");
             }
-
-            await LogActionAsync(
-                AuditAction.Update,
-                nameof(Catering),
-                id.ToString(),
-                oldValues: new { before.Name, before.Description, before.IsActive },
-                newValues: new { dto.Name, dto.Description, dto.IsActive });
 
             return NoContent();
         }
 
-        // Administrator-only.
+        // DELETE: api/Catering/{id}
+        // Only administrators can delete catering options.
+        [HttpDelete("{id:int}")]
         [AuthorizeRoles(UserRole.Administrator)]
-        [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCatering(int id)
         {
-            var before = await _cateringService.GetCateringByIdAsync(id);
-
-            if (before == null)
+            if (id <= 0)
             {
-                return NotFound();
+                return BadRequest("Catering ID must be greater than 0.");
             }
 
-            // DeleteCateringAsync can throw BusinessRuleException (catering
-            // item still requested on a booking).
-            try
+            var catering = await _cateringService.GetCateringByIdAsync(id);
+
+            if (catering == null)
             {
-                var deleted = await _cateringService.DeleteCateringAsync(id);
-
-                if (!deleted)
-                {
-                    return NotFound();
-                }
-
-                await LogActionAsync(
-                    AuditAction.Delete,
-                    nameof(Catering),
-                    id.ToString(),
-                    oldValues: new { before.Name, before.Description });
-
-                return NoContent();
+                return NotFound($"Catering item with ID {id} was not found.");
             }
-            catch (BusinessRuleException ex)
+
+            var deleted = await _cateringService.DeleteCateringAsync(id);
+
+            if (!deleted)
             {
-                return BadRequest(new { errors = ex.Errors });
+                return Conflict(
+                    "This catering item cannot be deleted because it is linked to an existing booking. " +
+                    "Set IsActive to false instead.");
             }
+
+            return NoContent();
         }
     }
 }

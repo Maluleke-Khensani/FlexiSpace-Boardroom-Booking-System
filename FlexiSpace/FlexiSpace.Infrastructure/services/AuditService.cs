@@ -4,7 +4,7 @@ using FlexiSpace.Core.Services;
 using FlexiSpace.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
-namespace FlexiSpace.Infrastructure.Services
+namespace FlexiSpace.Infrastructure.services
 {
     public class AuditService : IAuditService
     {
@@ -47,7 +47,6 @@ namespace FlexiSpace.Infrastructure.Services
         public async Task<IReadOnlyList<AuditLog>> GetLogsForEntityAsync(string entityName, string entityId)
         {
             return await _context.AuditLogs
-                .Include(a => a.User)
                 .Where(a => a.EntityName == entityName && a.EntityId == entityId)
                 .OrderByDescending(a => a.Timestamp)
                 .ToListAsync();
@@ -61,7 +60,6 @@ namespace FlexiSpace.Infrastructure.Services
             }
 
             return await _context.AuditLogs
-                .Include(a => a.User)
                 .OrderByDescending(a => a.Timestamp)
                 .Take(count)
                 .ToListAsync();

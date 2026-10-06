@@ -1,38 +1,35 @@
-using FlexiSpace.API.Authorization;
-using FlexiSpace.API.Controllers.Base;
-using FlexiSpace.Core.Common;
-using FlexiSpace.Core.DTOs.Location;
-using FlexiSpace.Core.Entities;
-using FlexiSpace.Core.Enums;
-using FlexiSpace.Core.Services;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using FlexiSpace.API.Authorization;
+using FlexiSpace.Core.Enums;
+using FlexiSpace.Core.DTOs.Location;
+using FlexiSpace.Core.Services;
+using FlexiSpace.Core.Entities;
 
 namespace FlexiSpace.API.Controllers
 {
-    // Any authenticated user can read locations (branches). Creating,
-    // editing or deleting a branch is Administrator-only.
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class LocationController : AuditableControllerBase
+    public class LocationController : ControllerBase
     {
         private readonly ILocationService _locationService;
+        private readonly ILocationCalendarAccountService _locationCalendarAccountService;
 
-        public LocationController(
-            ILocationService locationService,
-            IAuditService auditService,
-            ICurrentUserService currentUserService)
-            : base(auditService, currentUserService)
+        public LocationController(ILocationService locationService, ILocationCalendarAccountService locationCalendarAccountService)
         {
             _locationService = locationService;
+            _locationCalendarAccountService = locationCalendarAccountService;
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<IActionResult> GetAllLocations()
         {
+            // Retrieving all locations from the service and stroing them in a variable
             var locations = await _locationService.GetAllLocationsAsync();
 
+            //Mapping the locations to LocationResponseDto
             var response = locations.Select(location => new LocationResponseDto
             {
                 Id = location.Id,
@@ -44,58 +41,78 @@ namespace FlexiSpace.API.Controllers
             return Ok(response);
         }
 
-        // Administrator-only.
+        // Creates a calendar account for a location (e.g. centre manager calendar).
+        [HttpPost("calendar-accounts")]
         [AuthorizeRoles(UserRole.Administrator)]
+        public async Task<IActionResult> CreateLocationCalendarAccount([FromBody] LocationCalendarAccountCreateDto dto)
+        {
+            try
+            {
+                var account = await _locationCalendarAccountService.CreateAsync(dto);
+
+                var response = new LocationCalendarAccountResponseDto
+                {
+                    Id = account.Id,
+                    Email = account.Email,
+                    DisplayName = account.DisplayName,
+                    IsPrimary = account.IsPrimary,
+                    IsActive = account.IsActive,
+                    LocationId = account.LocationId,
+                    CreatedAt = account.CreatedAt
+                };
+
+                return CreatedAtAction(nameof(GetLocationById), new { id = account.LocationId }, response);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+        }
+
         [HttpPost]
+        [AuthorizeRoles(UserRole.Administrator)]
         public async Task<IActionResult> CreateLocation([FromBody] LocationCreateDto locationDto)
         {
+            // Convert the DTO received from the client into a Location entity
             var location = new Location
             {
                 Name = locationDto.Name,
                 Address = locationDto.Address
             };
 
-            // CreateLocationAsync can throw BusinessRuleException
-            // (duplicate name) - return it as 400 instead of an
-            // unhandled 500.
-            try
+            // Send the entity to the service to be saved
+            var createdLocation = await _locationService.CreateLocationAsync(location);
+
+            // Convert the saved entity back into a Response DTO
+            var response = new LocationResponseDto
             {
-                var createdLocation = await _locationService.CreateLocationAsync(location);
+                Id = createdLocation.Id,
+                Name = createdLocation.Name,
+                Address = createdLocation.Address
+            };
 
-                await LogActionAsync(
-                    AuditAction.Create,
-                    nameof(Location),
-                    createdLocation.Id.ToString(),
-                    newValues: new { createdLocation.Name, createdLocation.Address });
-
-                var response = new LocationResponseDto
-                {
-                    Id = createdLocation.Id,
-                    Name = createdLocation.Name,
-                    Address = createdLocation.Address
-                };
-
-                return CreatedAtAction(
-                    nameof(GetLocationById),
-                    new { id = response.Id },
-                    response);
-            }
-            catch (BusinessRuleException ex)
-            {
-                return BadRequest(new { errors = ex.Errors });
-            }
+            // Return HTTP 201 (Created)
+            return CreatedAtAction(
+                nameof(GetLocationById),
+                new { id = response.Id },
+                response);
         }
 
+
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetLocationById(int id)
         {
+            // Ask the service for the requested location
             var location = await _locationService.GetLocationByIdAsync(id);
 
+            // If no location exists, return HTTP 404
             if (location == null)
             {
                 return NotFound();
             }
 
+            // Convert the entity into a Response DTO
             var response = new LocationResponseDto
             {
                 Id = location.Id,
@@ -106,85 +123,48 @@ namespace FlexiSpace.API.Controllers
             return Ok(response);
         }
 
-        // Administrator-only.
-        [AuthorizeRoles(UserRole.Administrator)]
         [HttpPut("{id}")]
+        [AuthorizeRoles(UserRole.Administrator)]
         public async Task<IActionResult> UpdateLocation(int id, [FromBody] LocationUpdateDto locationDto)
         {
-            var before = await _locationService.GetLocationByIdAsync(id);
-
-            if (before == null)
-            {
-                return NotFound();
-            }
-
+            // Convert the Update DTO into a Location entity
             var location = new Location
             {
                 Name = locationDto.Name,
                 Address = locationDto.Address
             };
 
-            // Same as CreateLocation - UpdateLocationAsync can throw
-            // BusinessRuleException too.
-            try
-            {
-                var updated = await _locationService.UpdateLocationAsync(id, location);
+            // Ask the service to update the location
+            var updated = await _locationService.UpdateLocationAsync(id, location);
 
-                if (!updated)
-                {
-                    return NotFound();
-                }
-
-                await LogActionAsync(
-                    AuditAction.Update,
-                    nameof(Location),
-                    id.ToString(),
-                    oldValues: new { before.Name, before.Address },
-                    newValues: new { locationDto.Name, locationDto.Address });
-
-                return NoContent();
-            }
-            catch (BusinessRuleException ex)
-            {
-                return BadRequest(new { errors = ex.Errors });
-            }
-        }
-
-        // Administrator-only.
-        [AuthorizeRoles(UserRole.Administrator)]
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteLocation(int id)
-        {
-            var before = await _locationService.GetLocationByIdAsync(id);
-
-            if (before == null)
+            // If the location wasn't found, return 404
+            if (!updated)
             {
                 return NotFound();
             }
 
-            // DeleteLocationAsync can throw BusinessRuleException
-            // (boardrooms still assigned to this location).
-            try
-            {
-                var deleted = await _locationService.DeleteLocationAsync(id);
-
-                if (!deleted)
-                {
-                    return NotFound();
-                }
-
-                await LogActionAsync(
-                    AuditAction.Delete,
-                    nameof(Location),
-                    id.ToString(),
-                    oldValues: new { before.Name, before.Address });
-
-                return NoContent();
-            }
-            catch (BusinessRuleException ex)
-            {
-                return BadRequest(new { errors = ex.Errors });
-            }
+            // Return HTTP 204 (No Content)
+            return NoContent();
         }
+
+        [HttpDelete("{id}")]
+        [AuthorizeRoles(UserRole.Administrator)]
+        public async Task<IActionResult> DeleteLocation(int id)
+        {
+            // Ask the service to delete the location
+            var deleted = await _locationService.DeleteLocationAsync(id);
+
+            // Return 404 if the location doesn't exist
+            if (!deleted)
+            {
+                return NotFound();
+            }
+
+            // Return HTTP 204 (No Content)
+            return NoContent();
+        }
+
+
     }
 }
+

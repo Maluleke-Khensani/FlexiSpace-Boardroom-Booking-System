@@ -22,21 +22,47 @@ public partial class LoginViewModel(IAuthService auth) : ObservableObject
     [ObservableProperty] private bool isBusy;
 
     [RelayCommand]
-    private async Task SignInAsync()
+    private async Task LoginWithMicrosoftAsync()
     {
         if (IsBusy) return;
         IsBusy = true;
         ErrorMessage = null;
         try
         {
-            var result = await auth.SignInAsync();
-            if (!result.Succeeded)
+            var result = await auth.LoginWithMicrosoftAsync();
+            if (!result.Success)
             {
-                ErrorMessage = result.ErrorMessage;
+                ErrorMessage = result.Message;
+                await ActionFeedback.FailAsync(result.Message, "Sign-in blocked");
                 return;
             }
 
-            // Rebuild the Shell so the tab bar reflects this user's role from the start.
+            await ActionFeedback.SuccessAsync(result.Message, "Signed in");
+            await ShellReloader.ReloadAsync();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task UseDemoAsync(string email)
+    {
+        if (IsBusy) return;
+        IsBusy = true;
+        ErrorMessage = null;
+        try
+        {
+            var result = await auth.LoginAsync(email, "demo123");
+            if (!result.Success)
+            {
+                ErrorMessage = result.Message;
+                await ActionFeedback.FailAsync(result.Message, "Sign-in blocked");
+                return;
+            }
+
+            await ActionFeedback.SuccessAsync(result.Message, "Signed in");
             await ShellReloader.ReloadAsync();
         }
         finally

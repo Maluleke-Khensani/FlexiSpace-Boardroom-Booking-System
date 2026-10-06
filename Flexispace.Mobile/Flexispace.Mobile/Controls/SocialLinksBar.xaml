@@ -10,14 +10,14 @@
                FontAttributes="Bold"
                CharacterSpacing="0.6"
                HorizontalTextAlignment="Center"
-               TextColor="{StaticResource BrandMuted}" />
+               TextColor="{DynamicResource BrandMuted}" />
 
         <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
             <Border x:Name="FacebookChip"
                     StrokeThickness="1"
-                    Stroke="{StaticResource BrandLine}"
+                    Stroke="{DynamicResource BrandLine}"
                     StrokeShape="RoundRectangle 20"
-                    BackgroundColor="{StaticResource BrandSurface}"
+                    BackgroundColor="{DynamicResource BrandSurface}"
                     Padding="14,8">
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer Tapped="OnFacebookTapped" />
@@ -25,15 +25,15 @@
                 <Label Text="Facebook"
                        FontSize="12"
                        FontAttributes="Bold"
-                       TextColor="{StaticResource BrandInk}"
+                       TextColor="{DynamicResource BrandInk}"
                        VerticalOptions="Center" />
             </Border>
 
             <Border x:Name="InstagramChip"
                     StrokeThickness="1"
-                    Stroke="{StaticResource BrandLine}"
+                    Stroke="{DynamicResource BrandLine}"
                     StrokeShape="RoundRectangle 20"
-                    BackgroundColor="{StaticResource BrandSurface}"
+                    BackgroundColor="{DynamicResource BrandSurface}"
                     Padding="14,8">
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer Tapped="OnInstagramTapped" />
@@ -41,15 +41,15 @@
                 <Label Text="Instagram"
                        FontSize="12"
                        FontAttributes="Bold"
-                       TextColor="{StaticResource BrandInk}"
+                       TextColor="{DynamicResource BrandInk}"
                        VerticalOptions="Center" />
             </Border>
 
             <Border x:Name="LinkedInChip"
                     StrokeThickness="1"
-                    Stroke="{StaticResource BrandLine}"
+                    Stroke="{DynamicResource BrandLine}"
                     StrokeShape="RoundRectangle 20"
-                    BackgroundColor="{StaticResource BrandSurface}"
+                    BackgroundColor="{DynamicResource BrandSurface}"
                     Padding="14,8">
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer Tapped="OnLinkedInTapped" />
@@ -57,7 +57,7 @@
                 <Label Text="LinkedIn"
                        FontSize="12"
                        FontAttributes="Bold"
-                       TextColor="{StaticResource BrandInk}"
+                       TextColor="{DynamicResource BrandInk}"
                        VerticalOptions="Center" />
             </Border>
         </HorizontalStackLayout>

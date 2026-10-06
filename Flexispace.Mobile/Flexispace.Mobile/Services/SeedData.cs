@@ -58,6 +58,71 @@ public static class SeedData
         new() { Id = "eag-train", Name = "Training Room", LocationId = "eagle", Capacity = 16, Equipment = ["Projector", "Flip chart", "Teams Room"], ImageKey = "room_eag_train.jpg" }
     ];
 
+    public static readonly List<User> Users =
+    [
+        new()
+        {
+            Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            Name = "Thabo Staff",
+            Email = "staff@flexispace.net.za",
+            Password = "demo123",
+            Role = UserRole.Staff,
+            LocationId = "houghton"
+        },
+        new()
+        {
+            Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            Name = "Rebecca",
+            Email = "rebecca@flexispace.net.za",
+            Password = "demo123",
+            Role = UserRole.CentreManager,
+            LocationId = "houghton"
+        },
+        new()
+        {
+            Id = Guid.Parse("77777777-7777-7777-7777-777777777777"),
+            Name = "Centurion Manager",
+            Email = "centurion@flexispace.net.za",
+            Password = "demo123",
+            Role = UserRole.CentreManager,
+            LocationId = "centurion"
+        },
+        new()
+        {
+            Id = Guid.Parse("33333333-3333-3333-3333-333333333333"),
+            Name = "Admin User",
+            Email = "admin@flexispace.net.za",
+            Password = "demo123",
+            Role = UserRole.Administrator
+        },
+        new()
+        {
+            Id = Guid.Parse("44444444-4444-4444-4444-444444444444"),
+            Name = "Antoinette",
+            Email = "antoinette@flexispace.net.za",
+            Password = "demo123",
+            Role = UserRole.CentreManager,
+            LocationId = "eagle"
+        },
+        new()
+        {
+            Id = Guid.Parse("55555555-5555-5555-5555-555555555555"),
+            Name = "Lesego",
+            Email = "lesego@flexispace.net.za",
+            Password = "demo123",
+            Role = UserRole.CentreManager,
+            LocationId = "eagle"
+        },
+        new()
+        {
+            Id = Guid.Parse("66666666-6666-6666-6666-666666666666"),
+            Name = "Client Guest",
+            Email = "client@example.com",
+            Password = "demo123",
+            Role = UserRole.Client
+        }
+    ];
+
     public static readonly string[] EquipmentOptions =
         ["TV", "Projector", "Whiteboard", "Video conferencing", "Teams Room", "Flip chart", "HDMI cables"];
 

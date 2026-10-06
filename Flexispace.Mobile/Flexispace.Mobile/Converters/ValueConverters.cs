@@ -90,15 +90,23 @@ public class ChipSelectedConverter : IMultiValueConverter
     {
         var on = values.Length >= 2 &&
                  string.Equals(values[0]?.ToString() ?? string.Empty, values[1]?.ToString() ?? string.Empty, StringComparison.Ordinal);
+        var ink = ResourceColor("BrandInk", Color.FromArgb("#1A1A1A"));
+        var surface = ResourceColor("BrandSurface", Colors.White);
+        var line = ResourceColor("BrandLine", Color.FromArgb("#E4DFD6"));
         return parameter?.ToString() switch
         {
-            "fg" => on ? Color.FromArgb("#111111") : Color.FromArgb("#1A1A1A"),
-            "wash" => on ? Color.FromArgb("#26C4A035") : Colors.White,
-            "stroke" => on ? Color.FromArgb("#C4A035") : Color.FromArgb("#E4DFD6"),
+            "fg" => on ? Color.FromArgb("#111111") : ink,
+            "wash" => on ? Color.FromArgb("#26C4A035") : surface,
+            "stroke" => on ? Color.FromArgb("#C4A035") : line,
             "bool" => on,
             _ => on ? Color.FromArgb("#C4A035") : Colors.Transparent
         };
     }
+
+    private static Color ResourceColor(string key, Color fallback) =>
+        Application.Current?.Resources.TryGetValue(key, out var value) == true && value is Color color
+            ? color
+            : fallback;
 
     public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();

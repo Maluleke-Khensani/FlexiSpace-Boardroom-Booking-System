@@ -406,20 +406,20 @@
 
     <Style TargetType="Page" ApplyToDerivedTypes="True">
         <Setter Property="Padding" Value="0"/>
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource OffBlack}}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource BrandPage}" />
     </Style>
 
     <Style TargetType="Shell" ApplyToDerivedTypes="True">
-        <Setter Property="Shell.BackgroundColor" Value="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource OffBlack}}" />
-        <Setter Property="Shell.ForegroundColor" Value="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource SecondaryDarkText}}" />
-        <Setter Property="Shell.TitleColor" Value="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource SecondaryDarkText}}" />
+        <Setter Property="Shell.BackgroundColor" Value="{DynamicResource BrandPage}" />
+        <Setter Property="Shell.ForegroundColor" Value="{DynamicResource BrandInk}" />
+        <Setter Property="Shell.TitleColor" Value="{DynamicResource BrandInk}" />
         <Setter Property="Shell.DisabledColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray950}}" />
-        <Setter Property="Shell.UnselectedColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray200}}" />
+        <Setter Property="Shell.UnselectedColor" Value="{DynamicResource BrandMuted}" />
         <Setter Property="Shell.NavBarHasShadow" Value="False" />
-        <Setter Property="Shell.TabBarBackgroundColor" Value="{StaticResource BrandSurface}" />
-        <Setter Property="Shell.TabBarForegroundColor" Value="{StaticResource BrandInk}" />
-        <Setter Property="Shell.TabBarTitleColor" Value="{StaticResource BrandGoldDeep}" />
-        <Setter Property="Shell.TabBarUnselectedColor" Value="{StaticResource BrandMuted}" />
+        <Setter Property="Shell.TabBarBackgroundColor" Value="{DynamicResource BrandSurface}" />
+        <Setter Property="Shell.TabBarForegroundColor" Value="{DynamicResource BrandInk}" />
+        <Setter Property="Shell.TabBarTitleColor" Value="{DynamicResource BrandGoldDeep}" />
+        <Setter Property="Shell.TabBarUnselectedColor" Value="{DynamicResource BrandMuted}" />
     </Style>
 
     <!-- Gold pill behind the active tab icon (Windows XAML tab items / custom overlays). -->
@@ -460,13 +460,13 @@
                     <VisualState x:Name="Normal" />
                     <VisualState x:Name="PointerOver">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{StaticResource BrandGoldDeep}" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BrandGoldDeep}" />
                             <Setter Property="TextColor" Value="{StaticResource White}" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState x:Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{StaticResource BrandGoldDeep}" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BrandGoldDeep}" />
                             <Setter Property="Scale" Value="0.97" />
                         </VisualState.Setters>
                     </VisualState>
@@ -483,9 +483,9 @@
 
     <Style x:Key="GhostButton" TargetType="Button">
         <Setter Property="BackgroundColor" Value="Transparent" />
-        <Setter Property="TextColor" Value="{StaticResource BrandInk}" />
+        <Setter Property="TextColor" Value="{DynamicResource BrandInk}" />
         <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="BorderColor" Value="{StaticResource BrandInk}" />
+        <Setter Property="BorderColor" Value="{DynamicResource BrandInk}" />
         <Setter Property="BorderWidth" Value="1.5" />
         <Setter Property="CornerRadius" Value="20" />
         <Setter Property="Padding" Value="14,12" />
@@ -496,13 +496,13 @@
                     <VisualState x:Name="Normal" />
                     <VisualState x:Name="PointerOver">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{StaticResource BrandInk}" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BrandInk}" />
                             <Setter Property="TextColor" Value="{StaticResource White}" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState x:Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{StaticResource BrandInk}" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BrandInk}" />
                             <Setter Property="TextColor" Value="{StaticResource White}" />
                             <Setter Property="Scale" Value="0.97" />
                         </VisualState.Setters>
@@ -548,66 +548,66 @@
     </Style>
 
     <Style x:Key="LightPage" TargetType="ContentPage">
-        <Setter Property="BackgroundColor" Value="{StaticResource BrandIvory}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource BrandPage}" />
     </Style>
 
     <Style x:Key="SectionTitle" TargetType="Label">
-        <Setter Property="TextColor" Value="{StaticResource BrandInk}" />
+        <Setter Property="TextColor" Value="{DynamicResource BrandInk}" />
         <Setter Property="FontSize" Value="22" />
         <Setter Property="FontAttributes" Value="Bold" />
     </Style>
 
     <Style x:Key="EyebrowLabel" TargetType="Label">
-        <Setter Property="TextColor" Value="{StaticResource BrandGoldDeep}" />
+        <Setter Property="TextColor" Value="{DynamicResource BrandGoldDeep}" />
         <Setter Property="FontSize" Value="12" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="CharacterSpacing" Value="1.5" />
     </Style>
 
     <Style x:Key="MutedLabel" TargetType="Label">
-        <Setter Property="TextColor" Value="{StaticResource BrandMuted}" />
+        <Setter Property="TextColor" Value="{DynamicResource BrandMuted}" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="LineHeight" Value="1.25" />
     </Style>
 
     <Style x:Key="CardBorder" TargetType="Border">
-        <Setter Property="Stroke" Value="{StaticResource BrandLine}" />
+        <Setter Property="Stroke" Value="{DynamicResource BrandLine}" />
         <Setter Property="StrokeThickness" Value="1" />
-        <Setter Property="BackgroundColor" Value="{StaticResource BrandSurface}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource BrandSurface}" />
         <Setter Property="Padding" Value="16" />
         <Setter Property="StrokeShape" Value="RoundRectangle 16" />
     </Style>
 
     <Style x:Key="PerkChip" TargetType="Border">
-        <Setter Property="Stroke" Value="{StaticResource BrandLine}" />
+        <Setter Property="Stroke" Value="{DynamicResource BrandLine}" />
         <Setter Property="StrokeThickness" Value="1" />
-        <Setter Property="BackgroundColor" Value="{StaticResource BrandSurface}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource BrandSurface}" />
         <Setter Property="Padding" Value="12,10" />
         <Setter Property="StrokeShape" Value="RoundRectangle 20" />
         <Setter Property="Shadow">
             <Setter.Value>
-                <Shadow Brush="{StaticResource BrandInk}" Opacity="0.06" Radius="8" Offset="0,2" />
+                <Shadow Brush="{DynamicResource BrandInk}" Opacity="0.06" Radius="8" Offset="0,2" />
             </Setter.Value>
         </Setter>
     </Style>
 
     <Style x:Key="FieldEntry" TargetType="Entry">
-        <Setter Property="TextColor" Value="{StaticResource BrandInk}" />
-        <Setter Property="PlaceholderColor" Value="{StaticResource BrandMuted}" />
-        <Setter Property="BackgroundColor" Value="{StaticResource BrandSurface}" />
+        <Setter Property="TextColor" Value="{DynamicResource BrandInk}" />
+        <Setter Property="PlaceholderColor" Value="{DynamicResource BrandMuted}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource BrandSurface}" />
         <Setter Property="MinimumHeightRequest" Value="44" />
     </Style>
 
     <!-- Modernised, layered card used for list rows (bookings, notifications) -->
     <Style x:Key="ElevatedCard" TargetType="Border">
-        <Setter Property="Stroke" Value="{StaticResource BrandLine}" />
+        <Setter Property="Stroke" Value="{DynamicResource BrandLine}" />
         <Setter Property="StrokeThickness" Value="1" />
-        <Setter Property="BackgroundColor" Value="{StaticResource BrandSurface}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource BrandSurface}" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="StrokeShape" Value="RoundRectangle 16" />
         <Setter Property="Shadow">
             <Setter.Value>
-                <Shadow Brush="{StaticResource BrandInk}" Opacity="0.08" Radius="10" Offset="0,3" />
+                <Shadow Brush="{DynamicResource BrandInk}" Opacity="0.08" Radius="10" Offset="0,3" />
             </Setter.Value>
         </Setter>
     </Style>
@@ -650,22 +650,22 @@
 
     <!-- Dashboard-style stat tile used on the Manage reports strip -->
     <Style x:Key="StatTile" TargetType="Border">
-        <Setter Property="Stroke" Value="{StaticResource BrandLine}" />
+        <Setter Property="Stroke" Value="{DynamicResource BrandLine}" />
         <Setter Property="StrokeThickness" Value="1" />
-        <Setter Property="BackgroundColor" Value="{StaticResource BrandSurface}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource BrandSurface}" />
         <Setter Property="Padding" Value="14,12" />
         <Setter Property="StrokeShape" Value="RoundRectangle 12" />
         <Setter Property="MinimumWidthRequest" Value="128" />
     </Style>
 
     <Style x:Key="StatNumber" TargetType="Label">
-        <Setter Property="TextColor" Value="{StaticResource BrandInk}" />
+        <Setter Property="TextColor" Value="{DynamicResource BrandInk}" />
         <Setter Property="FontSize" Value="26" />
         <Setter Property="FontAttributes" Value="Bold" />
     </Style>
 
     <Style x:Key="StatCaption" TargetType="Label">
-        <Setter Property="TextColor" Value="{StaticResource BrandMuted}" />
+        <Setter Property="TextColor" Value="{DynamicResource BrandMuted}" />
         <Setter Property="FontSize" Value="11" />
         <Setter Property="CharacterSpacing" Value="0.6" />
     </Style>
@@ -673,16 +673,16 @@
     <!-- Thin rule used to separate sections instead of blank whitespace -->
     <Style x:Key="SectionRule" TargetType="BoxView">
         <Setter Property="HeightRequest" Value="1" />
-        <Setter Property="Color" Value="{StaticResource BrandLine}" />
+        <Setter Property="Color" Value="{DynamicResource BrandLine}" />
         <Setter Property="HorizontalOptions" Value="Fill" />
     </Style>
 
     <!-- Compact pill button for quick-action rows (profile, etc.) -->
     <Style x:Key="ActionPill" TargetType="Button">
-        <Setter Property="BackgroundColor" Value="{StaticResource BrandSurface}" />
-        <Setter Property="TextColor" Value="{StaticResource BrandInk}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource BrandSurface}" />
+        <Setter Property="TextColor" Value="{DynamicResource BrandInk}" />
         <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="BorderColor" Value="{StaticResource BrandInk}" />
+        <Setter Property="BorderColor" Value="{DynamicResource BrandInk}" />
         <Setter Property="BorderWidth" Value="1.2" />
         <Setter Property="CornerRadius" Value="20" />
         <Setter Property="FontSize" Value="13" />
@@ -694,13 +694,13 @@
                     <VisualState x:Name="Normal" />
                     <VisualState x:Name="PointerOver">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{StaticResource BrandInk}" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BrandInk}" />
                             <Setter Property="TextColor" Value="{StaticResource White}" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState x:Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{StaticResource BrandInk}" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BrandInk}" />
                             <Setter Property="TextColor" Value="{StaticResource White}" />
                             <Setter Property="Scale" Value="0.96" />
                         </VisualState.Setters>
@@ -725,7 +725,7 @@
         <Setter Property="Padding" Value="20,28,20,24" />
         <Setter Property="Shadow">
             <Setter.Value>
-                <Shadow Brush="{StaticResource BrandInk}" Opacity="0.28" Radius="18" Offset="0,8" />
+                <Shadow Brush="{DynamicResource BrandInk}" Opacity="0.28" Radius="18" Offset="0,8" />
             </Setter.Value>
         </Setter>
     </Style>
@@ -748,7 +748,7 @@
         <Setter Property="HorizontalOptions" Value="Center" />
         <Setter Property="Shadow">
             <Setter.Value>
-                <Shadow Brush="{StaticResource BrandGoldDeep}" Opacity="0.35" Radius="8" Offset="0,3" />
+                <Shadow Brush="{DynamicResource BrandGoldDeep}" Opacity="0.35" Radius="8" Offset="0,3" />
             </Setter.Value>
         </Setter>
     </Style>

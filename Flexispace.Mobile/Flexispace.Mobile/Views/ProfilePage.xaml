@@ -5,9 +5,10 @@
              xmlns:models="clr-namespace:Flexispace.Mobile.Models"
              xmlns:controls="clr-namespace:Flexispace.Mobile.Controls"
              x:Class="Flexispace.Mobile.Views.ProfilePage"
+             x:Name="Root"
              x:DataType="vm:ProfileViewModel"
              Title="Profile"
-             BackgroundColor="{StaticResource BrandIvory}">
+             BackgroundColor="{DynamicResource BrandPage}">
 
     <ScrollView>
         <VerticalStackLayout Spacing="0">
@@ -17,7 +18,7 @@
                             WidthRequest="96" HeightRequest="96" Padding="4" HorizontalOptions="Center"
                             BackgroundColor="Transparent">
                         <Border.Shadow>
-                            <Shadow Brush="{StaticResource BrandGoldDeep}" Opacity="0.45" Radius="16" Offset="0,4" />
+                            <Shadow Brush="{DynamicResource BrandGoldDeep}" Opacity="0.45" Radius="16" Offset="0,4" />
                         </Border.Shadow>
                         <Border StrokeThickness="0" StrokeShape="RoundRectangle 44" BackgroundColor="{StaticResource BrandGold}">
                             <Label Text="{Binding Name, Converter={StaticResource InitialsConverter}}"
@@ -28,7 +29,7 @@
 
                     <Label Text="{Binding FirstName, StringFormat='Hello, {0}'}" TextColor="#C8C2B8" FontSize="13" HorizontalTextAlignment="Center" />
                     <Label Text="{Binding Name}" TextColor="{StaticResource BrandIvory}" FontSize="24" FontAttributes="Bold" HorizontalTextAlignment="Center" />
-                    <Label Text="{Binding Email}" TextColor="{StaticResource BrandMuted}" FontSize="13" HorizontalTextAlignment="Center" />
+                    <Label Text="{Binding Email}" TextColor="{DynamicResource BrandMuted}" FontSize="13" HorizontalTextAlignment="Center" />
 
                     <Border StrokeThickness="0" StrokeShape="RoundRectangle 20" BackgroundColor="#33C4A035" Padding="14,6" HorizontalOptions="Center">
                         <Label Text="{Binding RankLine}" TextColor="{StaticResource BrandGold}" FontSize="12" FontAttributes="Bold" CharacterSpacing="0.4" />
@@ -68,7 +69,7 @@
                 <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                     <Border Style="{StaticResource StatTile}">
                         <VerticalStackLayout Spacing="2">
-                            <Label Text="{Binding TodayCount}" Style="{StaticResource StatNumber}" TextColor="{StaticResource BrandGoldDeep}" />
+                            <Label Text="{Binding TodayCount}" Style="{StaticResource StatNumber}" TextColor="{DynamicResource BrandGoldDeep}" />
                             <Label Text="Today" Style="{StaticResource StatCaption}" />
                         </VerticalStackLayout>
                     </Border>
@@ -80,7 +81,7 @@
                     </Border>
                     <Border Grid.Column="2" Style="{StaticResource StatTile}">
                         <VerticalStackLayout Spacing="2">
-                            <Label Text="{Binding UnreadAlerts}" Style="{StaticResource StatNumber}" TextColor="{StaticResource BrandGoldDeep}" />
+                            <Label Text="{Binding UnreadAlerts}" Style="{StaticResource StatNumber}" TextColor="{DynamicResource BrandGoldDeep}" />
                             <Label Text="Alerts" Style="{StaticResource StatCaption}" />
                         </VerticalStackLayout>
                     </Border>
@@ -94,7 +95,7 @@
                         <Border Style="{StaticResource QuickActionOrb}">
                             <Label Style="{StaticResource MaterialGlyph}" Text="&#xe878;" FontSize="22" TextColor="{StaticResource BrandBlack}" />
                         </Border>
-                        <Label Text="Bookings" FontSize="11" FontAttributes="Bold" HorizontalOptions="Center" TextColor="{StaticResource BrandInk}" />
+                        <Label Text="Bookings" FontSize="11" FontAttributes="Bold" HorizontalOptions="Center" TextColor="{DynamicResource BrandInk}" />
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="6">
                         <VerticalStackLayout.GestureRecognizers>
@@ -103,7 +104,7 @@
                         <Border Style="{StaticResource QuickActionOrbGhost}">
                             <Label Style="{StaticResource MaterialGlyph}" Text="&#xe55f;" FontSize="22" TextColor="{StaticResource BrandGold}" />
                         </Border>
-                        <Label Text="Places" FontSize="11" FontAttributes="Bold" HorizontalOptions="Center" TextColor="{StaticResource BrandMuted}" />
+                        <Label Text="Places" FontSize="11" FontAttributes="Bold" HorizontalOptions="Center" TextColor="{DynamicResource BrandMuted}" />
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="6" IsVisible="{Binding CanViewAvailability}">
                         <VerticalStackLayout.GestureRecognizers>
@@ -112,7 +113,7 @@
                         <Border Style="{StaticResource QuickActionOrbGhost}">
                             <Label Style="{StaticResource MaterialGlyph}" Text="&#xe51e;" FontSize="22" TextColor="{StaticResource BrandGold}" />
                         </Border>
-                        <Label Text="Live" FontSize="11" FontAttributes="Bold" HorizontalOptions="Center" TextColor="{StaticResource BrandMuted}" />
+                        <Label Text="Live" FontSize="11" FontAttributes="Bold" HorizontalOptions="Center" TextColor="{DynamicResource BrandMuted}" />
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="6" IsVisible="{Binding CanAccessManage}">
                         <VerticalStackLayout.GestureRecognizers>
@@ -121,7 +122,7 @@
                         <Border Style="{StaticResource QuickActionOrbGhost}">
                             <Label Style="{StaticResource MaterialGlyph}" Text="&#xe85d;" FontSize="22" TextColor="{StaticResource BrandGold}" />
                         </Border>
-                        <Label Text="Manage" FontSize="11" FontAttributes="Bold" HorizontalOptions="Center" TextColor="{StaticResource BrandMuted}" />
+                        <Label Text="Manage" FontSize="11" FontAttributes="Bold" HorizontalOptions="Center" TextColor="{DynamicResource BrandMuted}" />
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="6" IsVisible="{Binding CanViewReports}">
                         <VerticalStackLayout.GestureRecognizers>
@@ -130,7 +131,7 @@
                         <Border Style="{StaticResource QuickActionOrbGhost}">
                             <Label Style="{StaticResource MaterialGlyph}" Text="&#xe6e1;" FontSize="22" TextColor="{StaticResource BrandGold}" />
                         </Border>
-                        <Label Text="Reports" FontSize="11" FontAttributes="Bold" HorizontalOptions="Center" TextColor="{StaticResource BrandMuted}" />
+                        <Label Text="Reports" FontSize="11" FontAttributes="Bold" HorizontalOptions="Center" TextColor="{DynamicResource BrandMuted}" />
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="6">
                         <VerticalStackLayout.GestureRecognizers>
@@ -141,14 +142,14 @@
                                 <Label Style="{StaticResource MaterialGlyph}" Text="&#xe7f4;" FontSize="22" TextColor="{StaticResource BrandGold}" />
                             </Border>
                             <Border WidthRequest="18" HeightRequest="18" StrokeThickness="0" StrokeShape="RoundRectangle 9"
-                                    BackgroundColor="{StaticResource BrandGoldDeep}" HorizontalOptions="End" VerticalOptions="Start"
+                                    BackgroundColor="{DynamicResource BrandGoldDeep}" HorizontalOptions="End" VerticalOptions="Start"
                                     TranslationX="4" TranslationY="-2"
                                     IsVisible="{Binding UnreadAlerts, Converter={StaticResource IntAtLeastConverter}, ConverterParameter=1}">
                                 <Label Text="{Binding UnreadAlerts}" TextColor="White" FontSize="10" FontAttributes="Bold"
                                        HorizontalOptions="Center" VerticalOptions="Center" />
                             </Border>
                         </Grid>
-                        <Label Text="Alerts" FontSize="11" FontAttributes="Bold" HorizontalOptions="Center" TextColor="{StaticResource BrandMuted}" />
+                        <Label Text="Alerts" FontSize="11" FontAttributes="Bold" HorizontalOptions="Center" TextColor="{DynamicResource BrandMuted}" />
                     </VerticalStackLayout>
                 </HorizontalStackLayout>
 
@@ -157,11 +158,11 @@
                         <BoxView Grid.Column="0" Color="{StaticResource BrandGold}" />
                         <VerticalStackLayout Grid.Column="1" Spacing="8" Padding="16,14">
                             <Label Text="Your powers" Style="{StaticResource EyebrowLabel}" FontSize="10" />
-                            <Label Text="{Binding RoleDescription}" TextColor="{StaticResource BrandInk}" FontSize="13" />
+                            <Label Text="{Binding RoleDescription}" TextColor="{DynamicResource BrandInk}" FontSize="13" />
                             <BoxView Style="{StaticResource SectionRule}" />
                             <HorizontalStackLayout Spacing="8">
                                 <Label Style="{StaticResource MaterialGlyph}" Text="&#xe55f;" FontSize="14" TextColor="{StaticResource BrandGold}" HorizontalOptions="Start" />
-                                <Label Text="{Binding Location, StringFormat='Home base · {0}'}" TextColor="{StaticResource BrandMuted}" FontSize="12" VerticalOptions="Center" />
+                                <Label Text="{Binding Location, StringFormat='Home base · {0}'}" TextColor="{DynamicResource BrandMuted}" FontSize="12" VerticalOptions="Center" />
                             </HorizontalStackLayout>
                         </VerticalStackLayout>
                     </Grid>
@@ -171,9 +172,77 @@
                     <Grid ColumnDefinitions="4,*">
                         <BoxView Grid.Column="0" Color="{StaticResource BrandGoldSoft}" />
                         <Label Grid.Column="1" Text="Online payment (Phase 2) — placeholder for Client self-service billing."
-                               TextColor="{StaticResource BrandMuted}" FontSize="13" Padding="16,14" />
+                               TextColor="{DynamicResource BrandMuted}" FontSize="13" Padding="16,14" />
                     </Grid>
                 </Border>
+
+                <Border Style="{StaticResource ElevatedCard}" Padding="0">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding OpenSettingsCommand}" />
+                    </Border.GestureRecognizers>
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="14,12">
+                        <Border StrokeThickness="0" StrokeShape="RoundRectangle 12"
+                                BackgroundColor="{DynamicResource BrandGoldWash}" WidthRequest="40" HeightRequest="40">
+                            <Label Style="{StaticResource MaterialGlyph}" Text="&#xe8b8;" FontSize="20"
+                                   TextColor="{DynamicResource BrandGoldDeep}" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                            <Label Text="Settings" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="14" />
+                            <Label Text="Notifications, assistant, privacy, about"
+                                   TextColor="{DynamicResource BrandMuted}" FontSize="11" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="2" Style="{StaticResource MaterialGlyph}" Text="&#xe5cc;" FontSize="20"
+                               TextColor="{DynamicResource BrandMuted}" VerticalOptions="Center" />
+                    </Grid>
+                </Border>
+
+                <Label Text="Character select" Style="{StaticResource EyebrowLabel}" Margin="0,6,0,0" />
+                <Label Text="Preview the app as another role without signing out." Style="{StaticResource MutedLabel}" FontSize="12" Margin="0,-8,0,0" />
+
+                <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding DemoUsers}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="models:User">
+                            <Border Style="{StaticResource ElevatedCard}" Padding="0">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={x:Reference Root}, Path=BindingContext.SwitchUserCommand}"
+                                        CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <Border.BackgroundColor>
+                                    <MultiBinding Converter="{StaticResource ChipSelectedConverter}" ConverterParameter="wash">
+                                        <Binding Path="Email" />
+                                        <Binding Path="BindingContext.CurrentEmail" Source="{x:Reference Root}" />
+                                    </MultiBinding>
+                                </Border.BackgroundColor>
+                                <Border.Stroke>
+                                    <MultiBinding Converter="{StaticResource ChipSelectedConverter}" ConverterParameter="stroke">
+                                        <Binding Path="Email" />
+                                        <Binding Path="BindingContext.CurrentEmail" Source="{x:Reference Root}" />
+                                    </MultiBinding>
+                                </Border.Stroke>
+                                <Grid ColumnDefinitions="46,*,Auto" ColumnSpacing="12" Padding="12,10">
+                                    <Border Style="{StaticResource AvatarBadge}" WidthRequest="40" HeightRequest="40" BackgroundColor="{StaticResource BrandBlack}">
+                                        <Label Text="{Binding Name, Converter={StaticResource InitialsConverter}}" Style="{StaticResource AvatarInitials}" FontSize="13" />
+                                    </Border>
+                                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="1">
+                                        <Label Text="{Binding Name}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="14" />
+                                        <Label Text="{Binding Role, Converter={StaticResource RoleDisplayConverter}}" TextColor="{DynamicResource BrandGoldDeep}" FontSize="11" FontAttributes="Bold" />
+                                        <Label Text="{Binding Email}" TextColor="{DynamicResource BrandMuted}" FontSize="11" />
+                                    </VerticalStackLayout>
+                                    <Border Grid.Column="2" Style="{StaticResource TabIconPill}" Padding="8,4" VerticalOptions="Center">
+                                        <Border.IsVisible>
+                                            <MultiBinding Converter="{StaticResource ChipSelectedConverter}" ConverterParameter="bool">
+                                                <Binding Path="Email" />
+                                                <Binding Path="BindingContext.CurrentEmail" Source="{x:Reference Root}" />
+                                            </MultiBinding>
+                                        </Border.IsVisible>
+                                        <Label Text="YOU" TextColor="{StaticResource BrandBlack}" FontSize="9" FontAttributes="Bold" />
+                                    </Border>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
 
                 <Button Text="Sign out" Command="{Binding LogoutCommand}" Style="{StaticResource GoldButton}" Margin="0,8,0,4" />
 
@@ -184,7 +253,7 @@
                        HorizontalTextAlignment="Center"
                        Margin="0,8,0,0" />
                 <Label Text="Privacy policy"
-                       TextColor="{StaticResource BrandMuted}"
+                       TextColor="{DynamicResource BrandMuted}"
                        FontSize="12"
                        HorizontalTextAlignment="Center">
                     <Label.GestureRecognizers>

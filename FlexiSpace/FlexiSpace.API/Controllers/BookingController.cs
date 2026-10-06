@@ -1,54 +1,60 @@
-using FlexiSpace.API.Authorization;
-using FlexiSpace.API.Controllers.Base;
 using FlexiSpace.Core.Common;
 using FlexiSpace.Core.DTOs.Booking;
 using FlexiSpace.Core.DTOs.Catering;
 using FlexiSpace.Core.DTOs.Equipment;
 using FlexiSpace.Core.Entities;
-using FlexiSpace.Core.Enums;
 using FlexiSpace.Core.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using FlexiSpace.API.Authorization;
+using FlexiSpace.Core.Enums;
 
 namespace FlexiSpace.API.Controllers
 {
-    // Ownership/role policy: BookingService itself now enforces who may
-    // act on a booking (see CanManageBooking / ApplyVisibilityScope there)
-    // and throws ForbiddenException when the caller isn't allowed to -
-    // caught below as 403. The controller no longer duplicates that check:
-    // - Any authenticated user can view bookings they're allowed to see
-    //   (Administrators: all, Centre Managers: their own location,
-    //   everyone else: only their own bookings).
-    // - Create: the booker is always the authenticated caller - there is
-    //   no way to book on behalf of someone else (BookingCreateDto has no
-    //   UserId field).
-    // - Update / Cancel / change status: the booking's own owner, a
-    //   Centre Manager at that boardroom's location, or an Administrator.
-    // - Notifications: BookingService tells the booker (in-app + email) on
-    //   create/update/cancel. The controller used to send its own extra
-    //   in-app notification as well, so every booker got two.
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class BookingController : AuditableControllerBase
+    public class BookingController : ControllerBase
     {
         private readonly IBookingService _bookingService;
+        private readonly ICurrentUserService _currentUserService;
+        private readonly IBoardroomService _boardroomService;
 
-        public BookingController(
-            IBookingService bookingService,
-            IAuditService auditService,
-            ICurrentUserService currentUserService)
-            : base(auditService, currentUserService)
+        public BookingController(IBookingService bookingService,
+            ICurrentUserService currentUserService,
+            IBoardroomService boardroomService)
         {
             _bookingService = bookingService;
+            _currentUserService = currentUserService;
+            _boardroomService = boardroomService;
         }
 
-        // Retrieves all bookings the current caller is allowed to see.
+        // Retrieves all bookings.
         [HttpGet]
         public async Task<IActionResult> GetAllBookings()
         {
-            var bookings = await _bookingService.GetAllBookingsAsync();
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+
+            if (currentUser == null)
+                return Unauthorized();
+
+            IEnumerable<Core.Entities.Booking> bookings;
+            if (currentUser.Role == UserRole.Administrator)
+            {
+                bookings = await _bookingService.GetAllBookingsAsync();
+            }
+            else if (currentUser.Role == UserRole.CentreManager)
+            {
+                // Centre managers see bookings for their location.
+                bookings = (await _bookingService.GetAllBookingsAsync())
+                    .Where(b => b.Boardroom != null && b.Boardroom.LocationId == currentUser.LocationId);
+            }
+            else
+            {
+                // Other non-admin users should only see their own bookings.
+                bookings = (await _bookingService.GetAllBookingsAsync())
+                    .Where(b => b.UserId == currentUser.Id);
+            }
 
             var response = bookings.Select(MapToResponseDto);
 
@@ -64,6 +70,22 @@ namespace FlexiSpace.API.Controllers
         [HttpGet("search")]
         public async Task<IActionResult> SearchBookings([FromQuery] BookingQueryParameters query)
         {
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+
+            if (currentUser == null)
+                return Unauthorized();
+
+            if (currentUser.Role == UserRole.CentreManager)
+            {
+                // Centre managers can search bookings for their location only.
+                query.LocationId = currentUser.LocationId;
+            }
+            else if (currentUser.Role != UserRole.Administrator)
+            {
+                // Restrict other non-admin users to their own bookings only.
+                query.UserId = currentUser.Id;
+            }
+
             var result = await _bookingService.SearchBookingsAsync(query);
 
             var response = new PagedResult<BookingResponseDto>
@@ -77,6 +99,30 @@ namespace FlexiSpace.API.Controllers
             return Ok(response);
         }
 
+        [HttpGet("occupied")]
+        public async Task<IActionResult> GetOccupiedSlots(
+            [FromQuery] int boardroomId,
+            [FromQuery] DateOnly date)
+        {
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+            if (currentUser == null)
+                return Unauthorized();
+
+            var slots = (await _bookingService.GetAllBookingsAsync())
+                .Where(b =>
+                    b.BoardroomId == boardroomId &&
+                    b.BookingDate == date &&
+                    b.Status != BookingStatus.Cancelled &&
+                    b.Status != BookingStatus.Completed)
+                .Select(b => new OccupiedSlotDto
+                {
+                    StartTime = b.StartTime,
+                    EndTime = b.EndTime
+                });
+
+            return Ok(slots);
+        }
+
         // Retrieves a specific booking by its ID.
         [HttpGet("{id}")]
         public async Task<IActionResult> GetBookingById(int id)
@@ -88,19 +134,47 @@ namespace FlexiSpace.API.Controllers
                 return NotFound();
             }
 
-            return Ok(MapToResponseDto(booking));
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+
+            if (currentUser == null)
+                return Unauthorized();
+            if (currentUser.Role == UserRole.Administrator)
+            {
+                return Ok(MapToResponseDto(booking));
+            }
+
+            // Centre managers can view bookings for their location
+            if (currentUser.Role == UserRole.CentreManager)
+            {
+                if (booking.Boardroom != null && booking.Boardroom.LocationId == currentUser.LocationId)
+                {
+                    return Ok(MapToResponseDto(booking));
+                }
+
+                return Forbid();
+            }
+
+            // Other users may only view their own bookings
+            if (booking.UserId == currentUser.Id)
+            {
+                return Ok(MapToResponseDto(booking));
+            }
+
+            return Forbid();
         }
 
-        // Creates a new booking. The booker is always the authenticated
-        // caller - CreateBookingAsync resolves it internally and ignores
-        // anything on the passed-in entity, so there's nothing to set
-        // here.
+        // Creates a new booking.
         [HttpPost]
         public async Task<IActionResult> CreateBooking(BookingCreateDto dto)
         {
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+            if (currentUser == null)
+                return Unauthorized(new { message = "No active FlexiSpace account is linked to this sign-in." });
+
             var booking = new Booking
             {
                 BoardroomId = dto.BoardroomId,
+                UserId = dto.UserId > 0 ? dto.UserId : currentUser.Id,
                 BookingDate = dto.BookingDate,
                 StartTime = dto.StartTime,
                 EndTime = dto.EndTime,
@@ -109,49 +183,38 @@ namespace FlexiSpace.API.Controllers
                 Notes = dto.Notes
             };
 
-            foreach (var equipment in dto.Equipment)
+            if (dto.Equipment != null)
             {
-                booking.BookingEquipments.Add(new BookingEquipment
+                foreach (var equipment in dto.Equipment.Where(e => e.EquipmentId > 0))
                 {
-                    EquipmentId = equipment.EquipmentId,
-                    Quantity = equipment.Quantity
-                });
+                    booking.BookingEquipments.Add(new BookingEquipment
+                    {
+                        EquipmentId = equipment.EquipmentId,
+                        Quantity = Math.Max(1, equipment.Quantity)
+                    });
+                }
             }
 
-            foreach (var catering in dto.Catering)
+            if (dto.Catering != null)
             {
-                booking.BookingCaterings.Add(new BookingCatering
+                foreach (var catering in dto.Catering.Where(c => c.CateringId > 0))
                 {
-                    CateringId = catering.CateringId,
-                    Quantity = catering.Quantity
-                });
+                    booking.BookingCaterings.Add(new BookingCatering
+                    {
+                        CateringId = catering.CateringId,
+                        Quantity = Math.Max(1, catering.Quantity)
+                    });
+                }
             }
 
             try
             {
                 var createdBooking = await _bookingService.CreateBookingAsync(booking);
 
-                await LogActionAsync(
-                    AuditAction.Create,
-                    nameof(Booking),
-                    createdBooking.Id.ToString(),
-                    newValues: new
-                    {
-                        createdBooking.BoardroomId,
-                        createdBooking.UserId,
-                        createdBooking.BookingDate,
-                        createdBooking.StartTime,
-                        createdBooking.EndTime
-                    });
-
                 return CreatedAtAction(
                     nameof(GetBookingById),
                     new { id = createdBooking.Id },
                     MapToResponseDto(createdBooking));
-            }
-            catch (ForbiddenException ex)
-            {
-                return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
             }
             catch (NotFoundException ex)
             {
@@ -161,19 +224,49 @@ namespace FlexiSpace.API.Controllers
             {
                 return BadRequest(new { errors = ex.Errors });
             }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.InnerException?.Message ?? ex.Message });
+            }
         }
 
-        // Updates an existing booking. Only the booking's own owner, a
-        // Centre Manager at that location, or an Administrator may edit it
-        // - enforced server-side in BookingService via ForbiddenException.
+        // Updates an existing booking.
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateBooking(int id, BookingUpdateDto dto)
         {
-            var existingBooking = await _bookingService.GetBookingByIdAsync(id);
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
 
-            if (existingBooking == null)
+            if (currentUser == null)
+                return Unauthorized();
+
+            // Administrators are not allowed to modify bookings via this endpoint.
+            if (currentUser.Role == UserRole.Administrator)
+            {
+                return Forbid();
+            }
+
+            var existing = await _bookingService.GetBookingByIdAsync(id);
+
+            if (existing == null)
             {
                 return NotFound();
+            }
+
+            // CentreManager: allowed to edit bookings in their location.
+            if (currentUser.Role == UserRole.CentreManager)
+            {
+                if (existing.Boardroom == null || existing.Boardroom.LocationId != currentUser.LocationId)
+                {
+                    return Forbid();
+                }
+            }
+            else
+            {
+                // Only the booking owner may modify their booking.
+                if (existing.UserId != currentUser.Id)
+                {
+                    return Forbid();
+                }
             }
 
             var booking = new Booking
@@ -201,39 +294,18 @@ namespace FlexiSpace.API.Controllers
 
             try
             {
-                var updated = await _bookingService.UpdateBookingAsync(id, booking, equipment, catering);
+                var updated = await _bookingService.UpdateBookingAsync(
+                    id,
+                    booking,
+                    equipment,
+                    catering);
 
                 if (!updated)
                 {
                     return NotFound();
                 }
 
-                await LogActionAsync(
-                    AuditAction.Update,
-                    nameof(Booking),
-                    id.ToString(),
-                    oldValues: new
-                    {
-                        existingBooking.BoardroomId,
-                        existingBooking.BookingDate,
-                        existingBooking.StartTime,
-                        existingBooking.EndTime,
-                        existingBooking.NumberOfAttendees
-                    },
-                    newValues: new
-                    {
-                        dto.BoardroomId,
-                        dto.BookingDate,
-                        dto.StartTime,
-                        dto.EndTime,
-                        dto.NumberOfAttendees
-                    });
-
                 return NoContent();
-            }
-            catch (ForbiddenException ex)
-            {
-                return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
             }
             catch (NotFoundException ex)
             {
@@ -246,16 +318,42 @@ namespace FlexiSpace.API.Controllers
         }
 
         // Cancels an existing booking (soft delete - see IBookingService).
-        // Only the booking's own owner, a Centre Manager at that location,
-        // or an Administrator may cancel it.
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteBooking(int id)
         {
-            var existingBooking = await _bookingService.GetBookingByIdAsync(id);
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
 
-            if (existingBooking == null)
+            if (currentUser == null)
+                return Unauthorized();
+
+            // Administrators are not allowed to delete bookings via this endpoint.
+            if (currentUser.Role == UserRole.Administrator)
+            {
+                return Forbid();
+            }
+
+            var existing = await _bookingService.GetBookingByIdAsync(id);
+
+            if (existing == null)
             {
                 return NotFound();
+            }
+
+            // CentreManager: allowed to cancel bookings in their location.
+            if (currentUser.Role == UserRole.CentreManager)
+            {
+                if (existing.Boardroom == null || existing.Boardroom.LocationId != currentUser.LocationId)
+                {
+                    return Forbid();
+                }
+            }
+            else
+            {
+                // Only the booking owner may cancel their booking.
+                if (existing.UserId != currentUser.Id)
+                {
+                    return Forbid();
+                }
             }
 
             try
@@ -267,17 +365,7 @@ namespace FlexiSpace.API.Controllers
                     return NotFound();
                 }
 
-                await LogActionAsync(
-                    AuditAction.Delete,
-                    nameof(Booking),
-                    id.ToString(),
-                    oldValues: new { existingBooking.BookingDate, existingBooking.StartTime, existingBooking.EndTime });
-
                 return NoContent();
-            }
-            catch (ForbiddenException ex)
-            {
-                return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
             }
             catch (BusinessRuleException ex)
             {
@@ -285,46 +373,40 @@ namespace FlexiSpace.API.Controllers
             }
         }
 
-        // Updates the booking status (Cancel, mark Completed). Only the
-        // booking's own owner, a Centre Manager at that location, or an
-        // Administrator may change it - enforced server-side in
-        // BookingService, not by a role attribute here, since an owner
-        // who isn't a manager is still allowed to do this.
+        // Updates the booking status.
         [HttpPatch("{id}/status")]
+        [AuthorizeRoles(UserRole.Administrator, UserRole.CentreManager)]
         public async Task<IActionResult> UpdateBookingStatus(
             int id,
             BookingStatusDto dto)
         {
-            var existingBooking = await _bookingService.GetBookingByIdAsync(id);
-
-            if (existingBooking == null)
-            {
-                return NotFound();
-            }
-
             try
             {
+                var currentUser = await _currentUserService.GetCurrentUserAsync();
+                if (currentUser is null)
+                    return Unauthorized();
+
+                var existing = await _bookingService.GetBookingByIdAsync(id);
+                if (existing is null)
+                    return NotFound();
+
+                if (currentUser.Role == UserRole.CentreManager &&
+                    (existing.Boardroom is null || existing.Boardroom.LocationId != currentUser.LocationId))
+                {
+                    return Forbid();
+                }
+
                 var updated = await _bookingService.UpdateBookingStatusAsync(
                     id,
-                    dto.Status);
+                    dto.Status,
+                    dto.ApprovedById ?? currentUser.Id);
 
                 if (!updated)
                 {
                     return NotFound();
                 }
 
-                await LogActionAsync(
-                    AuditAction.Update,
-                    nameof(Booking),
-                    id.ToString(),
-                    oldValues: new { Status = existingBooking.Status.ToString() },
-                    newValues: new { Status = dto.Status.ToString() });
-
                 return NoContent();
-            }
-            catch (ForbiddenException ex)
-            {
-                return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
             }
             catch (NotFoundException ex)
             {
@@ -343,7 +425,13 @@ namespace FlexiSpace.API.Controllers
             {
                 Id = booking.Id,
                 BoardroomId = booking.BoardroomId,
+                BoardroomName = booking.Boardroom?.Name ?? string.Empty,
+                LocationId = booking.Boardroom?.LocationId ?? 0,
+                LocationName = booking.Boardroom?.Location?.Name ?? string.Empty,
                 UserId = booking.UserId,
+                UserName = booking.User is null
+                    ? string.Empty
+                    : $"{booking.User.FirstName} {booking.User.LastName}".Trim(),
                 BookingDate = booking.BookingDate,
                 StartTime = booking.StartTime,
                 EndTime = booking.EndTime,
@@ -352,10 +440,6 @@ namespace FlexiSpace.API.Controllers
                 NumberOfAttendees = booking.NumberOfAttendees,
                 Notes = booking.Notes,
                 CreatedAt = booking.CreatedAt,
-                ModifiedAt = booking.ModifiedAt,
-                ModifiedById = booking.ModifiedById,
-                CancelledById = booking.CancelledById,
-                OutlookEventId = booking.OutlookEventId,
 
                 Equipment = booking.BookingEquipments.Select(e => new BookingEquipmentDto
                 {

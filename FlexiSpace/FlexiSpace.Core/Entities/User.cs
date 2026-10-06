@@ -1,4 +1,4 @@
-﻿using FlexiSpace.Core.Enums;
+using FlexiSpace.Core.Enums;
 
 namespace FlexiSpace.Core.Entities
 {
@@ -13,8 +13,13 @@ namespace FlexiSpace.Core.Entities
 
         public required string Email { get; set; }
 
-  
+        public string PhoneNumber { get; set; } = string.Empty;
 
+        /// <summary>
+        /// PBKDF2 password hash for self-registered / local accounts.
+        /// Null for seeded demo users that still use the shared demo password.
+        /// </summary>
+        public string? PasswordHash { get; set; }
 
         //IsActive property is used to indicate whether the user is currently active or not. It can be useful for managing user accounts, such as deactivating users who are no longer part of the organization or temporarily suspending access.
         public bool IsActive { get; set; } = true;
@@ -44,7 +49,5 @@ namespace FlexiSpace.Core.Entities
 
         public ICollection<AuditLog> AuditLogs { get; set; }
     = new List<AuditLog>();
-        public ICollection<DeviceToken> DeviceTokens { get; set; }
-    = new List<DeviceToken>();
     }
 }

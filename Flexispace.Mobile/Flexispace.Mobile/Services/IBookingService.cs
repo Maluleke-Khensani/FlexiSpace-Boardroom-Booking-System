@@ -10,6 +10,7 @@ public interface IBookingService
     Task<BookingResult> CreateBookingAsync(BookingRequest request);
     Task<bool> CancelBookingAsync(Guid bookingId);
     Task<bool> UpdateBookingAsync(Guid bookingId, DateTime start, DateTime end, int attendees, string notes);
+    Task<bool> UpdateBookingStatusAsync(Guid bookingId, BookingStatus status);
     Task<BlockRoomResult> BlockRoomAsync(string roomId, DateTime start, DateTime end, string reason, Guid? relatedBookingId = null);
     Task<IReadOnlyList<BlockedPeriod>> GetBlockedPeriodsAsync(string roomId);
     Task<IReadOnlyList<Booking>> GetTodaysBookingsAsync();

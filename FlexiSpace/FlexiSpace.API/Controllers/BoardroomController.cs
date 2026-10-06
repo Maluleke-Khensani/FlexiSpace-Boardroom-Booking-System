@@ -1,43 +1,37 @@
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using FlexiSpace.API.Authorization;
-using FlexiSpace.API.Controllers.Base;
-using FlexiSpace.Core.Common;
+using FlexiSpace.Core.Enums;
 using FlexiSpace.Core.DTOs.Boardroom;
 using FlexiSpace.Core.DTOs.Equipment;
 using FlexiSpace.Core.Entities;
-using FlexiSpace.Core.Enums;
 using FlexiSpace.Core.Services;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 
 namespace FlexiSpace.API.Controllers
 {
-    // Any authenticated FlexiSpace user can read boardrooms (they need to
-    // see rooms to book them). Creating/editing/deleting a boardroom is
-    // catalogue management, not booking - restricted to Administrators,
-    // same rule as Equipment/Catering/Location.
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class BoardroomController : AuditableControllerBase
+    public class BoardroomController : ControllerBase
     {
         // Service responsible for handling all boardroom-related business operations.
         private readonly IBoardroomService _boardroomService;
+        private readonly FlexiSpace.Core.Common.ICurrentUserService _currentUserService;
 
-        public BoardroomController(
-            IBoardroomService boardroomService,
-            IAuditService auditService,
-            ICurrentUserService currentUserService)
-            : base(auditService, currentUserService)
+        public BoardroomController(IBoardroomService boardroomService, FlexiSpace.Core.Common.ICurrentUserService currentUserService)
         {
             _boardroomService = boardroomService;
+            _currentUserService = currentUserService;
         }
 
         // Retrieves all boardrooms together with their assigned equipment.
         [HttpGet]
+        [AllowAnonymous]
         public async Task<IActionResult> GetAllBoardrooms()
         {
             var boardrooms = await _boardroomService.GetAllBoardroomsAsync();
 
+            // Convert the entities into DTOs before sending them to the client.
             var response = boardrooms.Select(MapToResponseDto);
 
             return Ok(response);
@@ -45,10 +39,12 @@ namespace FlexiSpace.API.Controllers
 
         // Retrieves a single boardroom using its unique ID.
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetBoardroomById(int id)
         {
             var boardroom = await _boardroomService.GetBoardroomByIdAsync(id);
 
+            // Return HTTP 404 if no matching boardroom exists.
             if (boardroom == null)
             {
                 return NotFound();
@@ -57,10 +53,12 @@ namespace FlexiSpace.API.Controllers
             return Ok(MapToResponseDto(boardroom));
         }
 
-        [AuthorizeRoles(UserRole.Administrator, UserRole.CentreManager)]
+        // Creates a new boardroom and assigns the selected equipment.
         [HttpPost]
+        [AuthorizeRoles(UserRole.Administrator)]
         public async Task<IActionResult> CreateBoardroom(BoardroomCreateDto dto)
         {
+            // Convert the incoming DTO into a Boardroom entity.
             var boardroom = new Boardroom
             {
                 Name = dto.Name,
@@ -69,6 +67,7 @@ namespace FlexiSpace.API.Controllers
                 LocationId = dto.LocationId
             };
 
+            // Build the list of equipment assigned to this boardroom.
             foreach (var item in dto.Equipment)
             {
                 boardroom.BoardroomEquipments.Add(new BoardroomEquipment
@@ -79,68 +78,52 @@ namespace FlexiSpace.API.Controllers
                 });
             }
 
-            // CreateBoardroomAsync can throw BusinessRuleException
-            // (duplicate name at this location, or an unknown EquipmentId).
-            try
-            {
-                var createdBoardroom = await _boardroomService.CreateBoardroomAsync(boardroom);
+            // Save the new boardroom and its equipment.
+            var createdBoardroom = await _boardroomService.CreateBoardroomAsync(boardroom);
 
-                await LogActionAsync(
-                    AuditAction.Create,
-                    nameof(Boardroom),
-                    createdBoardroom.Id.ToString(),
-                    newValues: new
-                    {
-                        createdBoardroom.Name,
-                        createdBoardroom.Capacity,
-                        Status = createdBoardroom.Status.ToString(),
-                        createdBoardroom.LocationId
-                    });
-
-                return CreatedAtAction(
-                    nameof(GetBoardroomById),
-                    new { id = createdBoardroom.Id },
-                    MapToResponseDto(createdBoardroom));
-            }
-            catch (BusinessRuleException ex)
-            {
-                return BadRequest(new { errors = ex.Errors });
-            }
+            // Return HTTP 201 with the newly created resource.
+            return CreatedAtAction(
+                nameof(GetBoardroomById),
+                new { id = createdBoardroom.Id },
+                MapToResponseDto(createdBoardroom));
         }
 
         // Updates an existing boardroom and replaces its equipment list.
-        // Administrator-only: see class summary above.
-        [AuthorizeRoles(UserRole.Administrator)]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateBoardroom(int id, BoardroomUpdateDto dto)
         {
-            // Fetch the existing state first so the audit log can record
-            // what changed, not just what it changed to.
-            var before = await _boardroomService.GetBoardroomByIdAsync(id);
+            var existing = await _boardroomService.GetBoardroomByIdAsync(id);
 
-            if (before == null)
+            if (existing == null)
             {
                 return NotFound();
             }
 
-            var boardroom = new Boardroom
-            {
-                Name = dto.Name,
-                Capacity = dto.Capacity,
-                Status = dto.Status,
-                LocationId = dto.LocationId
-            };
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
 
-            var equipment = dto.Equipment.Select(item => new BoardroomEquipment
+            if (currentUser == null)
             {
-                Boardroom = boardroom,
-                EquipmentId = item.EquipmentId,
-                Quantity = item.Quantity
-            }).ToList();
+                return Unauthorized();
+            }
 
-            // UpdateBoardroomAsync can throw BusinessRuleException too.
-            try
+            // Administrators can perform full updates.
+            if (currentUser.Role == UserRole.Administrator)
             {
+                var boardroom = new Boardroom
+                {
+                    Name = dto.Name,
+                    Capacity = dto.Capacity,
+                    Status = dto.Status,
+                    LocationId = dto.LocationId
+                };
+
+                var equipment = dto.Equipment.Select(item => new BoardroomEquipment
+                {
+                    Boardroom = boardroom,
+                    EquipmentId = item.EquipmentId,
+                    Quantity = item.Quantity
+                }).ToList();
+
                 var updated = await _boardroomService.UpdateBoardroomAsync(id, boardroom, equipment);
 
                 if (!updated)
@@ -148,99 +131,58 @@ namespace FlexiSpace.API.Controllers
                     return NotFound();
                 }
 
-                await LogActionAsync(
-                    AuditAction.Update,
-                    nameof(Boardroom),
-                    id.ToString(),
-                    oldValues: new
-                    {
-                        before.Name,
-                        before.Capacity,
-                        Status = before.Status.ToString(),
-                        before.LocationId
-                    },
-                    newValues: new
-                    {
-                        dto.Name,
-                        dto.Capacity,
-                        Status = dto.Status.ToString(),
-                        dto.LocationId
-                    });
+                return NoContent();
+            }
+
+            // CentreManagers may only change the room Status for boardrooms in their location.
+            if (currentUser.Role == UserRole.CentreManager)
+            {
+                if (existing.LocationId != currentUser.LocationId)
+                {
+                    return Forbid();
+                }
+
+                // Do not allow CentreManagers to change name/capacity/location/equipment.
+                // Only allow status changes (e.g., block/unblock).
+                if (dto.Name != existing.Name || dto.Capacity != existing.Capacity || dto.LocationId != existing.LocationId || (dto.Equipment?.Count ?? 0) != existing.BoardroomEquipments.Count)
+                {
+                    return Forbid();
+                }
+
+                var updatedBoardroom = new Boardroom
+                {
+                    Name = existing.Name,
+                    Capacity = existing.Capacity,
+                    Status = dto.Status,
+                    LocationId = existing.LocationId
+                };
+
+                var updated = await _boardroomService.UpdateBoardroomAsync(id, updatedBoardroom, existing.BoardroomEquipments.ToList());
+
+                if (!updated)
+                    return NotFound();
 
                 return NoContent();
             }
-            catch (BusinessRuleException ex)
-            {
-                return BadRequest(new { errors = ex.Errors });
-            }
+
+            return Forbid();
         }
 
         // Deletes a boardroom from the system.
-        // Administrator-only: this is the exact example the team used when
-        // scoping RBAC ("only Admins can delete a room").
-        [AuthorizeRoles(UserRole.Administrator)]
         [HttpDelete("{id}")]
+        [AuthorizeRoles(UserRole.Administrator)]
         public async Task<IActionResult> DeleteBoardroom(int id)
         {
-            var before = await _boardroomService.GetBoardroomByIdAsync(id);
+            var deleted = await _boardroomService.DeleteBoardroomAsync(id);
 
-            if (before == null)
+            // Return HTTP 404 if the boardroom doesn't exist.
+            if (!deleted)
             {
                 return NotFound();
             }
 
-            // DeleteBoardroomAsync can throw BusinessRuleException
-            // (existing bookings reference this boardroom).
-            try
-            {
-                var deleted = await _boardroomService.DeleteBoardroomAsync(id);
-
-                if (!deleted)
-                {
-                    return NotFound();
-                }
-
-                await LogActionAsync(
-                    AuditAction.Delete,
-                    nameof(Boardroom),
-                    id.ToString(),
-                    oldValues: new
-                    {
-                        before.Name,
-                        before.Capacity,
-                        Status = before.Status.ToString(),
-                        before.LocationId
-                    });
-
-                return NoContent();
-            }
-            catch (BusinessRuleException ex)
-            {
-                return BadRequest(new { errors = ex.Errors });
-            }
-        }
-        // Sets which boardrooms combine to form this one - e.g. linking
-        // "Thingamajik" and "Whachamacallit" as the components of a bigger
-        // conjoined room (mirrors the combination feature already shipped
-        // in the mobile app). Replaces the existing component list.
-        [HttpPut("{id}/components")]
-        public async Task<IActionResult> SetBoardroomComponents(int id, BoardroomComponentsDto dto)
-        {
-            try
-            {
-                var updated = await _boardroomService.SetBoardroomComponentsAsync(id, dto.ComponentBoardroomIds);
-
-                if (!updated)
-                {
-                    return NotFound();
-                }
-
-                return NoContent();
-            }
-            catch (BusinessRuleException ex)
-            {
-                return BadRequest(new { errors = ex.Errors });
-            }
+            // HTTP 204 indicates the resource was successfully deleted.
+            return NoContent();
         }
 
         // Converts a Boardroom entity into a response DTO.
@@ -261,14 +203,6 @@ namespace FlexiSpace.API.Controllers
                         EquipmentId = be.EquipmentId,
                         Quantity = be.Quantity
                     })
-                    .ToList(),
-
-                ComponentBoardroomIds = boardroom.Components
-                    .Select(c => c.ComponentBoardroomId)
-                    .ToList(),
-
-                CombinedIntoBoardroomIds = boardroom.PartOfCombinations
-                    .Select(c => c.CombinedBoardroomId)
                     .ToList()
             };
         }
