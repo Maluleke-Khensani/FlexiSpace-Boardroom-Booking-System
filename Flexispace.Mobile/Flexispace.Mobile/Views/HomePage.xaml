@@ -4,9 +4,10 @@
              xmlns:vm="clr-namespace:Flexispace.Mobile.ViewModels"
              xmlns:models="clr-namespace:Flexispace.Mobile.Models"
              x:Class="Flexispace.Mobile.Views.HomePage"
+             x:Name="Root"
              x:DataType="vm:HomeViewModel"
              Title="Flexispace"
-             BackgroundColor="{StaticResource BrandIvory}">
+             BackgroundColor="{DynamicResource BrandPage}">
 
     <ContentPage.ToolbarItems>
         <ToolbarItem Text="My bookings" Clicked="OnMyBookingsClicked" />
@@ -101,7 +102,7 @@
                                             HeightRequest="18"
                                             StrokeThickness="0"
                                             StrokeShape="RoundRectangle 9"
-                                            BackgroundColor="{StaticResource BrandGoldDeep}"
+                                            BackgroundColor="{DynamicResource BrandGoldDeep}"
                                             HorizontalOptions="End"
                                             VerticalOptions="Start"
                                             TranslationX="4"
@@ -123,7 +124,7 @@
 
                 <VerticalStackLayout Padding="20" Spacing="18" MaximumWidthRequest="720" HorizontalOptions="Center">
                     <Border Style="{StaticResource CardBorder}" IsVisible="{Binding ShowPayPlaceholder}">
-                        <Label Text="Client Phase 2: online payments will appear here once billing APIs are live." TextColor="{StaticResource BrandMuted}" FontSize="13" />
+                        <Label Text="Client Phase 2: online payments will appear here once billing APIs are live." TextColor="{DynamicResource BrandMuted}" FontSize="13" />
                     </Border>
 
                     <Grid ColumnDefinitions="Auto,*">
@@ -140,37 +141,37 @@
                         <Border Style="{StaticResource PerkChip}" Margin="0,0,8,8">
                             <HorizontalStackLayout Spacing="8">
                                 <Label Style="{StaticResource MaterialGlyph}" Text="&#xe63e;" FontSize="16" TextColor="{StaticResource BrandGold}" />
-                                <Label Text="Uncapped Wi-Fi" TextColor="{StaticResource BrandInk}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
+                                <Label Text="Uncapped Wi-Fi" TextColor="{DynamicResource BrandInk}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
                             </HorizontalStackLayout>
                         </Border>
                         <Border Style="{StaticResource PerkChip}" Margin="0,0,8,8">
                             <HorizontalStackLayout Spacing="8">
-                                <Label Style="{StaticResource MaterialGlyph}" Text="&#xea0b;" FontSize="16" TextColor="{StaticResource BrandTeal}" />
-                                <Label Text="Backup power" TextColor="{StaticResource BrandInk}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
+                                <Label Style="{StaticResource MaterialGlyph}" Text="&#xea0b;" FontSize="16" TextColor="{DynamicResource BrandTeal}" />
+                                <Label Text="Backup power" TextColor="{DynamicResource BrandInk}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
                             </HorizontalStackLayout>
                         </Border>
                         <Border Style="{StaticResource PerkChip}" Margin="0,0,8,8">
                             <HorizontalStackLayout Spacing="8">
-                                <Label Style="{StaticResource MaterialGlyph}" Text="&#xe541;" FontSize="16" TextColor="{StaticResource BrandClay}" />
-                                <Label Text="Tea &amp; coffee" TextColor="{StaticResource BrandInk}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
+                                <Label Style="{StaticResource MaterialGlyph}" Text="&#xe541;" FontSize="16" TextColor="{DynamicResource BrandClay}" />
+                                <Label Text="Tea &amp; coffee" TextColor="{DynamicResource BrandInk}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
                             </HorizontalStackLayout>
                         </Border>
                         <Border Style="{StaticResource PerkChip}" Margin="0,0,8,8">
                             <HorizontalStackLayout Spacing="8">
-                                <Label Style="{StaticResource MaterialGlyph}" Text="&#xe54f;" FontSize="16" TextColor="{StaticResource BrandSteel}" />
-                                <Label Text="Secure parking" TextColor="{StaticResource BrandInk}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
+                                <Label Style="{StaticResource MaterialGlyph}" Text="&#xe54f;" FontSize="16" TextColor="{DynamicResource BrandSteel}" />
+                                <Label Text="Secure parking" TextColor="{DynamicResource BrandInk}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
                             </HorizontalStackLayout>
                         </Border>
                         <Border Style="{StaticResource PerkChip}" Margin="0,0,8,8">
                             <HorizontalStackLayout Spacing="8">
-                                <Label Style="{StaticResource MaterialGlyph}" Text="&#xef63;" FontSize="16" TextColor="{StaticResource BrandSuccess}" />
-                                <Label Text="From R150 / hour" TextColor="{StaticResource BrandInk}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
+                                <Label Style="{StaticResource MaterialGlyph}" Text="&#xef63;" FontSize="16" TextColor="{DynamicResource BrandSuccess}" />
+                                <Label Text="From R150 / hour" TextColor="{DynamicResource BrandInk}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
                             </HorizontalStackLayout>
                         </Border>
                         <Border Style="{StaticResource PerkChip}" Margin="0,0,8,8">
                             <HorizontalStackLayout Spacing="8">
-                                <Label Style="{StaticResource MaterialGlyph}" Text="&#xe898;" FontSize="16" TextColor="{StaticResource BrandGoldDeep}" />
-                                <Label Text="No lease" TextColor="{StaticResource BrandInk}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
+                                <Label Style="{StaticResource MaterialGlyph}" Text="&#xe898;" FontSize="16" TextColor="{DynamicResource BrandGoldDeep}" />
+                                <Label Text="No lease" TextColor="{DynamicResource BrandInk}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
                             </HorizontalStackLayout>
                         </Border>
                     </FlexLayout>
@@ -190,7 +191,7 @@
                             <Border Style="{StaticResource QuickActionOrb}" HorizontalOptions="Center">
                                 <Label Style="{StaticResource MaterialGlyph}" Text="&#xe935;" FontSize="22" TextColor="{StaticResource BrandBlack}" />
                             </Border>
-                            <Label Text="Nothing on the board today" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="16" HorizontalOptions="Center" />
+                            <Label Text="Nothing on the board today" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="16" HorizontalOptions="Center" />
                             <Label Text="Reserve a room and it will land here." Style="{StaticResource MutedLabel}" FontSize="13" HorizontalTextAlignment="Center" />
                             <Button Text="Book a boardroom"
                                     Command="{Binding BookRoomCommand}"
@@ -208,20 +209,20 @@
                             <DataTemplate x:DataType="models:Booking">
                                 <Border Style="{StaticResource ElevatedCard}">
                                     <Border.GestureRecognizers>
-                                        <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=OpenBookingCommand}" CommandParameter="{Binding .}" />
+                                        <TapGestureRecognizer Command="{Binding Source={x:Reference Root}, Path=BindingContext.OpenBookingCommand}" CommandParameter="{Binding .}" />
                                     </Border.GestureRecognizers>
                                     <Grid ColumnDefinitions="4,*">
                                         <BoxView Grid.Column="0" Color="{Binding Status, Converter={StaticResource StatusAccentConverter}}" />
                                         <Grid Grid.Column="1" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" Padding="14,12" RowSpacing="4">
-                                            <Label Text="{Binding RoomName}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="16" />
+                                            <Label Text="{Binding RoomName}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="16" />
                                             <Border Grid.Column="1" Style="{StaticResource StatusPillBorder}" BackgroundColor="{Binding Status, Converter={StaticResource StatusAccentConverter}}">
                                                 <Label Text="{Binding Status}" Style="{StaticResource StatusPillText}" />
                                             </Border>
-                                            <Label Grid.Row="1" Text="{Binding LocationName}" TextColor="{StaticResource BrandMuted}" FontSize="13" />
+                                            <Label Grid.Row="1" Text="{Binding LocationName}" TextColor="{DynamicResource BrandMuted}" FontSize="13" />
                                             <HorizontalStackLayout Grid.Row="2" Spacing="6" Margin="0,4,0,0">
                                                 <Label Style="{StaticResource MaterialGlyph}" Text="&#xe878;" FontSize="14" TextColor="{StaticResource BrandGold}" HorizontalOptions="Start" />
-                                                <Label Text="{Binding Start, StringFormat='{0:ddd d MMM · HH:mm}'}" TextColor="{StaticResource BrandInk}" FontSize="13" VerticalOptions="Center" />
-                                                <Label Text="{Binding End, StringFormat='to {0:HH:mm}'}" TextColor="{StaticResource BrandMuted}" FontSize="13" VerticalOptions="Center" />
+                                                <Label Text="{Binding Start, StringFormat='{0:ddd d MMM · HH:mm}'}" TextColor="{DynamicResource BrandInk}" FontSize="13" VerticalOptions="Center" />
+                                                <Label Text="{Binding End, StringFormat='to {0:HH:mm}'}" TextColor="{DynamicResource BrandMuted}" FontSize="13" VerticalOptions="Center" />
                                             </HorizontalStackLayout>
                                         </Grid>
                                     </Grid>
@@ -250,7 +251,10 @@
                         <Button Grid.Column="2" Text="&#xe5cc;" Clicked="OnHomeNextClicked" Style="{StaticResource CarouselNavButton}" Margin="0,0,0,28" ZIndex="5" />
 
                         <Grid Grid.Column="1" HorizontalOptions="Fill" VerticalOptions="Fill">
-                            <Border x:Name="HomeLeftCard" WidthRequest="170" HeightRequest="170" HorizontalOptions="Start" VerticalOptions="Center" Stroke="{StaticResource BrandLine}" StrokeThickness="1" StrokeShape="RoundRectangle 20" BackgroundColor="White" ZIndex="1">
+                            <Border x:Name="HomeLeftCard" WidthRequest="170" HeightRequest="170" HorizontalOptions="Start" VerticalOptions="Center" Stroke="{DynamicResource BrandLine}" StrokeThickness="1" StrokeShape="RoundRectangle 20" BackgroundColor="White" ZIndex="1">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnHomePreviousClicked" />
+                                </Border.GestureRecognizers>
                                 <Grid>
                                     <Image x:Name="HomeLeftImage" Aspect="AspectFill" />
                                     <BoxView Color="#88000000" VerticalOptions="End" HeightRequest="54" />
@@ -263,7 +267,7 @@
 
                             <Border x:Name="HomeCenterCard" WidthRequest="250" HeightRequest="220" HorizontalOptions="Center" VerticalOptions="Center" Stroke="{StaticResource BrandGold}" StrokeThickness="2" StrokeShape="RoundRectangle 20" BackgroundColor="White" ZIndex="3">
                                 <Border.Shadow>
-                                    <Shadow Brush="{StaticResource BrandGoldDeep}" Opacity="0.28" Radius="16" Offset="0,6" />
+                                    <Shadow Brush="{DynamicResource BrandGoldDeep}" Opacity="0.28" Radius="16" Offset="0,6" />
                                 </Border.Shadow>
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer Tapped="OnHomeCenterTapped" />
@@ -278,7 +282,10 @@
                                 </Grid>
                             </Border>
 
-                            <Border x:Name="HomeRightCard" WidthRequest="170" HeightRequest="170" HorizontalOptions="End" VerticalOptions="Center" Stroke="{StaticResource BrandLine}" StrokeThickness="1" StrokeShape="RoundRectangle 20" BackgroundColor="White" ZIndex="1">
+                            <Border x:Name="HomeRightCard" WidthRequest="170" HeightRequest="170" HorizontalOptions="End" VerticalOptions="Center" Stroke="{DynamicResource BrandLine}" StrokeThickness="1" StrokeShape="RoundRectangle 20" BackgroundColor="White" ZIndex="1">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnHomeNextClicked" />
+                                </Border.GestureRecognizers>
                                 <Grid>
                                     <Image x:Name="HomeRightImage" Aspect="AspectFill" />
                                     <BoxView Color="#88000000" VerticalOptions="End" HeightRequest="54" />

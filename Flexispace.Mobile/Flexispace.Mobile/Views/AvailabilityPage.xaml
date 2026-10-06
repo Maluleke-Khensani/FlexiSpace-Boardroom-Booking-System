@@ -4,9 +4,10 @@
              xmlns:vm="clr-namespace:Flexispace.Mobile.ViewModels"
              xmlns:models="clr-namespace:Flexispace.Mobile.Models"
              x:Class="Flexispace.Mobile.Views.AvailabilityPage"
+             x:Name="Root"
              x:DataType="vm:AvailabilityViewModel"
              Title="Live availability"
-             BackgroundColor="{StaticResource BrandIvory}">
+             BackgroundColor="{DynamicResource BrandPage}">
 
     <Grid RowDefinitions="Auto,*" Padding="16">
         <VerticalStackLayout Spacing="12">
@@ -22,7 +23,7 @@
 
             <Border Style="{StaticResource ElevatedCard}" Padding="14"
                     IsVisible="{Binding AccessMessage, Converter={StaticResource StringNotEmptyConverter}}">
-                <Label Text="{Binding AccessMessage}" TextColor="{StaticResource BrandDanger}" FontSize="13" />
+                <Label Text="{Binding AccessMessage}" TextColor="{DynamicResource BrandDanger}" FontSize="13" />
             </Border>
 
             <VerticalStackLayout Spacing="10" IsVisible="{Binding CanViewAvailability}">
@@ -36,20 +37,20 @@
                                         StrokeShape="RoundRectangle 20"
                                         Padding="12,8">
                                     <Border.GestureRecognizers>
-                                        <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AvailabilityViewModel}}, Path=FilterCommand}"
+                                        <TapGestureRecognizer Command="{Binding Source={x:Reference Root}, Path=BindingContext.FilterCommand}"
                                                               CommandParameter="{Binding .}" />
                                     </Border.GestureRecognizers>
                                     <Border.BackgroundColor>
                                         <MultiBinding Converter="{StaticResource ChipSelectedConverter}">
                                             <Binding Path="Id" />
-                                            <Binding Path="SelectedLocationId" Source="{RelativeSource AncestorType={x:Type vm:AvailabilityViewModel}}" />
+                                            <Binding Path="BindingContext.SelectedLocationId" Source="{x:Reference Root}" />
                                         </MultiBinding>
                                     </Border.BackgroundColor>
                                     <Label Text="{Binding Name}" FontSize="12" FontAttributes="Bold">
                                         <Label.TextColor>
                                             <MultiBinding Converter="{StaticResource ChipSelectedConverter}" ConverterParameter="fg">
                                                 <Binding Path="Id" />
-                                                <Binding Path="SelectedLocationId" Source="{RelativeSource AncestorType={x:Type vm:AvailabilityViewModel}}" />
+                                                <Binding Path="BindingContext.SelectedLocationId" Source="{x:Reference Root}" />
                                             </MultiBinding>
                                         </Label.TextColor>
                                     </Label>
@@ -62,19 +63,19 @@
                 <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                     <Border Style="{StaticResource StatTile}">
                         <VerticalStackLayout Spacing="2">
-                            <Label Text="{Binding AvailableCount}" Style="{StaticResource StatNumber}" TextColor="{StaticResource BrandSuccess}" />
+                            <Label Text="{Binding AvailableCount}" Style="{StaticResource StatNumber}" TextColor="{DynamicResource BrandSuccess}" />
                             <Label Text="Available" Style="{StaticResource StatCaption}" />
                         </VerticalStackLayout>
                     </Border>
                     <Border Grid.Column="1" Style="{StaticResource StatTile}">
                         <VerticalStackLayout Spacing="2">
-                            <Label Text="{Binding ReservedCount}" Style="{StaticResource StatNumber}" TextColor="{StaticResource BrandGoldDeep}" />
+                            <Label Text="{Binding ReservedCount}" Style="{StaticResource StatNumber}" TextColor="{DynamicResource BrandGoldDeep}" />
                             <Label Text="Reserved" Style="{StaticResource StatCaption}" />
                         </VerticalStackLayout>
                     </Border>
                     <Border Grid.Column="2" Style="{StaticResource StatTile}">
                         <VerticalStackLayout Spacing="2">
-                            <Label Text="{Binding OccupiedCount}" Style="{StaticResource StatNumber}" TextColor="{StaticResource BrandDanger}" />
+                            <Label Text="{Binding OccupiedCount}" Style="{StaticResource StatNumber}" TextColor="{DynamicResource BrandDanger}" />
                             <Label Text="Busy" Style="{StaticResource StatCaption}" />
                         </VerticalStackLayout>
                     </Border>
@@ -117,26 +118,26 @@
                             <DataTemplate x:DataType="vm:AvailabilityItem">
                                 <Border Style="{StaticResource ElevatedCard}" Padding="0">
                                     <Border.GestureRecognizers>
-                                        <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AvailabilityViewModel}}, Path=OpenRoomCommand}"
+                                        <TapGestureRecognizer Command="{Binding Source={x:Reference Root}, Path=BindingContext.OpenRoomCommand}"
                                                               CommandParameter="{Binding .}" />
                                     </Border.GestureRecognizers>
                                     <Grid ColumnDefinitions="88,*">
                                         <Image Source="{Binding Room.ImageKey}" Aspect="AspectFill" HeightRequest="96" />
                                         <Grid Grid.Column="1" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" Padding="12,10" RowSpacing="4">
-                                            <Label Text="{Binding Room.Name}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="16" />
+                                            <Label Text="{Binding Room.Name}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="16" />
                                             <Border Grid.Column="1" Style="{StaticResource StatusPillBorder}" BackgroundColor="{Binding StatusColor}">
                                                 <Label Text="{Binding StatusText}" Style="{StaticResource StatusPillText}" />
                                             </Border>
-                                            <Label Grid.Row="1" Text="{Binding LocationName}" TextColor="{StaticResource BrandMuted}" FontSize="13" />
+                                            <Label Grid.Row="1" Text="{Binding LocationName}" TextColor="{DynamicResource BrandMuted}" FontSize="13" />
                                             <Label Grid.Row="2"
                                                    Text="{Binding Room.Capacity, StringFormat='Seats {0}'}"
-                                                   TextColor="{StaticResource BrandGoldDeep}"
+                                                   TextColor="{DynamicResource BrandGoldDeep}"
                                                    FontSize="12"
                                                    VerticalOptions="Center" />
                                             <Button Grid.Row="2" Grid.Column="1"
                                                     Text="Book"
-                                                    IsVisible="{Binding Source={RelativeSource AncestorType={x:Type vm:AvailabilityViewModel}}, Path=CanBook}"
-                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AvailabilityViewModel}}, Path=BookRoomCommand}"
+                                                    IsVisible="{Binding Source={x:Reference Root}, Path=BindingContext.CanBook}"
+                                                    Command="{Binding Source={x:Reference Root}, Path=BindingContext.BookRoomCommand}"
                                                     CommandParameter="{Binding .}"
                                                     Style="{StaticResource GoldButton}"
                                                     Padding="12,6"

@@ -6,7 +6,7 @@
              x:Class="Flexispace.Mobile.Views.PrivacyPage"
              x:DataType="vm:PrivacyViewModel"
              Title="Privacy"
-             BackgroundColor="{StaticResource BrandIvory}">
+             BackgroundColor="{DynamicResource BrandPage}">
 
     <ScrollView>
         <VerticalStackLayout Padding="20" Spacing="16" MaximumWidthRequest="720" HorizontalOptions="Center">
@@ -21,7 +21,7 @@
             </Border>
 
             <Border Style="{StaticResource ElevatedCard}" Padding="16,14">
-                <Label Text="{Binding Intro}" TextColor="{StaticResource BrandInk}" FontSize="13" LineBreakMode="WordWrap" />
+                <Label Text="{Binding Intro}" TextColor="{DynamicResource BrandInk}" FontSize="13" LineBreakMode="WordWrap" />
             </Border>
 
             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Sections}" Spacing="12">
@@ -31,8 +31,8 @@
                             <Grid ColumnDefinitions="4,*">
                                 <BoxView Color="{StaticResource BrandGold}" />
                                 <VerticalStackLayout Grid.Column="1" Spacing="8" Padding="14,14">
-                                    <Label Text="{Binding Title}" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" FontSize="15" />
-                                    <Label Text="{Binding Body}" TextColor="{StaticResource BrandInk}" FontSize="13" LineBreakMode="WordWrap" />
+                                    <Label Text="{Binding Title}" TextColor="{DynamicResource BrandGoldDeep}" FontAttributes="Bold" FontSize="15" />
+                                    <Label Text="{Binding Body}" TextColor="{DynamicResource BrandInk}" FontSize="13" LineBreakMode="WordWrap" />
                                 </VerticalStackLayout>
                             </Grid>
                         </Border>
@@ -42,15 +42,15 @@
 
             <Border Style="{StaticResource ElevatedCard}" Padding="16,14">
                 <VerticalStackLayout Spacing="8">
-                    <Label Text="Conclusion" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" FontSize="15" />
-                    <Label Text="{Binding Conclusion}" TextColor="{StaticResource BrandInk}" FontSize="13" LineBreakMode="WordWrap" />
+                    <Label Text="Conclusion" TextColor="{DynamicResource BrandGoldDeep}" FontAttributes="Bold" FontSize="15" />
+                    <Label Text="{Binding Conclusion}" TextColor="{DynamicResource BrandInk}" FontSize="13" LineBreakMode="WordWrap" />
                 </VerticalStackLayout>
             </Border>
 
             <Border Style="{StaticResource ElevatedCard}" Padding="16,14">
                 <VerticalStackLayout Spacing="10">
-                    <Label Text="Questions or data requests" TextColor="{StaticResource BrandGoldDeep}" FontAttributes="Bold" FontSize="15" />
-                    <Label Text="{Binding ContactLine}" TextColor="{StaticResource BrandMuted}" FontSize="12" />
+                    <Label Text="Questions or data requests" TextColor="{DynamicResource BrandGoldDeep}" FontAttributes="Bold" FontSize="15" />
+                    <Label Text="{Binding ContactLine}" TextColor="{DynamicResource BrandMuted}" FontSize="12" />
                     <Button Text="Email Flexispace" Command="{Binding ContactEmailCommand}" Style="{StaticResource GoldButton}" />
                     <Button Text="View policy on flexispace.net.za" Command="{Binding OpenWebsitePolicyCommand}" Style="{StaticResource GhostButton}" />
                     <Button Text="Learn more about POPIA" Command="{Binding OpenPopiaInfoCommand}" Style="{StaticResource GhostButton}" />

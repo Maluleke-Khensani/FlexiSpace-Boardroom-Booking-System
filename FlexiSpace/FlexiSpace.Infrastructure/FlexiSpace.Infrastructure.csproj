@@ -19,11 +19,8 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.3" />
-    <PackageReference Include="Microsoft.Graph" Version="6.5.0" />
-    <!-- Also brings Microsoft.Extensions.Http (IHttpClientFactory), which
-         AzureNotificationHubPushSender needs. Same version as the API. -->
-    <PackageReference Include="Microsoft.Identity.Web" Version="4.14.2" />
+    <PackageReference Include="Microsoft.Graph" Version="6.2.0" />
+    <PackageReference Include="Microsoft.Identity.Web" Version="4.13.2" />
   </ItemGroup>
 
   <ItemGroup>

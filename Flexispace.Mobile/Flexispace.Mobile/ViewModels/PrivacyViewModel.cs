@@ -26,7 +26,7 @@ public partial class PrivacyViewModel : ObservableObject
         }
         catch
         {
-            // Browser unavailable — policy is already shown in-app.
+            await ShowOpenFailedAsync(PrivacyPolicyContent.SourceUrl);
         }
     }
 
@@ -39,6 +39,7 @@ public partial class PrivacyViewModel : ObservableObject
         }
         catch
         {
+            await ShowOpenFailedAsync(PrivacyPolicyContent.PopiaInfoUrl);
         }
     }
 
@@ -51,6 +52,13 @@ public partial class PrivacyViewModel : ObservableObject
         }
         catch
         {
+            await ShowOpenFailedAsync(PrivacyPolicyContent.ContactEmail);
         }
+    }
+
+    private static async Task ShowOpenFailedAsync(string target)
+    {
+        if (Shell.Current is not null)
+            await Shell.Current.DisplayAlertAsync("Could not open", target, "OK");
     }
 }

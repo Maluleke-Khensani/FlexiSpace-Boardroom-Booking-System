@@ -11,22 +11,17 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace FlexiSpace.API.Controllers
 {
-    // Admin user-management controller, plus a self-lookup endpoint any
-    // signed-in user can call.
+    // Admin user-management controller.
     //
-    // Everything except GetMyProfile is Administrator-only. RBAC for those
-    // is enforced with [AuthorizeRoles] on each action individually (rather
-    // than once at the controller level) specifically so GetMyProfile can
-    // stay open to any authenticated user - see its comment below for why
-    // it needs to exist at all.
+    // Only authenticated Administrators can access this controller.
+    // RBAC is enforced through the AuthorizeRoles attribute below.
     //
     // This controller supports:
-    // - A signed-in user fetching their own FlexiSpace profile (NEW)
-    // - Viewing all provisioned FlexiSpace users (Administrator)
-    // - Viewing an individual user (Administrator)
-    // - Provisioning an existing Microsoft Entra user (Administrator)
-    // - Updating a user's profile/role/location (Administrator)
-    // - Activating/deactivating a user (Administrator)
+    // - Viewing all provisioned FlexiSpace users
+    // - Viewing an individual user
+    // - Provisioning an existing Microsoft Entra user
+    // - Updating a user's profile/role/location
+    // - Activating/deactivating a user
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
@@ -34,40 +29,20 @@ namespace FlexiSpace.API.Controllers
     {
         private readonly IUserService _userService;
         private readonly IAuditService _auditService;
-        private readonly IEntraUserService _entraUserService;
         private readonly ICurrentUserService _currentUserService;
 
         public UserController(
             IUserService userService,
             IAuditService auditService,
-            ICurrentUserService currentUserService,
-            IEntraUserService entraUserService)
+            ICurrentUserService currentUserService)
         {
             _userService = userService;
             _auditService = auditService;
             _currentUserService = currentUserService;
-            _entraUserService = entraUserService;
         }
 
         // NEW: lets a signed-in user fetch their own FlexiSpace profile
-        // (Id, Role, LocationId, etc.) without needing Administrator
-        // rights.
-        //
-        // Why this needs to exist: every RBAC check in this API resolves
-        // "who is this?" server-side via ICurrentUserService (the caller's
-        // Entra object id -> a row in our own Users table). Nothing about
-        // that is visible to the caller's own access token - a client app
-        // (Web/Mobile) that just finished signing a user in via Entra has
-        // no way to find out its own local Id/Role/LocationId, which it
-        // needs immediately to decide what UI to show (can this person
-        // book? manage? see the admin console?). Without this endpoint,
-        // the only "who am I" the front end could see is the Entra token
-        // itself, which deliberately isn't what RBAC is keyed on here.
-        //
-        // 404 covers two states deliberately collapsed together: "never
-        // provisioned" and "provisioned but deactivated" - either way, the
-        // client's correct response is the same "ask your Administrator"
-        // message, not two different codepaths.
+        // (Id, Role, LocationId, etc.) without needing Administrator rights.
         [HttpGet("me")]
         public async Task<IActionResult> GetMyProfile()
         {
@@ -77,73 +52,67 @@ namespace FlexiSpace.API.Controllers
             {
                 return NotFound(new
                 {
-                    message = "No FlexiSpace account is linked to this sign-in yet. " +
-                        "Ask an Administrator to provision your account."
+                    message = "No FlexiSpace account is linked to this sign-in yet. Ask an Administrator to provision your account."
                 });
             }
 
             return Ok(MapToResponseDto(currentUser));
         }
 
-        // Login history (project plan, Security: "Audit logs for ... login
-        // history"). The web and mobile apps call these right after a
-        // Microsoft sign-in completes and just before signing out, so each
-        // shows up in the audit log as a Login / Logout entry against the
-        // user. Any signed-in user can record their own; nobody can record
-        // one for someone else.
-        [HttpPost("me/sign-in")]
-        public Task<IActionResult> RecordSignIn([FromQuery] string? client) =>
-            RecordSessionEventAsync(AuditAction.Login, client);
+        public record LinkMeRequest(string? Email);
 
-        [HttpPost("me/sign-out")]
-        public Task<IActionResult> RecordSignOut([FromQuery] string? client) =>
-            RecordSessionEventAsync(AuditAction.Logout, client);
-
-        private async Task<IActionResult> RecordSessionEventAsync(AuditAction action, string? client)
+        /// <summary>
+        /// After Microsoft sign-in, mobile sends the MSAL account username so we can link
+        /// oid → directory row when the access token has no email claims.
+        /// </summary>
+        [HttpPost("me/link")]
+        public async Task<IActionResult> LinkMyProfile([FromBody] LinkMeRequest? request)
         {
-            var currentUser = await _currentUserService.GetCurrentUserAsync();
+            var currentUser = await _currentUserService.LinkByEmailAsync(request?.Email);
 
             if (currentUser == null)
             {
                 return NotFound(new
                 {
-                    message = "No FlexiSpace account is linked to this sign-in yet."
+                    message = "No FlexiSpace account is linked to this sign-in yet. Ask an Administrator to add your email in Users."
                 });
             }
 
-            // A page refresh straight after signing in can report the same
-            // sign-in twice - one entry per two minutes is plenty.
-            var recent = await _auditService.GetLogsForEntityAsync(nameof(User), currentUser.Id.ToString());
-            var cutoff = DateTime.UtcNow.AddMinutes(-2);
-
-            if (recent.Any(l => l.Action == action && l.UserId == currentUser.Id && l.Timestamp > cutoff))
-            {
-                return NoContent();
-            }
-
-            var clientName = string.IsNullOrWhiteSpace(client)
-                ? "Unknown"
-                : client.Trim()[..Math.Min(client.Trim().Length, 20)];
-
-            await _auditService.LogAsync(
-                currentUser.Id,
-                action,
-                entityName: nameof(User),
-                entityId: currentUser.Id.ToString(),
-                newValues: JsonSerializer.Serialize(new { Client = clientName, currentUser.Email }));
-
-            return NoContent();
+            return Ok(MapToResponseDto(currentUser));
         }
 
         // Retrieves all users that have been provisioned
         // into the FlexiSpace database.
         [HttpGet]
-        [AuthorizeRoles(UserRole.Administrator)]
         public async Task<IActionResult> GetAllUsers()
         {
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+
+            if (currentUser == null)
+            {
+                return Unauthorized();
+            }
+
             var users = await _userService.GetAllUsersAsync();
 
-            var response = users.Select(MapToResponseDto);
+            IEnumerable<User> filtered;
+
+            if (currentUser.Role == UserRole.Administrator)
+            {
+                filtered = users;
+            }
+            else if (currentUser.Role == UserRole.CentreManager)
+            {
+                // Centre managers can view users in their own location only.
+                filtered = users.Where(u => u.LocationId.HasValue && u.LocationId == currentUser.LocationId);
+            }
+            else
+            {
+                // Other roles cannot list all users.
+                return Forbid();
+            }
+
+            var response = filtered.Select(MapToResponseDto);
 
             return Ok(response);
         }
@@ -151,7 +120,6 @@ namespace FlexiSpace.API.Controllers
         // Retrieves a specific FlexiSpace user using
         // their local database ID.
         [HttpGet("{id}")]
-        [AuthorizeRoles(UserRole.Administrator)]
         public async Task<IActionResult> GetUserById(int id)
         {
             var user = await _userService.GetUserByIdAsync(id);
@@ -161,7 +129,66 @@ namespace FlexiSpace.API.Controllers
                 return NotFound();
             }
 
-            return Ok(MapToResponseDto(user));
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+
+            if (currentUser == null)
+            {
+                return Unauthorized();
+            }
+
+            // Administrators can view any user.
+            if (currentUser.Role == UserRole.Administrator)
+            {
+                return Ok(MapToResponseDto(user));
+            }
+
+            // CentreManagers can view users in their own location.
+            if (currentUser.Role == UserRole.CentreManager &&
+                user.LocationId.HasValue &&
+                currentUser.LocationId.HasValue &&
+                user.LocationId == currentUser.LocationId)
+            {
+                return Ok(MapToResponseDto(user));
+            }
+
+            // Allow a user to view their own profile.
+            if (currentUser.Id == user.Id)
+            {
+                return Ok(MapToResponseDto(user));
+            }
+
+            return Forbid();
+        }
+
+        // Creates a FlexiSpace directory row (email + role). Microsoft oid is
+        // linked automatically on first successful Entra sign-in when emails match.
+        [HttpPost("directory")]
+        [AuthorizeRoles(UserRole.Administrator)]
+        public async Task<IActionResult> CreateDirectoryUser([FromBody] UserDirectoryCreateDto dto)
+        {
+            var user = await _userService.CreateDirectoryUserAsync(dto);
+            if (user is null)
+            {
+                return BadRequest(new
+                {
+                    message = "Could not add user. Check email is unique, names are set, and Centre Managers have a location."
+                });
+            }
+
+            await LogAdminActionAsync(
+                AuditAction.Create,
+                user.Id,
+                oldValues: null,
+                newValues: JsonSerializer.Serialize(new
+                {
+                    user.Email,
+                    user.FirstName,
+                    user.LastName,
+                    Role = user.Role.ToString(),
+                    user.LocationId
+                }));
+
+            return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, MapToResponseDto(user));
         }
 
         // Provisions an existing Microsoft Entra user
@@ -169,17 +196,16 @@ namespace FlexiSpace.API.Controllers
         //
         // The administrator supplies:
         // - The Entra Object ID of the selected user
+        // - The FlexiSpace role
         // - The optional FlexiSpace location
         //
-        // The user's name, email, and FlexiSpace role are retrieved from
+        // The user's name and email are retrieved from
         // Microsoft Entra ID by the UserService.
         [HttpPost("provision")]
         [AuthorizeRoles(UserRole.Administrator)]
         public async Task<IActionResult> ProvisionUser(
             UserProvisionDto dto)
         {
-           
-
             // Ask the UserService to provision the selected
             // Microsoft Entra user into the local database.
             var user = await _userService.ProvisionUserAsync(dto);
@@ -228,10 +254,6 @@ namespace FlexiSpace.API.Controllers
                 MapToResponseDto(user));
         }
 
-        
-
-
-
         // Updates an existing user's information.
         [HttpPut("{id}")]
         [AuthorizeRoles(UserRole.Administrator)]
@@ -257,7 +279,6 @@ namespace FlexiSpace.API.Controllers
             {
                 FirstName = dto.FirstName,
                 LastName = dto.LastName,
-                Role = dto.Role,
                 LocationId = dto.LocationId,
 
                 // Required properties that are not being updated.
@@ -288,7 +309,6 @@ namespace FlexiSpace.API.Controllers
                 {
                     dto.FirstName,
                     dto.LastName,
-                    Role = dto.Role.ToString(),
                     dto.LocationId
                 }));
 
@@ -335,6 +355,50 @@ namespace FlexiSpace.API.Controllers
                 {
                     dto.IsActive
                 }));
+
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        [AuthorizeRoles(UserRole.Administrator)]
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+            if (currentUser == null)
+                return Unauthorized();
+
+            var before = await _userService.GetUserByIdAsync(id);
+            if (before == null)
+                return NotFound();
+
+            string? error;
+            try
+            {
+                error = await _userService.DeleteUserAsync(id, currentUser.Id);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+
+            if (error is not null)
+            {
+                if (error == "User not found.")
+                    return NotFound();
+                return BadRequest(new { message = error });
+            }
+
+            await LogAdminActionAsync(
+                AuditAction.Delete,
+                id,
+                oldValues: JsonSerializer.Serialize(new
+                {
+                    before.FirstName,
+                    before.LastName,
+                    before.Email,
+                    Role = before.Role.ToString()
+                }),
+                newValues: null);
 
             return NoContent();
         }
@@ -389,3 +453,4 @@ namespace FlexiSpace.API.Controllers
         }
     }
 }
+

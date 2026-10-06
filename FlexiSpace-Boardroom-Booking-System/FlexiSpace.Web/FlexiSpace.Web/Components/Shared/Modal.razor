@@ -1,0 +1,28 @@
+@* Simple dialog overlay for alert messages and room details. *@
+@if (IsOpen)
+{
+    <div class="fs-modal-backdrop" @onclick="Close">
+        <div class="fs-modal" @onclick:stopPropagation="true">
+            @if (!string.IsNullOrEmpty(Title))
+            {
+                <h3>@Title</h3>
+            }
+            @if (!string.IsNullOrEmpty(Message))
+            {
+                <p>@Message</p>
+            }
+            @ChildContent
+            <button type="button" class="fs-btn fs-btn--gold fs-btn--block" @onclick="Close">OK</button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private async Task Close() => await IsOpenChanged.InvokeAsync(false);
+}

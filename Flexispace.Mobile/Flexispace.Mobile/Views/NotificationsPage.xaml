@@ -4,9 +4,10 @@
              xmlns:vm="clr-namespace:Flexispace.Mobile.ViewModels"
              xmlns:models="clr-namespace:Flexispace.Mobile.Models"
              x:Class="Flexispace.Mobile.Views.NotificationsPage"
+             x:Name="Root"
              x:DataType="vm:NotificationsViewModel"
              Title="Notifications"
-             BackgroundColor="{StaticResource BrandIvory}">
+             BackgroundColor="{DynamicResource BrandPage}">
 
     <Grid RowDefinitions="Auto,*">
         <VerticalStackLayout x:Name="AlertsHero" Padding="16,12,16,8" Spacing="12">
@@ -59,7 +60,7 @@
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                 <Border Style="{StaticResource StatTile}">
                     <VerticalStackLayout Spacing="2">
-                        <Label Text="{Binding UnreadCount}" Style="{StaticResource StatNumber}" TextColor="{StaticResource BrandGoldDeep}" />
+                        <Label Text="{Binding UnreadCount}" Style="{StaticResource StatNumber}" TextColor="{DynamicResource BrandGoldDeep}" />
                         <Label Text="Unread" Style="{StaticResource StatCaption}" />
                     </VerticalStackLayout>
                 </Border>
@@ -163,7 +164,7 @@
                             <Border Style="{StaticResource QuickActionOrb}" HorizontalOptions="Center">
                                 <Label Style="{StaticResource MaterialGlyph}" Text="&#xe86c;" FontSize="22" TextColor="{StaticResource BrandBlack}" />
                             </Border>
-                            <Label Text="{Binding EmptyTitle}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="18" HorizontalOptions="Center" />
+                            <Label Text="{Binding EmptyTitle}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="18" HorizontalOptions="Center" />
                             <Label Text="{Binding EmptySubtitle}" Style="{StaticResource MutedLabel}" FontSize="13" HorizontalTextAlignment="Center" />
                         </VerticalStackLayout>
                     </Border>
@@ -175,15 +176,15 @@
                                 <SwipeItems Mode="Reveal">
                                     <SwipeItem Text="{Binding IsRead, Converter={StaticResource ReadToggleTextConverter}}"
                                                BackgroundColor="{StaticResource BrandGold}"
-                                               Command="{Binding Source={RelativeSource AncestorType={x:Type vm:NotificationsViewModel}}, Path=ToggleReadCommand}"
+                                               Command="{Binding Source={x:Reference Root}, Path=BindingContext.ToggleReadCommand}"
                                                CommandParameter="{Binding .}" />
                                 </SwipeItems>
                             </SwipeView.LeftItems>
                             <SwipeView.RightItems>
                                 <SwipeItems Mode="Reveal">
                                     <SwipeItem Text="Delete"
-                                               BackgroundColor="{StaticResource BrandDanger}"
-                                               Command="{Binding Source={RelativeSource AncestorType={x:Type vm:NotificationsViewModel}}, Path=DeleteCommand}"
+                                               BackgroundColor="{DynamicResource BrandDanger}"
+                                               Command="{Binding Source={x:Reference Root}, Path=BindingContext.DeleteCommand}"
                                                CommandParameter="{Binding .}" />
                                 </SwipeItems>
                             </SwipeView.RightItems>
@@ -191,16 +192,16 @@
                             <Border StrokeShape="RoundRectangle 20"
                                     Stroke="{StaticResource BrandGold}"
                                     StrokeThickness="1.6"
-                                    BackgroundColor="#FBF6EA"
+                                    BackgroundColor="{DynamicResource BrandGoldWash}"
                                     Padding="0"
                                     Opacity="1">
                                 <Border.Shadow>
-                                    <Shadow Brush="{StaticResource BrandInk}" Opacity="0.1" Radius="12" Offset="0,4" />
+                                    <Shadow Brush="{DynamicResource BrandInk}" Opacity="0.1" Radius="12" Offset="0,4" />
                                 </Border.Shadow>
                                 <Border.Triggers>
                                     <DataTrigger TargetType="Border" Binding="{Binding IsRead}" Value="True">
-                                        <Setter Property="BackgroundColor" Value="{StaticResource BrandSurfaceAlt}" />
-                                        <Setter Property="Stroke" Value="{StaticResource BrandLine}" />
+                                        <Setter Property="BackgroundColor" Value="{DynamicResource BrandSurfaceAlt}" />
+                                        <Setter Property="Stroke" Value="{DynamicResource BrandLine}" />
                                         <Setter Property="StrokeThickness" Value="1" />
                                         <Setter Property="Opacity" Value="0.58" />
                                     </DataTrigger>
@@ -213,7 +214,7 @@
                                 </Border.Triggers>
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:NotificationsViewModel}}, Path=OpenNotificationCommand}"
+                                        Command="{Binding Source={x:Reference Root}, Path=BindingContext.OpenNotificationCommand}"
                                         CommandParameter="{Binding .}" />
                                 </Border.GestureRecognizers>
 
@@ -227,7 +228,7 @@
                                                 BackgroundColor="{Binding Type, Converter={StaticResource NotificationAccentConverter}}"
                                                 VerticalOptions="Start">
                                             <Border.Shadow>
-                                                <Shadow Brush="{StaticResource BrandInk}" Opacity="0.16" Radius="6" Offset="0,2" />
+                                                <Shadow Brush="{DynamicResource BrandInk}" Opacity="0.16" Radius="6" Offset="0,2" />
                                             </Border.Shadow>
                                             <Label FontFamily="MaterialIcons"
                                                    Text="{Binding Type, Converter={StaticResource NotificationIconConverter}}"
@@ -236,18 +237,18 @@
                                         </Border>
 
                                         <VerticalStackLayout Grid.Column="1" Spacing="3">
-                                            <Label Text="{Binding Title}" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="15">
+                                            <Label Text="{Binding Title}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="15">
                                                 <Label.Triggers>
                                                     <DataTrigger TargetType="Label" Binding="{Binding IsRead}" Value="True">
-                                                        <Setter Property="TextColor" Value="{StaticResource BrandMuted}" />
+                                                        <Setter Property="TextColor" Value="{DynamicResource BrandMuted}" />
                                                         <Setter Property="FontAttributes" Value="None" />
                                                     </DataTrigger>
                                                 </Label.Triggers>
                                             </Label>
-                                            <Label Text="{Binding Message}" TextColor="{StaticResource BrandMuted}" FontSize="13" LineBreakMode="TailTruncation" />
+                                            <Label Text="{Binding Message}" TextColor="{DynamicResource BrandMuted}" FontSize="13" LineBreakMode="TailTruncation" />
                                             <HorizontalStackLayout Spacing="6">
-                                                <Label Style="{StaticResource MaterialGlyph}" Text="&#xe192;" FontSize="12" TextColor="{StaticResource BrandGoldDeep}" HorizontalOptions="Start" />
-                                                <Label Text="{Binding CreatedAt, Converter={StaticResource TimeAgoConverter}}" TextColor="{StaticResource BrandGoldDeep}" FontSize="11" VerticalOptions="Center" />
+                                                <Label Style="{StaticResource MaterialGlyph}" Text="&#xe192;" FontSize="12" TextColor="{DynamicResource BrandGoldDeep}" HorizontalOptions="Start" />
+                                                <Label Text="{Binding CreatedAt, Converter={StaticResource TimeAgoConverter}}" TextColor="{DynamicResource BrandGoldDeep}" FontSize="11" VerticalOptions="Center" />
                                             </HorizontalStackLayout>
                                         </VerticalStackLayout>
                                     </Grid>

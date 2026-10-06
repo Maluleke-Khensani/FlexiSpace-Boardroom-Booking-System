@@ -305,17 +305,6 @@
                             <Button Text="Block room" Command="{Binding BlockRoomCommand}" Style="{StaticResource GoldButton}" Margin="0,4,0,0" />
                         </VerticalStackLayout>
                     </Border>
-
-                    <Border Style="{StaticResource ElevatedCard}" Padding="14,12" IsVisible="{Binding IsAdministrator}">
-                        <VerticalStackLayout Spacing="8">
-                            <Label Text="Users" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" />
-                            <Label Text="Add or deactivate FlexiSpace directory users."
-                                   Style="{StaticResource MutedLabel}" FontSize="12" />
-                            <Button Text="Manage users"
-                                    Command="{Binding OpenUsersCommand}"
-                                    Style="{StaticResource GhostButton}" />
-                        </VerticalStackLayout>
-                    </Border>
                 </VerticalStackLayout>
             </VerticalStackLayout>
         </ScrollView>

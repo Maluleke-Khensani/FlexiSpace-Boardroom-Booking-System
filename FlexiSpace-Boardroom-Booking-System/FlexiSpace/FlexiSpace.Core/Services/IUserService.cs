@@ -14,5 +14,6 @@ namespace FlexiSpace.Core.Services
         Task<bool> UpdateUserStatusAsync(int id, bool isActive);
         Task<User?> ProvisionUserAsync(UserProvisionDto dto);
         Task<User?> CreateDirectoryUserAsync(UserDirectoryCreateDto dto);
+        Task<string?> DeleteUserAsync(int id, int actingUserId);
     }
 }

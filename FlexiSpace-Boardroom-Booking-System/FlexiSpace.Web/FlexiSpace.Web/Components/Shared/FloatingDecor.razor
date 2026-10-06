@@ -1,0 +1,38 @@
+@* Decorative floating brand icons for welcome and dashboard backgrounds. *@
+<div class="fs-float-layer" aria-hidden="true">
+    @foreach (var icon in Icons)
+    {
+        <div class="fs-float-icon fs-float-icon--@icon.Style" style="--fs-float-delay:@(icon.Delay)s; --fs-float-x:@(icon.X)%; --fs-float-y:@(icon.Y)%">
+            <span class="fs-float-icon__ring"></span>
+            <NavIcon Name="@icon.Name" />
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Variant { get; set; } = "default";
+
+    private IEnumerable<(string Name, string Style, double Delay, double X, double Y)> Icons =>
+        Variant switch
+        {
+            "welcome" =>
+            [
+                ("wifi", "gold", 0, 8, 18),
+                ("coffee", "teal", 1.2, 88, 22),
+                ("building", "steel", 2.4, 12, 72),
+                ("calendar", "gold", 0.6, 82, 68),
+                ("parking", "clay", 1.8, 72, 12)
+            ],
+            "dashboard" =>
+            [
+                ("wifi", "gold", 0, 6, 12),
+                ("calendar", "teal", 1.5, 92, 20),
+                ("building", "steel", 0.8, 78, 75)
+            ],
+            _ =>
+            [
+                ("wifi", "gold", 0, 10, 15),
+                ("calendar", "teal", 1, 85, 25)
+            ]
+        };
+}

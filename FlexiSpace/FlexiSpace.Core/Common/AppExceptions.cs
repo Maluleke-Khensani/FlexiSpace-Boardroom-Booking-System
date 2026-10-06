@@ -33,17 +33,4 @@ namespace FlexiSpace.Core.Common
             Errors = errors.ToList();
         }
     }
-
-    // Thrown when the authenticated caller is not allowed to perform the
-    // requested action (e.g. editing someone else's booking without being
-    // a Centre Manager at that location or an Administrator). Controllers
-    // should catch this and return HTTP 403 Forbidden - distinct from
-    // BusinessRuleException (400: the request itself is invalid) and
-    // NotFoundException (404: the resource doesn't exist).
-    public class ForbiddenException : Exception
-    {
-        public ForbiddenException(string message) : base(message)
-        {
-        }
-    }
 }

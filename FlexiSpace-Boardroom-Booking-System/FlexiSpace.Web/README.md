@@ -24,13 +24,17 @@ The app uses **mock data and services** (no live API). It is intended as a funct
 - **CommunityToolkit.Mvvm** — ViewModels with RelayCommand
 - Custom CSS design system (`wwwroot/flexispace.css`) matching Flexispace branding
 
+This folder is a **standalone web project**. It does not include the FlexiSpace API or the MAUI mobile app. Open `Flexispace.Web.sln` to work on the web client only.
+
 ## How to run
 
-From the `Flexispace.Web` solution folder:
+From this folder (`Flexispace.Web`):
 
 ```powershell
 dotnet run --project FlexiSpace.Web
 ```
+
+Or open `Flexispace.Web.sln` in Visual Studio / Cursor and run `Flexispace.Web`.
 
 Then open the URL shown in the terminal (typically `http://localhost:5282`).
 

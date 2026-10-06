@@ -5,7 +5,7 @@
              xmlns:controls="clr-namespace:Flexispace.Mobile.Controls"
              x:Class="Flexispace.Mobile.Views.LoginPage"
              x:DataType="vm:LoginViewModel"
-             BackgroundColor="{StaticResource BrandIvory}"
+             BackgroundColor="{DynamicResource BrandPage}"
              Shell.NavBarIsVisible="False"
              Title="Sign in">
 
@@ -30,25 +30,25 @@
             <VerticalStackLayout Padding="20,18,20,28" Spacing="16" MaximumWidthRequest="480" HorizontalOptions="Center">
                 <Border Style="{StaticResource ElevatedCard}" Padding="18,18">
                     <VerticalStackLayout Spacing="12">
-                        <Label Text="Your Flexispace account" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="16" />
-                        <Label Text="Use your work or Flexispace Microsoft account. Your role and location come from your Flexispace profile."
+                        <Label Text="Microsoft Entra" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="16" />
+                        <Label Text="Sign in with your FlexiSpace Microsoft account."
                                Style="{StaticResource MutedLabel}" FontSize="12" />
+
+                        <Button Text="Sign in with Microsoft"
+                                Command="{Binding LoginWithMicrosoftCommand}"
+                                Style="{StaticResource GoldButton}"
+                                Margin="0,8,0,0"
+                                IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
 
                         <Border IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}"
                                 StrokeThickness="0"
                                 StrokeShape="RoundRectangle 10"
-                                BackgroundColor="{StaticResource BrandDangerSoft}"
+                                BackgroundColor="{DynamicResource BrandDangerSoft}"
                                 Padding="12,10">
                             <Label Text="{Binding ErrorMessage}"
-                                   TextColor="{StaticResource BrandDanger}"
+                                   TextColor="{DynamicResource BrandDanger}"
                                    FontSize="13" />
                         </Border>
-
-                        <Button Text="Sign in with Microsoft"
-                                Command="{Binding SignInCommand}"
-                                Style="{StaticResource GoldButton}"
-                                Margin="0,6,0,0"
-                                IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
 
                         <ActivityIndicator IsRunning="{Binding IsBusy}"
                                            IsVisible="{Binding IsBusy}"
@@ -56,7 +56,7 @@
 
                         <Border StrokeThickness="0"
                                 StrokeShape="RoundRectangle 12"
-                                BackgroundColor="{StaticResource BrandTealSoft}"
+                                BackgroundColor="{DynamicResource BrandTealSoft}"
                                 Padding="12,10"
                                 Margin="0,4,0,0">
                             <Border.GestureRecognizers>
@@ -64,23 +64,131 @@
                             </Border.GestureRecognizers>
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
                                 <Label Style="{StaticResource MaterialGlyph}" Text="&#xe32a;" FontSize="18"
-                                       TextColor="{StaticResource BrandTeal}" VerticalOptions="Center" />
+                                       TextColor="{DynamicResource BrandTeal}" VerticalOptions="Center" />
                                 <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
-                                    <Label Text="Your details stay protected" TextColor="{StaticResource BrandInk}" FontAttributes="Bold" FontSize="12" />
-                                    <Label Text="Read our PoPIA privacy policy" TextColor="{StaticResource BrandMuted}" FontSize="11" />
+                                    <Label Text="Your details stay protected" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="12" />
+                                    <Label Text="Read our PoPIA privacy policy" TextColor="{DynamicResource BrandMuted}" FontSize="11" />
                                 </VerticalStackLayout>
                                 <Label Grid.Column="2" Style="{StaticResource MaterialGlyph}" Text="&#xe5cc;" FontSize="16"
-                                       TextColor="{StaticResource BrandMuted}" VerticalOptions="Center" />
+                                       TextColor="{DynamicResource BrandMuted}" VerticalOptions="Center" />
                             </Grid>
                         </Border>
                     </VerticalStackLayout>
                 </Border>
 
-                <Label Text="Centurion  ·  Houghton Estate  ·  Eagle Canyon"
+                <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="10" Margin="4,4,4,0">
+                    <BoxView HeightRequest="1" Color="{DynamicResource BrandLine}" VerticalOptions="Center" />
+                    <Label Grid.Column="1" Text="LOCAL DEMO ONLY" Style="{StaticResource EyebrowLabel}" VerticalOptions="Center" />
+                    <BoxView Grid.Column="2" HeightRequest="1" Color="{DynamicResource BrandLine}" VerticalOptions="Center" />
+                </Grid>
+                <Label Text="Offline demo roles (not Microsoft). Password demo123."
                        Style="{StaticResource MutedLabel}"
                        FontSize="11"
-                       HorizontalTextAlignment="Center"
-                       Margin="0,8,0,0" />
+                       HorizontalTextAlignment="Center" />
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8" RowDefinitions="Auto,Auto" RowSpacing="8">
+                    <Border Style="{StaticResource ElevatedCard}" Padding="12,12">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding UseDemoCommand}" CommandParameter="staff@flexispace.net.za" />
+                        </Border.GestureRecognizers>
+                        <VerticalStackLayout Spacing="6">
+                            <Border Style="{StaticResource QuickActionOrb}" WidthRequest="36" HeightRequest="36" HorizontalOptions="Start">
+                                <Label Text="TS" TextColor="{StaticResource BrandBlack}" FontAttributes="Bold" FontSize="11"
+                                       HorizontalOptions="Center" VerticalOptions="Center" HorizontalTextAlignment="Center" />
+                            </Border>
+                            <Label Text="Staff" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="14" />
+                            <Label Text="Book and cancel your own rooms." Style="{StaticResource MutedLabel}" FontSize="11" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Grid.Column="1" Style="{StaticResource ElevatedCard}" Padding="12,12">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding UseDemoCommand}" CommandParameter="admin@flexispace.net.za" />
+                        </Border.GestureRecognizers>
+                        <VerticalStackLayout Spacing="6">
+                            <Border Style="{StaticResource QuickActionOrb}" WidthRequest="36" HeightRequest="36" HorizontalOptions="Start">
+                                <Label Text="AD" TextColor="{StaticResource BrandBlack}" FontAttributes="Bold" FontSize="11"
+                                       HorizontalOptions="Center" VerticalOptions="Center" HorizontalTextAlignment="Center" />
+                            </Border>
+                            <Label Text="Administrator" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="14" />
+                            <Label Text="All locations, rooms, and reports." Style="{StaticResource MutedLabel}" FontSize="11" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Grid.Row="1" Style="{StaticResource ElevatedCard}" Padding="12,12">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding UseDemoCommand}" CommandParameter="client@example.com" />
+                        </Border.GestureRecognizers>
+                        <VerticalStackLayout Spacing="6">
+                            <Border Style="{StaticResource QuickActionOrb}" WidthRequest="36" HeightRequest="36" HorizontalOptions="Start">
+                                <Label Text="CL" TextColor="{StaticResource BrandBlack}" FontAttributes="Bold" FontSize="11"
+                                       HorizontalOptions="Center" VerticalOptions="Center" HorizontalTextAlignment="Center" />
+                            </Border>
+                            <Label Text="Client" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="14" />
+                            <Label Text="Self-service booking only." Style="{StaticResource MutedLabel}" FontSize="11" />
+                        </VerticalStackLayout>
+                    </Border>
+                </Grid>
+
+                <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="10" Margin="4,10,4,0">
+                    <BoxView HeightRequest="1" Color="{DynamicResource BrandLine}" VerticalOptions="Center" />
+                    <Label Grid.Column="1" Text="CENTRE MANAGERS" Style="{StaticResource EyebrowLabel}" VerticalOptions="Center" />
+                    <BoxView Grid.Column="2" HeightRequest="1" Color="{DynamicResource BrandLine}" VerticalOptions="Center" />
+                </Grid>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8" RowDefinitions="Auto,Auto" RowSpacing="8">
+                    <Border Style="{StaticResource ElevatedCard}" Padding="12,12">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding UseDemoCommand}" CommandParameter="centurion@flexispace.net.za" />
+                        </Border.GestureRecognizers>
+                        <VerticalStackLayout Spacing="6">
+                            <Border Style="{StaticResource QuickActionOrb}" WidthRequest="36" HeightRequest="36" HorizontalOptions="Start">
+                                <Label Text="CE" TextColor="{StaticResource BrandBlack}" FontAttributes="Bold" FontSize="11"
+                                       HorizontalOptions="Center" VerticalOptions="Center" HorizontalTextAlignment="Center" />
+                            </Border>
+                            <Label Text="Centurion" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="14" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Grid.Column="1" Style="{StaticResource ElevatedCard}" Padding="12,12">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding UseDemoCommand}" CommandParameter="rebecca@flexispace.net.za" />
+                        </Border.GestureRecognizers>
+                        <VerticalStackLayout Spacing="6">
+                            <Border Style="{StaticResource QuickActionOrb}" WidthRequest="36" HeightRequest="36" HorizontalOptions="Start">
+                                <Label Text="RE" TextColor="{StaticResource BrandBlack}" FontAttributes="Bold" FontSize="11"
+                                       HorizontalOptions="Center" VerticalOptions="Center" HorizontalTextAlignment="Center" />
+                            </Border>
+                            <Label Text="Rebecca · Houghton" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="14" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Grid.Row="1" Style="{StaticResource ElevatedCard}" Padding="12,12">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding UseDemoCommand}" CommandParameter="antoinette@flexispace.net.za" />
+                        </Border.GestureRecognizers>
+                        <VerticalStackLayout Spacing="6">
+                            <Border Style="{StaticResource QuickActionOrb}" WidthRequest="36" HeightRequest="36" HorizontalOptions="Start">
+                                <Label Text="AN" TextColor="{StaticResource BrandBlack}" FontAttributes="Bold" FontSize="11"
+                                       HorizontalOptions="Center" VerticalOptions="Center" HorizontalTextAlignment="Center" />
+                            </Border>
+                            <Label Text="Antoinette · Eagle" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="14" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource ElevatedCard}" Padding="12,12">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding UseDemoCommand}" CommandParameter="lesego@flexispace.net.za" />
+                        </Border.GestureRecognizers>
+                        <VerticalStackLayout Spacing="6">
+                            <Border Style="{StaticResource QuickActionOrb}" WidthRequest="36" HeightRequest="36" HorizontalOptions="Start">
+                                <Label Text="LE" TextColor="{StaticResource BrandBlack}" FontAttributes="Bold" FontSize="11"
+                                       HorizontalOptions="Center" VerticalOptions="Center" HorizontalTextAlignment="Center" />
+                            </Border>
+                            <Label Text="Lesego · Eagle" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="14" />
+                        </VerticalStackLayout>
+                    </Border>
+                </Grid>
 
                 <controls:SocialLinksBar Margin="0,10,0,4" />
             </VerticalStackLayout>

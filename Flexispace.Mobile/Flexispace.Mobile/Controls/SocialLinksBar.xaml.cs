@@ -14,6 +14,7 @@ public partial class SocialLinksBar : ContentView
     {
         InitializeComponent();
         ApplyTheme(LightTheme);
+        Loaded += (_, _) => ApplyTheme(LightTheme);
     }
 
     /// <summary>True for ivory/light screens; false for dark Welcome hero.</summary>

@@ -50,7 +50,7 @@
                         Style="{StaticResource GoldButton}"
                         HorizontalOptions="Fill" />
                 <Label Text="Rent daily, weekly or monthly · No lease"
-                       TextColor="{StaticResource BrandMuted}"
+                       TextColor="{DynamicResource BrandMuted}"
                        FontSize="12"
                        HorizontalTextAlignment="Center" />
                 <HorizontalStackLayout Spacing="6" HorizontalOptions="Center" Margin="0,8,0,0">

@@ -99,6 +99,30 @@ namespace FlexiSpace.API.Controllers
             return Ok(response);
         }
 
+        [HttpGet("occupied")]
+        public async Task<IActionResult> GetOccupiedSlots(
+            [FromQuery] int boardroomId,
+            [FromQuery] DateOnly date)
+        {
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+            if (currentUser == null)
+                return Unauthorized();
+
+            var slots = (await _bookingService.GetAllBookingsAsync())
+                .Where(b =>
+                    b.BoardroomId == boardroomId &&
+                    b.BookingDate == date &&
+                    b.Status != BookingStatus.Cancelled &&
+                    b.Status != BookingStatus.Completed)
+                .Select(b => new OccupiedSlotDto
+                {
+                    StartTime = b.StartTime,
+                    EndTime = b.EndTime
+                });
+
+            return Ok(slots);
+        }
+
         // Retrieves a specific booking by its ID.
         [HttpGet("{id}")]
         public async Task<IActionResult> GetBookingById(int id)

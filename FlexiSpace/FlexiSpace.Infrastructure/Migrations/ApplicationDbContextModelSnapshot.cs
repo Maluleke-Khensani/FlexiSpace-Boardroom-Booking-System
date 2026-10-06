@@ -77,25 +77,31 @@ namespace FlexiSpace.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("CreatedById")
+                    b.Property<int>("CreatedByUserId")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("End")
-                        .HasColumnType("datetime2");
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<TimeOnly>("EndTime")
+                        .HasColumnType("time");
 
                     b.Property<string>("Reason")
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<DateTime>("Start")
-                        .HasColumnType("datetime2");
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<TimeOnly>("StartTime")
+                        .HasColumnType("time");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatedById");
+                    b.HasIndex("CreatedByUserId");
 
-                    b.HasIndex("BoardroomId", "Start", "End");
+                    b.HasIndex("BoardroomId", "StartDate", "EndDate");
 
                     b.ToTable("BlockedPeriods", (string)null);
                 });
@@ -133,21 +139,6 @@ namespace FlexiSpace.Infrastructure.Migrations
                     b.HasIndex("LocationId");
 
                     b.ToTable("Boardrooms", (string)null);
-                });
-
-            modelBuilder.Entity("FlexiSpace.Core.Entities.BoardroomComponent", b =>
-                {
-                    b.Property<int>("CombinedBoardroomId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ComponentBoardroomId")
-                        .HasColumnType("int");
-
-                    b.HasKey("CombinedBoardroomId", "ComponentBoardroomId");
-
-                    b.HasIndex("ComponentBoardroomId");
-
-                    b.ToTable("BoardroomComponents", (string)null);
                 });
 
             modelBuilder.Entity("FlexiSpace.Core.Entities.BoardroomEquipment", b =>
@@ -211,15 +202,6 @@ namespace FlexiSpace.Infrastructure.Migrations
                     b.Property<string>("OutlookEventId")
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
-
-                    b.Property<DateTime?>("Reminder24hSentAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("Reminder2hSentAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("ReminderSentAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<TimeOnly>("StartTime")
                         .HasColumnType("time");
@@ -305,43 +287,6 @@ namespace FlexiSpace.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Caterings", (string)null);
-                });
-
-            modelBuilder.Entity("FlexiSpace.Core.Entities.DeviceToken", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("LastSeenAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Platform")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<DateTime>("RegisteredAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Token")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Token")
-                        .IsUnique();
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("DeviceTokens", (string)null);
                 });
 
             modelBuilder.Entity("FlexiSpace.Core.Entities.Equipment", b =>
@@ -508,6 +453,17 @@ namespace FlexiSpace.Infrastructure.Migrations
                     b.Property<int?>("LocationId")
                         .HasColumnType("int");
 
+                    b.Property<string>("PasswordHash")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PhoneNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("");
+
                     b.Property<int>("Role")
                         .HasColumnType("int");
 
@@ -543,15 +499,15 @@ namespace FlexiSpace.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("FlexiSpace.Core.Entities.User", "CreatedBy")
+                    b.HasOne("FlexiSpace.Core.Entities.User", "CreatedByUser")
                         .WithMany()
-                        .HasForeignKey("CreatedById")
+                        .HasForeignKey("CreatedByUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Boardroom");
 
-                    b.Navigation("CreatedBy");
+                    b.Navigation("CreatedByUser");
                 });
 
             modelBuilder.Entity("FlexiSpace.Core.Entities.Boardroom", b =>
@@ -563,25 +519,6 @@ namespace FlexiSpace.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Location");
-                });
-
-            modelBuilder.Entity("FlexiSpace.Core.Entities.BoardroomComponent", b =>
-                {
-                    b.HasOne("FlexiSpace.Core.Entities.Boardroom", "CombinedBoardroom")
-                        .WithMany("Components")
-                        .HasForeignKey("CombinedBoardroomId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("FlexiSpace.Core.Entities.Boardroom", "ComponentBoardroom")
-                        .WithMany("PartOfCombinations")
-                        .HasForeignKey("ComponentBoardroomId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("CombinedBoardroom");
-
-                    b.Navigation("ComponentBoardroom");
                 });
 
             modelBuilder.Entity("FlexiSpace.Core.Entities.BoardroomEquipment", b =>
@@ -674,17 +611,6 @@ namespace FlexiSpace.Infrastructure.Migrations
                     b.Navigation("Equipment");
                 });
 
-            modelBuilder.Entity("FlexiSpace.Core.Entities.DeviceToken", b =>
-                {
-                    b.HasOne("FlexiSpace.Core.Entities.User", "User")
-                        .WithMany("DeviceTokens")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("FlexiSpace.Core.Entities.LocationCalendarAccount", b =>
                 {
                     b.HasOne("FlexiSpace.Core.Entities.Location", "Location")
@@ -722,10 +648,6 @@ namespace FlexiSpace.Infrastructure.Migrations
                     b.Navigation("BoardroomEquipments");
 
                     b.Navigation("Bookings");
-
-                    b.Navigation("Components");
-
-                    b.Navigation("PartOfCombinations");
                 });
 
             modelBuilder.Entity("FlexiSpace.Core.Entities.Booking", b =>
@@ -763,8 +685,6 @@ namespace FlexiSpace.Infrastructure.Migrations
                     b.Navigation("Bookings");
 
                     b.Navigation("CancelledBookings");
-
-                    b.Navigation("DeviceTokens");
 
                     b.Navigation("ModifiedBookings");
 

@@ -1,10 +1,9 @@
-﻿using FlexiSpace.Core.Common;
-using FlexiSpace.Core.Entities;
+﻿using FlexiSpace.Core.Entities;
 using FlexiSpace.Core.Services;
 using FlexiSpace.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
-namespace FlexiSpace.Infrastructure.Services
+namespace FlexiSpace.Infrastructure.services
 {
     public class CateringService : ICateringService
     {
@@ -17,16 +16,29 @@ namespace FlexiSpace.Infrastructure.Services
 
         public async Task<IEnumerable<Catering>> GetAllCateringAsync()
         {
-            return await _context.Caterings.ToListAsync();
+            return await _context.Caterings
+                .OrderBy(c => c.Name)
+                .ToListAsync();
         }
 
         public async Task<Catering?> GetCateringByIdAsync(int id)
         {
-            return await _context.Caterings.FindAsync(id);
+            return await _context.Caterings
+                .FirstOrDefaultAsync(c => c.Id == id);
         }
 
         public async Task<Catering> CreateCateringAsync(Catering catering)
         {
+            catering.Name = catering.Name.Trim();
+
+            if (catering.Description != null)
+            {
+                catering.Description = catering.Description.Trim();
+            }
+
+            catering.IsActive = true;
+            catering.CreatedAt = DateTime.UtcNow;
+
             _context.Caterings.Add(catering);
 
             await _context.SaveChangesAsync();
@@ -36,15 +48,19 @@ namespace FlexiSpace.Infrastructure.Services
 
         public async Task<bool> UpdateCateringAsync(int id, Catering catering)
         {
-            var existingCatering = await _context.Caterings.FindAsync(id);
+            var existingCatering = await _context.Caterings
+                .FirstOrDefaultAsync(c => c.Id == id);
 
             if (existingCatering == null)
             {
                 return false;
             }
 
-            existingCatering.Name = catering.Name;
-            existingCatering.Description = catering.Description;
+            existingCatering.Name = catering.Name.Trim();
+
+            existingCatering.Description =
+                catering.Description?.Trim();
+
             existingCatering.IsActive = catering.IsActive;
 
             await _context.SaveChangesAsync();
@@ -54,23 +70,22 @@ namespace FlexiSpace.Infrastructure.Services
 
         public async Task<bool> DeleteCateringAsync(int id)
         {
-            var catering = await _context.Caterings.FindAsync(id);
+            var catering = await _context.Caterings
+                .FirstOrDefaultAsync(c => c.Id == id);
 
             if (catering == null)
             {
                 return false;
             }
 
-            // NEW: delete guard. A catering option still requested on an
-            // existing booking can't be removed - that would strip it off
-            // bookings that still list it.
-            var inUse = await _context.BookingCaterings.AnyAsync(bc => bc.CateringId == id);
+            // A catering item that has been used in a booking
+            // must not be deleted because it is part of booking history.
+            var isUsedInBooking = await _context.BookingCaterings
+                .AnyAsync(bc => bc.CateringId == id);
 
-            if (inUse)
+            if (isUsedInBooking)
             {
-                throw new BusinessRuleException(
-                    "This catering option can't be deleted because it's still requested on a booking. " +
-                    "Set IsActive to false instead if it's no longer offered.");
+                return false;
             }
 
             _context.Caterings.Remove(catering);

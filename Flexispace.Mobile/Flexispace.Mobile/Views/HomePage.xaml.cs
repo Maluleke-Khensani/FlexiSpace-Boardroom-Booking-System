@@ -145,6 +145,8 @@ public partial class HomePage : ContentPage
 
     private void OnHomePreviousClicked(object? sender, EventArgs e) => MoveHome(-1);
     private void OnHomeNextClicked(object? sender, EventArgs e) => MoveHome(1);
+    private void OnHomePreviousClicked(object? sender, TappedEventArgs e) => MoveHome(-1);
+    private void OnHomeNextClicked(object? sender, TappedEventArgs e) => MoveHome(1);
     private void OnHomeSwipedLeft(object? sender, SwipedEventArgs e) => MoveHome(1);
     private void OnHomeSwipedRight(object? sender, SwipedEventArgs e) => MoveHome(-1);
 

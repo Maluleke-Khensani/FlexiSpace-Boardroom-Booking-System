@@ -5,20 +5,14 @@ namespace Flexispace.Mobile.Services;
 public interface IAdminService
 {
     Task<IReadOnlyList<User>> GetUsersAsync();
-    Task<AuthResult> AddUserAsync(AdminUserCreateRequest request);
-    Task<bool> SetUserActiveAsync(int apiUserId, bool isActive);
+    Task<IReadOnlyList<User>> GetEntraDirectoryAsync();
+    Task<(bool Ok, string Message)> ProvisionUserAsync(User user);
+    Task<(bool Ok, string Message)> UpdateUserAsync(User user);
+    Task<(bool Ok, string Message)> RemoveUserAsync(int apiUserId);
+    Task<(bool Ok, string Message)> SetUserActiveAsync(int apiUserId, bool isActive);
     Task<bool> AddRoomAsync(Boardroom room);
     Task<bool> RemoveRoomAsync(string roomId);
     Task<ReportSummary> GetReportSummaryAsync();
-}
-
-public sealed class AdminUserCreateRequest
-{
-    public string FirstName { get; set; } = string.Empty;
-    public string LastName { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public UserRole Role { get; set; } = UserRole.Client;
-    public string? LocationId { get; set; }
 }
 
 public class ReportSummary

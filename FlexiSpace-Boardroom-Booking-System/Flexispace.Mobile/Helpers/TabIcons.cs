@@ -37,6 +37,7 @@ public static class TabIcons
         "BookingPage" => selected ? "\ue878" : "\ue935",        // event / calendar_today
         "AvailabilityPage" => selected ? "\ueaa2" : "\ue51e",   // monitor_heart / sensors
         "ManagePage" => selected ? "\ue85d" : "\ue14f",         // assignment / content_paste
+        "UsersPage" => selected ? "\ue7ef" : "\ue7fc",          // people / people_outline
         "ReportsPage" => selected ? "\ue6e1" : "\uf1fe",         // analytics / bar_chart
         "NotificationsPage" => selected ? "\ue7f4" : "\ue7f5",  // notifications / notifications_none
         "ProfilePage" => selected ? "\ue7fd" : "\ue7ff",        // person / person_outline

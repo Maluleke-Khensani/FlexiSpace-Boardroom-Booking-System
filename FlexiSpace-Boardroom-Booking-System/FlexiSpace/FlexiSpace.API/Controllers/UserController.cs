@@ -359,6 +359,50 @@ namespace FlexiSpace.API.Controllers
             return NoContent();
         }
 
+        [HttpDelete("{id}")]
+        [AuthorizeRoles(UserRole.Administrator)]
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            var currentUser = await _currentUserService.GetCurrentUserAsync();
+            if (currentUser == null)
+                return Unauthorized();
+
+            var before = await _userService.GetUserByIdAsync(id);
+            if (before == null)
+                return NotFound();
+
+            string? error;
+            try
+            {
+                error = await _userService.DeleteUserAsync(id, currentUser.Id);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+
+            if (error is not null)
+            {
+                if (error == "User not found.")
+                    return NotFound();
+                return BadRequest(new { message = error });
+            }
+
+            await LogAdminActionAsync(
+                AuditAction.Delete,
+                id,
+                oldValues: JsonSerializer.Serialize(new
+                {
+                    before.FirstName,
+                    before.LastName,
+                    before.Email,
+                    Role = before.Role.ToString()
+                }),
+                newValues: null);
+
+            return NoContent();
+        }
+
         // Records who performed an administrative action.
         //
         // CurrentUserService identifies the authenticated

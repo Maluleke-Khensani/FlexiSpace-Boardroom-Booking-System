@@ -120,15 +120,9 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
         ResetWizard();
 
         Locations.Clear();
-        var all = await rooms.GetLocationsAsync();
-        foreach (var loc in all)
-        {
-            if (user?.Role == UserRole.CentreManager &&
-                !string.IsNullOrEmpty(user.LocationId) &&
-                loc.Id != user.LocationId)
-                continue;
+        // GetLocationsAsync already scopes Centre Managers to their assigned centre.
+        foreach (var loc in await rooms.GetLocationsAsync())
             Locations.Add(loc);
-        }
 
         if (EquipmentOptions.Count == 0)
         {
@@ -146,10 +140,16 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
         if (string.IsNullOrEmpty(locationId) && string.IsNullOrEmpty(roomId))
             return;
 
+        var user = auth.CurrentUser;
+        if (!string.IsNullOrEmpty(locationId) && !RolePermissions.CanAccessLocation(user, locationId))
+            locationId = RolePermissions.ScopedLocationId(user);
+
         if (!string.IsNullOrEmpty(locationId))
         {
             SelectedLocation = Locations.FirstOrDefault(l => l.Id == locationId)
                                ?? await rooms.GetLocationAsync(locationId);
+            if (SelectedLocation is null)
+                return;
             await LoadRoomsAsync();
             Step = 2;
         }
@@ -158,6 +158,13 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
         {
             SelectedRoom = Rooms.FirstOrDefault(r => r.Id == roomId)
                            ?? await rooms.GetRoomAsync(roomId);
+            if (SelectedRoom is not null &&
+                !RolePermissions.CanAccessLocation(user, SelectedRoom.LocationId))
+            {
+                SelectedRoom = null;
+                return;
+            }
+
             if (SelectedRoom is not null && SelectedLocation is null)
             {
                 SelectedLocation = await rooms.GetLocationAsync(SelectedRoom.LocationId);
@@ -174,6 +181,9 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     [RelayCommand]
     private async Task SelectLocationAsync(OfficeLocation? location)
     {
+        if (location is null || !RolePermissions.CanAccessLocation(auth.CurrentUser, location.Id))
+            return;
+
         SelectedLocation = location;
         SelectedRoom = null;
         await LoadRoomsAsync();
@@ -382,11 +392,17 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
                     SuggestedSlotsText = "Suggested: " + string.Join(", ",
                         result.SuggestedSlots.Select(s => s.ToString("HH:mm")));
                 }
+
+                var detail = result.SuggestedSlots.Count > 0
+                    ? $"{result.Message}\n\nTry: {string.Join(", ", result.SuggestedSlots.Select(s => s.ToString("HH:mm")))}"
+                    : result.Message;
+                await ActionFeedback.FailAsync(detail, "Booking blocked");
                 return;
             }
 
             SuccessMessage = result.Message;
             Step = 5;
+            await ActionFeedback.SuccessAsync("Your boardroom is locked in. Opening confirmation…", "Booked");
             if (result.Booking is not null)
                 await Shell.Current.GoToAsync($"BookingConfirmationPage?bookingId={result.Booking.Id}");
         }
@@ -405,4 +421,7 @@ public partial class SelectableOption : ObservableObject
 {
     public string Label { get; set; } = string.Empty;
     [ObservableProperty] private bool isSelected;
+
+    [RelayCommand]
+    private void Toggle() => IsSelected = !IsSelected;
 }

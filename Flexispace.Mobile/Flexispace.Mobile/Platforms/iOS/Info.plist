@@ -28,5 +28,15 @@
 	</array>
 	<key>XSAppIconAssets</key>
 	<string>Assets.xcassets/appicon.appiconset</string>
+	<!-- MSAL return URL for FlexiSpace-MAUI-Mobile -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>msal85378c65-ead1-4b71-956a-389142bd3342</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

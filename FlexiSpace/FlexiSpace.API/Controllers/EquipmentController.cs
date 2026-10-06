@@ -1,5 +1,4 @@
-using FlexiSpace.API.Authorization;
-using FlexiSpace.API.Controllers.Base;
+﻿using FlexiSpace.API.Authorization;
 using FlexiSpace.Core.Common;
 using FlexiSpace.Core.DTOs.Equipment;
 using FlexiSpace.Core.Entities;
@@ -10,39 +9,41 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FlexiSpace.API.Controllers
 {
-    // Any authenticated user can read the equipment catalogue (they need
-    // it to see what a boardroom offers / to request items on a booking).
-    // Managing the catalogue itself is Administrator-only.
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class EquipmentController : AuditableControllerBase
+    public class EquipmentController : ControllerBase
     {
         private readonly IEquipmentService _equipmentService;
 
-        public EquipmentController(
-            IEquipmentService equipmentService,
-            IAuditService auditService,
-            ICurrentUserService currentUserService)
-            : base(auditService, currentUserService)
+        public EquipmentController(IEquipmentService equipmentService)
         {
             _equipmentService = equipmentService;
         }
 
+        // Retrieves all equipment available in the system.
         [HttpGet]
         public async Task<IActionResult> GetAllEquipment()
         {
-            var equipment = await _equipmentService.GetAllEquipmentAsync();
+            var equipment = await _equipmentService
+                .GetAllEquipmentAsync();
 
             var response = equipment.Select(MapToResponseDto);
 
             return Ok(response);
         }
 
-        [HttpGet("{id}")]
+        // Retrieves a single piece of equipment using its unique ID.
+        [HttpGet("{id:int}")]
         public async Task<IActionResult> GetEquipmentById(int id)
         {
-            var equipment = await _equipmentService.GetEquipmentByIdAsync(id);
+            if (id <= 0)
+            {
+                return BadRequest("Equipment ID must be greater than 0.");
+            }
+
+            var equipment = await _equipmentService
+                .GetEquipmentByIdAsync(id);
 
             if (equipment == null)
             {
@@ -52,24 +53,30 @@ namespace FlexiSpace.API.Controllers
             return Ok(MapToResponseDto(equipment));
         }
 
-        // Creates a new equipment record. Administrator-only.
-        [AuthorizeRoles(UserRole.Administrator, UserRole.CentreManager)]
+        // Creates a new equipment record.
         [HttpPost]
-        public async Task<IActionResult> CreateEquipment(EquipmentCreateDto dto)
+        [AuthorizeRoles(UserRole.Administrator)]
+        public async Task<IActionResult> CreateEquipment(
+            EquipmentCreateDto dto)
         {
+            if (string.IsNullOrWhiteSpace(dto.Name))
+            {
+                return BadRequest("Equipment name is required.");
+            }
+
+            if (string.IsNullOrWhiteSpace(dto.Description))
+            {
+                return BadRequest("Equipment description is required.");
+            }
+
             var equipment = new Equipment
             {
                 Name = dto.Name,
                 Description = dto.Description
             };
 
-            var createdEquipment = await _equipmentService.CreateEquipmentAsync(equipment);
-
-            await LogActionAsync(
-                AuditAction.Create,
-                nameof(Equipment),
-                createdEquipment.Id.ToString(),
-                newValues: new { createdEquipment.Name, createdEquipment.Description });
+            var createdEquipment = await _equipmentService
+                .CreateEquipmentAsync(equipment);
 
             return CreatedAtAction(
                 nameof(GetEquipmentById),
@@ -77,79 +84,84 @@ namespace FlexiSpace.API.Controllers
                 MapToResponseDto(createdEquipment));
         }
 
-        // Updates an existing equipment record. Administrator-only.
+        // Updates an existing equipment record.
+        [HttpPut("{id:int}")]
         [AuthorizeRoles(UserRole.Administrator)]
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateEquipment(int id, EquipmentUpdateDto dto)
+        public async Task<IActionResult> UpdateEquipment(
+            int id,
+            EquipmentUpdateDto dto)
         {
-            var before = await _equipmentService.GetEquipmentByIdAsync(id);
-
-            if (before == null)
+            if (id <= 0)
             {
-                return NotFound();
+                return BadRequest("Equipment ID must be greater than 0.");
+            }
+
+            if (string.IsNullOrWhiteSpace(dto.Name))
+            {
+                return BadRequest("Equipment name is required.");
+            }
+
+            if (string.IsNullOrWhiteSpace(dto.Description))
+            {
+                return BadRequest("Equipment description is required.");
             }
 
             var equipment = new Equipment
             {
                 Name = dto.Name,
-                Description = dto.Description
+                Description = dto.Description,
+                IsActive = dto.IsActive
             };
 
-            var updated = await _equipmentService.UpdateEquipmentAsync(id, equipment);
+            var updated = await _equipmentService
+                .UpdateEquipmentAsync(id, equipment);
 
             if (!updated)
             {
                 return NotFound();
             }
 
-            await LogActionAsync(
-                AuditAction.Update,
-                nameof(Equipment),
-                id.ToString(),
-                oldValues: new { before.Name, before.Description },
-                newValues: new { dto.Name, dto.Description });
-
             return NoContent();
         }
 
-        // Deletes equipment from the system. Administrator-only.
+        // Deletes equipment from the system.
+        [HttpDelete("{id:int}")]
         [AuthorizeRoles(UserRole.Administrator)]
-        [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteEquipment(int id)
         {
-            var before = await _equipmentService.GetEquipmentByIdAsync(id);
+            if (id <= 0)
+            {
+                return BadRequest(
+                    "Equipment ID must be greater than 0.");
+            }
 
-            if (before == null)
+            // Check that the equipment exists first so that
+            // we can distinguish NotFound from a deletion
+            // blocked by booking history.
+            var equipment = await _equipmentService
+                .GetEquipmentByIdAsync(id);
+
+            if (equipment == null)
             {
                 return NotFound();
             }
 
-            // DeleteEquipmentAsync can throw BusinessRuleException
-            // (equipment still assigned to a boardroom or booking).
-            try
+            var deleted = await _equipmentService
+                .DeleteEquipmentAsync(id);
+
+            if (!deleted)
             {
-                var deleted = await _equipmentService.DeleteEquipmentAsync(id);
-
-                if (!deleted)
-                {
-                    return NotFound();
-                }
-
-                await LogActionAsync(
-                    AuditAction.Delete,
-                    nameof(Equipment),
-                    id.ToString(),
-                    oldValues: new { before.Name, before.Description });
-
-                return NoContent();
+                return Conflict(
+                    "This equipment has been used in an existing booking " +
+                    "and cannot be deleted. Deactivate it instead.");
             }
-            catch (BusinessRuleException ex)
-            {
-                return BadRequest(new { errors = ex.Errors });
-            }
+
+            return NoContent();
         }
 
-        private static EquipmentResponseDto MapToResponseDto(Equipment equipment)
+        // Converts an Equipment entity into a response DTO.
+        private static EquipmentResponseDto MapToResponseDto(
+            Equipment equipment)
         {
             return new EquipmentResponseDto
             {

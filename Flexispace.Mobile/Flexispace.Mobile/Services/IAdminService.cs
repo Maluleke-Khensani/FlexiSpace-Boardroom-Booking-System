@@ -5,6 +5,11 @@ namespace Flexispace.Mobile.Services;
 public interface IAdminService
 {
     Task<IReadOnlyList<User>> GetUsersAsync();
+    Task<IReadOnlyList<User>> GetEntraDirectoryAsync();
+    Task<(bool Ok, string Message)> ProvisionUserAsync(User user);
+    Task<(bool Ok, string Message)> UpdateUserAsync(User user);
+    Task<(bool Ok, string Message)> RemoveUserAsync(int apiUserId);
+    Task<(bool Ok, string Message)> SetUserActiveAsync(int apiUserId, bool isActive);
     Task<bool> AddRoomAsync(Boardroom room);
     Task<bool> RemoveRoomAsync(string roomId);
     Task<ReportSummary> GetReportSummaryAsync();
