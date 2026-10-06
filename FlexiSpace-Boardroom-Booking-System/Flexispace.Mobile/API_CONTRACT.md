@@ -107,7 +107,7 @@ Bookings are created as **Confirmed** automatically. There is no Pending / appro
 
 Per the team's project plan, mobile only builds UI for the rows above through "Edit /
 cancel any (in scope)" — block rooms and add/remove rooms · users · reports are Administrator
-capabilities the **backend** still needs to expose, but their UI lives on the React website's
+capabilities the **backend** still needs to expose, but their UI lives on the Blazor web app's
 admin dashboard, not in this app. The mobile tab bar reflects this: a role only sees the tabs
 it has UI for (see `AppShell.xaml.cs`).
 
