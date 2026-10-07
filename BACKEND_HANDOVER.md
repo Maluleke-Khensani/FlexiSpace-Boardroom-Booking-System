@@ -18,7 +18,7 @@
 
 ### Project Structure
 ```
-FlexiSpace-Boardroom-Booking-System/FlexiSpace/
+FlexiSpace/
 ├── FlexiSpace.API/              # API controllers, Program.cs, auth setup
 ├── FlexiSpace.Core/             # Domain entities, interfaces, DTOs, enums
 ├── FlexiSpace.Infrastructure/   # EF Core DbContext, service implementations, seed data
@@ -576,7 +576,7 @@ Set in `appsettings.json` or environment variable:
 ### Migrations
 EF Core migrations exist for the data model. To set up:
 ```bash
-cd FlexiSpace-Boardroom-Booking-System/FlexiSpace
+cd FlexiSpace
 dotnet ef database update --project FlexiSpace.Infrastructure --startup-project FlexiSpace.API
 ```
 
@@ -685,7 +685,7 @@ Pre-seeded entities:
 
 ### Run for Development
 ```bash
-cd FlexiSpace-Boardroom-Booking-System/FlexiSpace
+cd FlexiSpace
 dotnet run --project FlexiSpace.API
 ```
 
