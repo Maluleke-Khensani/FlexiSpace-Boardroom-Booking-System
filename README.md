@@ -10,8 +10,6 @@ Watch the walkthrough of the system:
 
 **[FlexiSpace demonstration (YouTube)](https://www.youtube.com/watch?v=yJiAFOniyEM)**
 
-[![FlexiSpace demonstration](https://img.youtube.com/vi/yJiAFOniyEM/maxresdefault.jpg)](https://www.youtube.com/watch?v=yJiAFOniyEM)
-
 ## What's in this repository
 
 Use the **top-level** projects. Those are the API, website, and mobile app for this submission.
