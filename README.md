@@ -1,3 +1,6 @@
+# Classroom 50 Link
+https://github.com/EMGPRS/insy7315-2026-task-2-maluleke-khensani
+
 # FlexiSpace — Boardroom Booking System
 
 INSY7315 2026 Task 2 (WIL). Boardroom booking for FlexiSpace's Centurion, Houghton Estate, and Eagle Canyon sites.
