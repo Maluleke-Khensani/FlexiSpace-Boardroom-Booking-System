@@ -31,8 +31,6 @@ Use the **top-level** projects. Those are the API, website, and mobile app for t
 | `BACKEND_HANDOVER.md` | Backend technical handover |
 | `.github/workflows/dotnet-tests.yml` | CI: restore, build, and test the API on `main` |
 
-`FlexiSpace-Boardroom-Booking-System/` is a nested copy of an earlier combined snapshot. Do not treat it as the live website or API — use `Flexispace.Web/`, `FlexiSpace/`, and `Flexispace.Mobile/` at the repo root.
-
 The website is **`Flexispace.Web`** (Blazor Server). There is no React frontend in this repository.
 
 ## What the system does
