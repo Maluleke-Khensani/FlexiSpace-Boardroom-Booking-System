@@ -28,25 +28,25 @@ public partial class RegisterViewModel(IAuthService auth) : ObservableObject
         {
             if (string.IsNullOrWhiteSpace(FirstName) || string.IsNullOrWhiteSpace(LastName))
             {
-                ErrorMessage = "Enter your first and last name.";
+                await ShowErrorAsync("Enter your first and last name.");
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(Email) || !Email.Contains('@'))
             {
-                ErrorMessage = "Enter a valid email address.";
+                await ShowErrorAsync("Enter a valid email address.");
                 return;
             }
 
             if (Password.Length < 6)
             {
-                ErrorMessage = "Password must be at least 6 characters.";
+                await ShowErrorAsync("Password must be at least 6 characters.");
                 return;
             }
 
             if (!string.Equals(Password, ConfirmPassword, StringComparison.Ordinal))
             {
-                ErrorMessage = "Passwords do not match.";
+                await ShowErrorAsync("Passwords do not match.");
                 return;
             }
 
@@ -61,8 +61,7 @@ public partial class RegisterViewModel(IAuthService auth) : ObservableObject
 
             if (!result.Success)
             {
-                ErrorMessage = result.Message;
-                await ActionFeedback.FailAsync(result.Message, "Registration blocked");
+                await ShowErrorAsync(result.Message, "Registration blocked");
                 return;
             }
 
@@ -82,4 +81,10 @@ public partial class RegisterViewModel(IAuthService auth) : ObservableObject
     [RelayCommand]
     private async Task OpenPrivacyAsync() =>
         await Shell.Current.GoToAsync("PrivacyPage");
+
+    private async Task ShowErrorAsync(string? message, string title = "Please check")
+    {
+        ErrorMessage = message;
+        await ActionFeedback.FailAsync(message, title);
+    }
 }

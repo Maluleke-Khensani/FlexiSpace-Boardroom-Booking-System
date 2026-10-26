@@ -47,20 +47,26 @@ namespace FlexiSpace.API.Controllers.Base
             object? oldValues = null,
             object? newValues = null)
         {
-            var actingUserId = await CurrentUserService.GetCurrentUserIdAsync();
+            int? actingUserId;
+            try { actingUserId = await CurrentUserService.GetCurrentUserIdAsync(); }
+            catch { return; }
 
             if (actingUserId == null)
             {
                 return;
             }
 
-            await AuditService.LogAsync(
-                actingUserId.Value,
-                action,
-                entityName,
-                entityId,
-                oldValues == null ? null : JsonSerializer.Serialize(oldValues),
-                newValues == null ? null : JsonSerializer.Serialize(newValues));
+            try
+            {
+                await AuditService.LogAsync(
+                    actingUserId.Value,
+                    action,
+                    entityName,
+                    entityId,
+                    oldValues == null ? null : JsonSerializer.Serialize(oldValues),
+                    newValues == null ? null : JsonSerializer.Serialize(newValues));
+            }
+            catch { /* Audit must not change the result of the business operation. */ }
         }
 
         // The two roles that act on behalf of the system/other people

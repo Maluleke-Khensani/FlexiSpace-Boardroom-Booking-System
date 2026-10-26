@@ -9,16 +9,162 @@
              Title="My bookings"
              BackgroundColor="{DynamicResource BrandPage}">
 
-    <ContentPage.ToolbarItems>
-        <ToolbarItem Text="Filter"
-                     Command="{Binding ToggleFilterCommand}"
-                     IsEnabled="{Binding CanToggleScope}" />
-    </ContentPage.ToolbarItems>
-
     <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
         <CollectionView ItemsSource="{Binding Items}"
-                        EmptyView="No bookings yet. Use the Book tab to reserve a room."
+                        EmptyView="{Binding EmptyMessage}"
                         Margin="16">
+            <CollectionView.Header>
+                <VerticalStackLayout Spacing="10" Margin="0,4,0,12">
+                    <Label Text="Your bookings"
+                           Style="{StaticResource SectionTitle}"
+                           FontSize="22" />
+                    <Border IsVisible="{Binding CanToggleScope}"
+                            BackgroundColor="{DynamicResource BrandSurface}"
+                            StrokeThickness="0"
+                            Padding="4"
+                            StrokeShape="RoundRectangle 16">
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="4">
+                            <Border Padding="10,8"
+                                    StrokeThickness="0"
+                                    StrokeShape="RoundRectangle 12"
+                                    BackgroundColor="Transparent">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding ShowMineCommand}" />
+                                </Border.GestureRecognizers>
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding ShowMineOnly}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{StaticResource BrandCharcoal}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <Label Text="Mine"
+                                       HorizontalTextAlignment="Center"
+                                       FontSize="13"
+                                       TextColor="{DynamicResource BrandMuted}">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="Label" Binding="{Binding ShowMineOnly}" Value="True">
+                                            <Setter Property="TextColor" Value="{StaticResource BrandIvory}" />
+                                            <Setter Property="FontAttributes" Value="Bold" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
+                            </Border>
+                            <Border Grid.Column="1"
+                                    Padding="10,8"
+                                    StrokeThickness="0"
+                                    StrokeShape="RoundRectangle 12"
+                                    BackgroundColor="Transparent">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding ShowAllCommand}" />
+                                </Border.GestureRecognizers>
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding ShowMineOnly}" Value="False">
+                                        <Setter Property="BackgroundColor" Value="{StaticResource BrandCharcoal}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <Label Text="All"
+                                       HorizontalTextAlignment="Center"
+                                       FontSize="13"
+                                       TextColor="{DynamicResource BrandMuted}">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="Label" Binding="{Binding ShowMineOnly}" Value="False">
+                                            <Setter Property="TextColor" Value="{StaticResource BrandIvory}" />
+                                            <Setter Property="FontAttributes" Value="Bold" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
+                            </Border>
+                        </Grid>
+                    </Border>
+                    <Label Text="{Binding FilterLabel}" Style="{StaticResource MutedLabel}" />
+
+                    <Border BackgroundColor="{DynamicResource BrandSurface}"
+                            Stroke="{DynamicResource BrandLine}"
+                            StrokeThickness="1"
+                            StrokeShape="RoundRectangle 12"
+                            Padding="8,0">
+                        <SearchBar Placeholder="Search room, person, company, or centre"
+                                   Text="{Binding SearchText}"
+                                   TextColor="{DynamicResource BrandInk}"
+                                   PlaceholderColor="{DynamicResource BrandMuted}"
+                                   BackgroundColor="Transparent"
+                                   CancelButtonColor="{DynamicResource BrandGoldDeep}" />
+                    </Border>
+
+                    <ScrollView Orientation="Horizontal"
+                                HorizontalScrollBarVisibility="Never"
+                                IsVisible="{Binding HasLocationFilters}">
+                        <HorizontalStackLayout BindableLayout.ItemsSource="{Binding LocationFilters}" Spacing="8">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:LocationFilterChip">
+                                    <Border Padding="14,8"
+                                            StrokeThickness="0"
+                                            StrokeShape="RoundRectangle 16"
+                                            BackgroundColor="{DynamicResource BrandSurface}">
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding Source={x:Reference Root}, Path=BindingContext.SelectLocationCommand}"
+                                                CommandParameter="{Binding .}" />
+                                        </Border.GestureRecognizers>
+                                        <Border.Triggers>
+                                            <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{StaticResource BrandCharcoal}" />
+                                            </DataTrigger>
+                                        </Border.Triggers>
+                                        <Label Text="{Binding Name}"
+                                               FontSize="13"
+                                               TextColor="{DynamicResource BrandMuted}">
+                                            <Label.Triggers>
+                                                <DataTrigger TargetType="Label" Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter Property="TextColor" Value="{StaticResource BrandIvory}" />
+                                                    <Setter Property="FontAttributes" Value="Bold" />
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </HorizontalStackLayout>
+                    </ScrollView>
+
+                    <ScrollView Orientation="Horizontal"
+                                HorizontalScrollBarVisibility="Never"
+                                IsVisible="{Binding HasRoomFilters}">
+                        <HorizontalStackLayout BindableLayout.ItemsSource="{Binding RoomFilters}" Spacing="8">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:LocationFilterChip">
+                                    <Border Padding="14,8"
+                                            StrokeThickness="1"
+                                            Stroke="{StaticResource BrandGold}"
+                                            StrokeShape="RoundRectangle 16"
+                                            BackgroundColor="{DynamicResource BrandSurface}">
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding Source={x:Reference Root}, Path=BindingContext.SelectRoomCommand}"
+                                                CommandParameter="{Binding .}" />
+                                        </Border.GestureRecognizers>
+                                        <Border.Triggers>
+                                            <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{StaticResource BrandGold}" />
+                                                <Setter Property="StrokeThickness" Value="0" />
+                                            </DataTrigger>
+                                        </Border.Triggers>
+                                        <Label Text="{Binding Name}"
+                                               FontSize="13"
+                                               TextColor="{DynamicResource BrandGoldDeep}">
+                                            <Label.Triggers>
+                                                <DataTrigger TargetType="Label" Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter Property="TextColor" Value="{StaticResource BrandBlack}" />
+                                                    <Setter Property="FontAttributes" Value="Bold" />
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </HorizontalStackLayout>
+                    </ScrollView>
+                </VerticalStackLayout>
+            </CollectionView.Header>
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="models:Booking">
                     <Border Style="{StaticResource ElevatedCard}" Margin="0,0,0,10">

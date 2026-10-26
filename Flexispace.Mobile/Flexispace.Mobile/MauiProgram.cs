@@ -1,7 +1,6 @@
 using Flexispace.Mobile.Services;
 using Flexispace.Mobile.Services.Api;
 using Flexispace.Mobile.Services.Http;
-using Flexispace.Mobile.Services.Mock;
 using Flexispace.Mobile.ViewModels;
 using Flexispace.Mobile.Views;
 using Microsoft.Extensions.Logging;
@@ -44,39 +43,26 @@ public static class MauiProgram
         builder.Services.AddSingleton<ITokenStorage, SecureTokenStorage>();
         builder.Services.AddSingleton<IMsalAuthService, MsalAuthService>();
 
-        if (apiSettings.UseMockServices)
+        builder.Services.AddSingleton(_ =>
         {
-            builder.Services.AddSingleton<MockDataStore>();
-            builder.Services.AddSingleton<IAuthService, MockAuthService>();
-            builder.Services.AddSingleton<INotificationService, MockNotificationService>();
-            builder.Services.AddSingleton<IRoomService, MockRoomService>();
-            builder.Services.AddSingleton<IBookingService, MockBookingService>();
-            builder.Services.AddSingleton<IAdminService, MockAdminService>();
-            builder.Services.AddSingleton<IAiSuggestionService, NullAiSuggestionService>();
-        }
-        else
-        {
-            builder.Services.AddSingleton(_ =>
-            {
-                var handler = new HttpClientHandler();
+            var handler = new HttpClientHandler();
 #if DEBUG
-                handler.ServerCertificateCustomValidationCallback =
-                    HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+            handler.ServerCertificateCustomValidationCallback =
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
 #endif
-                return new HttpClient(handler)
-                {
-                    BaseAddress = new Uri(apiSettings.BaseUrl),
-                    Timeout = TimeSpan.FromSeconds(30)
-                };
-            });
-            builder.Services.AddSingleton<ApiClient>();
-            builder.Services.AddSingleton<IAuthService, HttpAuthService>();
-            builder.Services.AddSingleton<INotificationService, HttpNotificationService>();
-            builder.Services.AddSingleton<IRoomService, HttpRoomService>();
-            builder.Services.AddSingleton<IBookingService, HttpBookingService>();
-            builder.Services.AddSingleton<IAdminService, HttpAdminService>();
-            builder.Services.AddSingleton<IAiSuggestionService, HttpAiSuggestionService>();
-        }
+            return new HttpClient(handler)
+            {
+                BaseAddress = new Uri(apiSettings.BaseUrl),
+                Timeout = TimeSpan.FromSeconds(30)
+            };
+        });
+        builder.Services.AddSingleton<ApiClient>();
+        builder.Services.AddSingleton<IAuthService, HttpAuthService>();
+        builder.Services.AddSingleton<INotificationService, HttpNotificationService>();
+        builder.Services.AddSingleton<IRoomService, HttpRoomService>();
+        builder.Services.AddSingleton<IBookingService, HttpBookingService>();
+        builder.Services.AddSingleton<IAdminService, HttpAdminService>();
+        builder.Services.AddSingleton<IAiSuggestionService, HttpAiSuggestionService>();
 
         builder.Services.AddTransient<WelcomeViewModel>();
         builder.Services.AddTransient<LoginViewModel>();
@@ -84,6 +70,7 @@ public static class MauiProgram
         builder.Services.AddTransient<AvailabilityViewModel>();
         builder.Services.AddTransient<BookingViewModel>();
         builder.Services.AddTransient<MyBookingsViewModel>();
+        builder.Services.AddTransient<CalendarViewModel>();
         builder.Services.AddTransient<BookingDetailViewModel>();
         builder.Services.AddTransient<BookingConfirmationViewModel>();
         builder.Services.AddTransient<NotificationsViewModel>();
@@ -102,6 +89,7 @@ public static class MauiProgram
         builder.Services.AddTransient<AvailabilityPage>();
         builder.Services.AddTransient<BookingPage>();
         builder.Services.AddTransient<MyBookingsPage>();
+        builder.Services.AddTransient<CalendarPage>();
         builder.Services.AddTransient<BookingDetailPage>();
         builder.Services.AddTransient<BookingConfirmationPage>();
         builder.Services.AddTransient<NotificationsPage>();

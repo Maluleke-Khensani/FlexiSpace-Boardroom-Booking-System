@@ -48,6 +48,27 @@ public class MockNotificationService : INotificationService
                 Type = "Cancellation",
                 CreatedAt = DateTime.Now.AddDays(-1),
                 IsRead = true
+            },
+            new()
+            {
+                Title = "Booking updated",
+                Message = "Boardroom A · Centurion was moved to 15:00–16:00",
+                Type = "Info",
+                CreatedAt = DateTime.Now.AddHours(-8)
+            },
+            new()
+            {
+                Title = "Room blocked",
+                Message = "Executive Boardroom is unavailable tomorrow 09:00–12:00 for maintenance.",
+                Type = "Blocked",
+                CreatedAt = DateTime.Now.AddMinutes(-20)
+            },
+            new()
+            {
+                Title = "New booking at Boardroom A",
+                Message = "A colleague booked Boardroom A · Centurion tomorrow at 09:00.",
+                Type = "Confirmation",
+                CreatedAt = DateTime.Now.AddMinutes(-50)
             }
         ];
     }

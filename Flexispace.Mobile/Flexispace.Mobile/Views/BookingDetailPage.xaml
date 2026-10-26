@@ -219,6 +219,15 @@
                         Clicked="OnCancelEditsClicked"
                         Style="{StaticResource GhostButton}" />
             </VerticalStackLayout>
+
+            <VerticalStackLayout IsVisible="{Binding CanCancelBooking}" Spacing="8">
+                <Label Text="The time, room, and headcount stay as booked. Cancel this booking if you need a different slot."
+                       Style="{StaticResource MutedLabel}"
+                       FontSize="13" />
+                <Button Text="Cancel booking"
+                        Command="{Binding CancelBookingCommand}"
+                        Style="{StaticResource GhostButton}" />
+            </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

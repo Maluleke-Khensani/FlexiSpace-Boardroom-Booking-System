@@ -1,5 +1,4 @@
 using System.Net.Http.Json;
-using System.Text.Json;
 using Flexispace.Mobile.Models;
 using Flexispace.Mobile.Services.Api;
 
@@ -12,49 +11,25 @@ public sealed class HttpAuthService(
     IMsalAuthService msal) : IAuthService
 {
     public User? CurrentUser { get; private set; }
-    public bool IsAuthenticated => CurrentUser is not null;
+    public bool IsAuthenticated => CurrentUser is not null && !IsGuest;
+    public bool IsGuest => CurrentUser?.IsGuest == true;
     public event EventHandler? AuthStateChanged;
 
-    public async Task<AuthResult> LoginAsync(string email, string password)
+    public void ContinueAsGuest()
     {
-        try
+        SecureTokenStorage.SuppressStoredToken = true;
+        CurrentUser = new User
         {
-            using var response = await api.PostAsJsonAsync("api/DevAuth/token", new
-            {
-                email = email.Trim(),
-                password
-            });
-            if (!response.IsSuccessStatusCode)
-            {
-                var err = await ReadErrorAsync(response);
-                return new AuthResult
-                {
-                    Success = false,
-                    Message = err ?? "Invalid email or password."
-                };
-            }
-
-            var ok = await CompleteSignInAsync(response);
-            return new AuthResult
-            {
-                Success = ok,
-                Message = ok
-                    ? $"Welcome, {CurrentUser?.Name ?? "operator"}."
-                    : "Signed in, but the profile could not be loaded."
-            };
-        }
-        catch
-        {
-            return new AuthResult
-            {
-                Success = false,
-                Message = "Could not reach the API. Make sure FlexiSpace.API is running on http://localhost:5073."
-            };
-        }
+            Name = "Guest",
+            Role = UserRole.Client,
+            IsGuest = true
+        };
+        AuthStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public async Task<AuthResult> LoginWithMicrosoftAsync()
     {
+        SecureTokenStorage.SuppressStoredToken = false;
         var msalResult = await msal.SignInInteractiveAsync();
         if (!msalResult.Success)
             return msalResult;
@@ -80,14 +55,10 @@ public sealed class HttpAuthService(
                     meResponse.StatusCode == System.Net.HttpStatusCode.Forbidden)
                 {
                     await tokens.ClearAsync();
-                    var hint = meResponse.Headers.WwwAuthenticate.ToString();
-                    if (string.IsNullOrWhiteSpace(hint))
-                        hint = await meResponse.Content.ReadAsStringAsync();
-                    var detail = string.IsNullOrWhiteSpace(hint) ? "" : $" Azure said: {hint.Trim()}";
                     return new AuthResult
                     {
                         Success = false,
-                        Message = "Microsoft signed you in, but Azure rejected the token. On the App Service, set AzureAd__TenantId to 2427e95a-1238-4880-8236-996db36bc62c and AzureAd__ClientId / AzureAd__Audience to 77163347-59be-48f4-8675-535af30a3a53 (the API app, not the mobile app), then restart the App Service." + detail
+                        Message = "Microsoft signed you in, but the API rejected the token (audience/scope). Confirm azuread.local.json ApiScope is api://77163347-59be-48f4-8675-535af30a3a53/access_as_user and the API is running."
                     };
                 }
 
@@ -101,7 +72,7 @@ public sealed class HttpAuthService(
                 return new AuthResult
                 {
                     Success = false,
-                    Message = "Microsoft sign-in worked, but no FlexiSpace user is linked for this account. As Admin, open the Users tab and provision this email, then sign in again."
+                    Message = "Microsoft sign-in worked, but no FlexiSpace user is linked for this account. As Admin, open the Users tab and add this email, then sign in again."
                 };
             }
 
@@ -127,6 +98,7 @@ public sealed class HttpAuthService(
 
     public async Task<AuthResult> RegisterAsync(RegisterRequest request)
     {
+        SecureTokenStorage.SuppressStoredToken = false;
         try
         {
             using var response = await api.PostAsJsonAsync("api/DevAuth/register", new
@@ -178,14 +150,11 @@ public sealed class HttpAuthService(
 
     public async Task LogoutAsync()
     {
+        SecureTokenStorage.SuppressStoredToken = false;
         await tokens.ClearAsync();
         CurrentUser = null;
         AuthStateChanged?.Invoke(this, EventArgs.Empty);
     }
-
-    public Task SwitchDemoUserAsync(string email) => LoginAsync(email, "demo123");
-
-    public IReadOnlyList<User> GetDemoUsers() => SeedData.Users;
 
     private async Task<bool> CompleteSignInAsync(HttpResponseMessage response)
     {
@@ -236,26 +205,8 @@ public sealed class HttpAuthService(
         };
     }
 
-    private static UserRole ParseRole(JsonElement role)
-    {
-        if (role.ValueKind == JsonValueKind.Number)
-        {
-            return role.GetInt32() switch
-            {
-                0 => UserRole.CentreManager,
-                1 => UserRole.Staff,
-                2 => UserRole.Administrator,
-                3 => UserRole.Client,
-                _ => UserRole.Staff
-            };
-        }
-
-        if (role.ValueKind == JsonValueKind.String &&
-            Enum.TryParse<UserRole>(role.GetString(), ignoreCase: true, out var parsed))
-            return parsed;
-
-        return UserRole.Staff;
-    }
+    private static UserRole ParseRole(string role) =>
+        Enum.TryParse<UserRole>(role, ignoreCase: true, out var parsed) ? parsed : UserRole.Client;
 
     private static async Task<string?> ReadErrorAsync(HttpResponseMessage response)
     {

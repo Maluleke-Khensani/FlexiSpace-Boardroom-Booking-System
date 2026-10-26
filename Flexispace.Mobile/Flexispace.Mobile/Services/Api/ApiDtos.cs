@@ -1,4 +1,4 @@
-using System.Text.Json;
+using Flexispace.Mobile.Models;
 
 namespace Flexispace.Mobile.Services.Api;
 
@@ -25,7 +25,7 @@ public sealed class ApiUserDto
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
-    public JsonElement Role { get; set; }
+    public string Role { get; set; } = string.Empty;
     public bool IsActive { get; set; }
     public int? LocationId { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -39,6 +39,7 @@ public sealed class ApiEntraUserDto
     public string DisplayName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public bool IsActive { get; set; }
+    public UserRole? Role { get; set; }
 }
 
 public sealed class ApiLocationDto
@@ -109,6 +110,12 @@ public sealed class ApiUpdateBookingDto
     public List<object> Catering { get; set; } = [];
 }
 
+public sealed class ApiOccupiedSlotDto
+{
+    public TimeOnly StartTime { get; set; }
+    public TimeOnly EndTime { get; set; }
+}
+
 public sealed class ApiBookingStatusDto
 {
     public string Status { get; set; } = "Confirmed";
@@ -142,6 +149,7 @@ public sealed class ApiCreateBlockedPeriodDto
 public sealed class ApiNotificationDto
 {
     public int Id { get; set; }
+    public int? BookingId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
     public string Type { get; set; } = "Info";

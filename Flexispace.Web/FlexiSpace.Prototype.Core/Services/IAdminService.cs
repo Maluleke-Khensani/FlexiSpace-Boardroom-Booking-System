@@ -11,8 +11,13 @@ public interface IAdminService
     Task<(bool Ok, string Message)> UpdateUserAsync(User user);
     Task<(bool Ok, string Message)> RemoveUserAsync(int apiId);
     Task<(bool Ok, string Message)> SetUserActiveAsync(int apiId, bool isActive);
-    Task<bool> AddRoomAsync(Boardroom room);
-    Task<bool> RemoveRoomAsync(string roomId);
+    Task<(bool Ok, string Message)> AddRoomAsync(Boardroom room);
+    Task<(bool Ok, string Message)> UpdateRoomAsync(Boardroom room);
+    Task<(bool Ok, string Message)> RemoveRoomAsync(string roomId);
+    Task<(bool Ok, string Message)> CreateLocationAsync(OfficeLocation location);
+    Task<(bool Ok, string Message)> UpdateLocationAsync(OfficeLocation location);
+    Task<(bool Ok, string Message)> DeleteLocationAsync(string locationId);
+    Task<IReadOnlyList<AuditLogEntry>> GetRecentAuditAsync(int count = 100);
     Task<ReportSummary> GetReportSummaryAsync();
 }
 

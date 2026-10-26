@@ -6,19 +6,20 @@ using FlexiSpace.Core.DTOs.Boardroom;
 using FlexiSpace.Core.DTOs.Equipment;
 using FlexiSpace.Core.Entities;
 using FlexiSpace.Core.Services;
+using FlexiSpace.API.Controllers.Base;
 
 namespace FlexiSpace.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class BoardroomController : ControllerBase
+    public class BoardroomController : AuditableControllerBase
     {
         // Service responsible for handling all boardroom-related business operations.
         private readonly IBoardroomService _boardroomService;
         private readonly FlexiSpace.Core.Common.ICurrentUserService _currentUserService;
 
-        public BoardroomController(IBoardroomService boardroomService, FlexiSpace.Core.Common.ICurrentUserService currentUserService)
+        public BoardroomController(IBoardroomService boardroomService, FlexiSpace.Core.Common.ICurrentUserService currentUserService, IAuditService auditService) : base(auditService, currentUserService)
         {
             _boardroomService = boardroomService;
             _currentUserService = currentUserService;
@@ -80,6 +81,8 @@ namespace FlexiSpace.API.Controllers
 
             // Save the new boardroom and its equipment.
             var createdBoardroom = await _boardroomService.CreateBoardroomAsync(boardroom);
+            await LogActionAsync(AuditAction.Create, "Boardroom", createdBoardroom.Id.ToString(), null,
+                new { createdBoardroom.Name, createdBoardroom.LocationId, createdBoardroom.Capacity, createdBoardroom.Status });
 
             // Return HTTP 201 with the newly created resource.
             return CreatedAtAction(
@@ -131,6 +134,10 @@ namespace FlexiSpace.API.Controllers
                     return NotFound();
                 }
 
+                await LogActionAsync(AuditAction.Update, "Boardroom", id.ToString(),
+                    new { existing.Name, existing.LocationId, existing.Capacity, existing.Status },
+                    new { boardroom.Name, boardroom.LocationId, boardroom.Capacity, boardroom.Status });
+
                 return NoContent();
             }
 
@@ -162,6 +169,8 @@ namespace FlexiSpace.API.Controllers
                 if (!updated)
                     return NotFound();
 
+                await LogActionAsync(AuditAction.Update, "Boardroom", id.ToString(), new { existing.Status }, new { dto.Status });
+
                 return NoContent();
             }
 
@@ -180,6 +189,8 @@ namespace FlexiSpace.API.Controllers
             {
                 return NotFound();
             }
+
+            await LogActionAsync(AuditAction.Delete, "Boardroom", id.ToString(), null, null);
 
             // HTTP 204 indicates the resource was successfully deleted.
             return NoContent();

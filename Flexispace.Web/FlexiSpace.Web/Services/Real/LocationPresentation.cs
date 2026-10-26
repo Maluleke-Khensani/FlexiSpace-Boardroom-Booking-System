@@ -37,7 +37,7 @@ public static class LocationPresentation
 
         ["Houghton Estate"] = new(
             "loc_houghton.jpg",
-            "Private offices in the heart of Houghton",
+            "Private offices in the heart of Houghton Estate",
             "010 443 8770",
             "Rebecca",
             "rebecca@flexispace.net.za",

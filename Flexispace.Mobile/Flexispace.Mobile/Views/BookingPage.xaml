@@ -50,13 +50,33 @@
             <Label Text="{Binding StepHeadline}" Style="{StaticResource SectionTitle}" FontSize="18" />
             <Label Text="{Binding Step, StringFormat='Step {0} of 4'}" TextColor="{DynamicResource BrandGoldDeep}" FontSize="12" />
 
-            <Border Style="{StaticResource CardBorder}" IsVisible="{Binding ShowClientPaymentNote}" Padding="12">
-                <Label Text="Online payment arrives in Phase 2." Style="{StaticResource MutedLabel}" FontSize="13" />
-            </Border>
-
-            <Border StrokeThickness="0" StrokeShape="RoundRectangle 16" BackgroundColor="{DynamicResource BrandDangerSoft}" Padding="12,10"
-                    IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}">
-                <Label Text="{Binding ErrorMessage}" TextColor="{DynamicResource BrandDanger}" FontSize="13" />
+            <Border Stroke="{StaticResource BrandGold}"
+                    StrokeThickness="1.6"
+                    StrokeShape="RoundRectangle 14"
+                    BackgroundColor="{DynamicResource BrandGoldWash}"
+                    Padding="14,14"
+                    IsVisible="{Binding ShowClientPaymentNote}">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                    <Border WidthRequest="44" HeightRequest="44"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 22"
+                            BackgroundColor="{StaticResource BrandGold}"
+                            VerticalOptions="Center">
+                        <Label Style="{StaticResource MaterialGlyph}"
+                               Text="&#xe870;"
+                               FontSize="22"
+                               TextColor="{StaticResource BrandBlack}"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center" />
+                    </Border>
+                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                        <Label Text="PAYMENT" Style="{StaticResource EyebrowLabel}" FontSize="11" />
+                        <Label Text="Online payment is a future enhancement."
+                               TextColor="{DynamicResource BrandInk}"
+                               FontAttributes="Bold"
+                               FontSize="16" />
+                    </VerticalStackLayout>
+                </Grid>
             </Border>
 
             <VerticalStackLayout IsVisible="{Binding Step, Converter={StaticResource StepEqualsConverter}, ConverterParameter=1}" Spacing="10">
@@ -205,16 +225,60 @@
                             <Label Text="Date" TextColor="{DynamicResource BrandMuted}" FontSize="12" VerticalOptions="Center" />
                         </HorizontalStackLayout>
                         <DatePicker Date="{Binding SelectedDate}" TextColor="{DynamicResource BrandInk}" />
-                        <HorizontalStackLayout Spacing="8">
-                            <Label Style="{StaticResource MaterialGlyph}" Text="&#xe8b5;" FontSize="18" TextColor="{StaticResource BrandGold}" />
-                            <Label Text="Start" TextColor="{DynamicResource BrandMuted}" FontSize="12" VerticalOptions="Center" />
-                        </HorizontalStackLayout>
-                        <TimePicker Time="{Binding StartTime}" TextColor="{DynamicResource BrandInk}" />
-                        <HorizontalStackLayout Spacing="8">
-                            <Label Style="{StaticResource MaterialGlyph}" Text="&#xe192;" FontSize="18" TextColor="{StaticResource BrandGold}" />
-                            <Label Text="End" TextColor="{DynamicResource BrandMuted}" FontSize="12" VerticalOptions="Center" />
-                        </HorizontalStackLayout>
-                        <TimePicker Time="{Binding EndTime}" TextColor="{DynamicResource BrandInk}" />
+                        <Label Text="Booked times are greyed out. You can finish exactly when the next booking starts."
+                               Style="{StaticResource MutedLabel}" FontSize="12" />
+                        <Label Text="Start" TextColor="{DynamicResource BrandMuted}" FontSize="12" />
+                        <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding StartSlots}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:TimeSlotChoice">
+                                    <Border Margin="0,0,8,8" Padding="12,8" StrokeThickness="1" StrokeShape="RoundRectangle 14"
+                                            BackgroundColor="{DynamicResource BrandSurface}" Stroke="{DynamicResource BrandLine}">
+                                        <Border.Triggers>
+                                            <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{StaticResource BrandGold}" />
+                                                <Setter Property="Stroke" Value="{StaticResource BrandGold}" />
+                                            </DataTrigger>
+                                            <DataTrigger TargetType="Border" Binding="{Binding IsUnavailable}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{DynamicResource BrandSurfaceAlt}" />
+                                                <Setter Property="Opacity" Value="0.45" />
+                                            </DataTrigger>
+                                        </Border.Triggers>
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding Source={x:Reference Root}, Path=BindingContext.SelectStartCommand}"
+                                                                  CommandParameter="{Binding Time}" />
+                                        </Border.GestureRecognizers>
+                                        <Label Text="{Binding Label}" TextColor="{DynamicResource BrandInk}" FontSize="13" FontAttributes="Bold" />
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </FlexLayout>
+                        <VerticalStackLayout Spacing="8" IsVisible="{Binding HasChosenStart}">
+                            <Label Text="End" TextColor="{DynamicResource BrandMuted}" FontSize="12" />
+                            <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding EndSlots}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:TimeSlotChoice">
+                                        <Border Margin="0,0,8,8" Padding="12,8" StrokeThickness="1" StrokeShape="RoundRectangle 14"
+                                                BackgroundColor="{DynamicResource BrandSurface}" Stroke="{DynamicResource BrandLine}">
+                                            <Border.Triggers>
+                                                <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter Property="BackgroundColor" Value="{StaticResource BrandGold}" />
+                                                    <Setter Property="Stroke" Value="{StaticResource BrandGold}" />
+                                                </DataTrigger>
+                                                <DataTrigger TargetType="Border" Binding="{Binding IsUnavailable}" Value="True">
+                                                    <Setter Property="BackgroundColor" Value="{DynamicResource BrandSurfaceAlt}" />
+                                                    <Setter Property="Opacity" Value="0.45" />
+                                                </DataTrigger>
+                                            </Border.Triggers>
+                                            <Border.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding Source={x:Reference Root}, Path=BindingContext.SelectEndCommand}"
+                                                                      CommandParameter="{Binding Time}" />
+                                            </Border.GestureRecognizers>
+                                            <Label Text="{Binding Label}" TextColor="{DynamicResource BrandInk}" FontSize="13" FontAttributes="Bold" />
+                                        </Border>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </FlexLayout>
+                        </VerticalStackLayout>
                     </VerticalStackLayout>
                 </Border>
                 <Button Text="Continue" Command="{Binding NextToDetailsCommand}" Style="{StaticResource GoldButton}" />
@@ -257,6 +321,9 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <Label Text="{Binding RoomEquipmentLabel}"
+                       IsVisible="{Binding RoomEquipmentLabel, Converter={StaticResource StringNotEmptyConverter}}"
+                       TextColor="{DynamicResource BrandMuted}" FontSize="12" />
                 <Label Text="Equipment" TextColor="{DynamicResource BrandGoldDeep}" FontSize="13" Margin="0,8,0,0" />
                 <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding EquipmentOptions}">
                     <BindableLayout.ItemTemplate>

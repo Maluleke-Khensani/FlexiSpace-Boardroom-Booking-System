@@ -1,5 +1,5 @@
 {
-  "BaseUrl": "https://flexispace-exdye9dzg3bhejh9.southafricanorth-01.azurewebsites.net/",
+  "BaseUrl": "https://localhost:7055/",
   "TenantId": "2427e95a-1238-4880-8236-996db36bc62c",
   "MobileClientId": "85378c65-ead1-4b71-956a-389142bd3342",
   "ApiClientId": "77163347-59be-48f4-8675-535af30a3a53",

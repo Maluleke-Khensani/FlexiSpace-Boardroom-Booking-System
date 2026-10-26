@@ -1,3 +1,5 @@
+using Flexispace.Mobile.Models;
+
 namespace Flexispace.Mobile.Services;
 
 /// <summary>
@@ -44,6 +46,12 @@ public static class AppPreferences
         set => Preferences.Default.Set(Prefix + "dark_mode", value);
     }
 
+    public static bool GetReportsGamified(UserRole role, bool fallback) =>
+        Preferences.Default.Get(ReportsModeKey(role), fallback);
+
+    public static void SetReportsGamified(UserRole role, bool value) =>
+        Preferences.Default.Set(ReportsModeKey(role), value);
+
     public static void Reset()
     {
         Preferences.Default.Remove(Prefix + "booking_confirmations");
@@ -52,5 +60,10 @@ public static class AppPreferences
         Preferences.Default.Remove(Prefix + "show_assistant");
         Preferences.Default.Remove(Prefix + "quest_popups");
         Preferences.Default.Remove(Prefix + "dark_mode");
+        foreach (UserRole role in Enum.GetValues<UserRole>())
+            Preferences.Default.Remove(ReportsModeKey(role));
     }
+
+    private static string ReportsModeKey(UserRole role) =>
+        Prefix + "reports_gamified." + role;
 }

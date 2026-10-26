@@ -1,0 +1,97 @@
+@* Administrator audit log: booking changes, deletions, and login history. *@
+@using System.Text.Json
+@page "/audit"
+@inject AuditViewModel Vm
+@inject IAuthService Auth
+
+<PageTitle>Audit · Flexispace</PageTitle>
+
+@if (!Auth.IsAuthenticated)
+{
+    <RedirectToLogin />
+}
+else
+{
+    <div class="fs-content-wide">
+        <p class="fs-subheading" style="margin-bottom:20px">@Vm.Subtitle</p>
+
+        @if (!Vm.HasAccess)
+        {
+            <div class="fs-card"><p class="fs-muted" style="margin:0">@Vm.Subtitle</p></div>
+        }
+        else
+        {
+            <div class="fs-location-chips" style="margin-bottom:20px">
+                @foreach (var filter in new[] { "All", "Bookings", "Admin changes", "Deletes", "Logins" })
+                {
+                    <button type="button"
+                            class="fs-location-chip @(Vm.Filter == filter ? "is-active" : "")"
+                            @onclick="() => SetFilter(filter)">
+                        @filter
+                    </button>
+                }
+            </div>
+
+            @if (Vm.IsBusy)
+            {
+                <p class="fs-muted">Loading audit history…</p>
+            }
+            else if (Vm.IsEmpty)
+            {
+                <div class="fs-card">
+                    <p class="fs-muted" style="margin:0">
+                        @(Vm.Filter == "Logins"
+                            ? "No login history has been recorded yet."
+                            : "No audit entries match this filter.")
+                    </p>
+                </div>
+            }
+            else
+            {
+                <div class="fs-user-table-wrap">
+                    <table class="fs-user-table">
+                        <thead>
+                            <tr>
+                                <th>When</th>
+                                <th>User</th>
+                                <th>Action</th>
+                                <th>Record</th>
+                                <th>Detail</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var entry in Vm.Items)
+                            {
+                                <tr>
+                                    <td>@entry.Timestamp.ToString("g")</td>
+                                    <td>@entry.ActingUserName</td>
+                                    <td>@entry.Action</td>
+                                    <td>@entry.EntityName #@entry.EntityId</td>
+                                    <td class="fs-muted">@Detail(entry)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    </div>
+}
+
+@code {
+    protected override async Task OnInitializedAsync() =>
+        await Vm.AppearingCommand.ExecuteAsync(null);
+
+    private void SetFilter(string filter) => Vm.SetFilterCommand.Execute(filter);
+
+    private static string Detail(AuditLogEntry entry)
+    {
+        var value = !string.IsNullOrWhiteSpace(entry.NewValues) ? entry.NewValues : entry.OldValues;
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            try { return JsonDocument.Parse(value).RootElement.ToString(); }
+            catch (JsonException) { return value; }
+        }
+        return "—";
+    }
+}

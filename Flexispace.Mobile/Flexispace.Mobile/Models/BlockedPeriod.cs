@@ -1,3 +1,5 @@
+using Flexispace.Mobile.Helpers;
+
 namespace Flexispace.Mobile.Models;
 
 public class BlockedPeriod
@@ -8,4 +10,10 @@ public class BlockedPeriod
     public DateTime End { get; set; }
     public string Reason { get; set; } = string.Empty;
     public string CreatedBy { get; set; } = string.Empty;
+
+    public string StatusLabel => BlockReasons.ToStatus(Reason).ToString();
+
+    public bool ShowReasonDetail =>
+        !string.IsNullOrWhiteSpace(Reason) &&
+        !string.Equals(Reason.Trim(), StatusLabel, StringComparison.OrdinalIgnoreCase);
 }

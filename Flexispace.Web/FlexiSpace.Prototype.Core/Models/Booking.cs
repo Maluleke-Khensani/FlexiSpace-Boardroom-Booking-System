@@ -17,6 +17,8 @@ public class Booking
     public List<string> Catering { get; set; } = [];
     public string Notes { get; set; } = string.Empty;
     public BookingStatus Status { get; set; } = BookingStatus.Confirmed;
+    public DateTime CreatedAt { get; set; }
+    public DateTime? ModifiedAt { get; set; }
     public string? OutlookEventId { get; set; }
 }
 

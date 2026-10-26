@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Flexispace.Mobile.ViewModels"
+             x:Class="Flexispace.Mobile.Views.CalendarPage"
+             x:Name="Root"
+             x:DataType="vm:CalendarViewModel"
+             Title="Calendar"
+             BackgroundColor="{DynamicResource BrandPage}">
+
+    <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+        <ScrollView>
+            <VerticalStackLayout Padding="16" Spacing="12" MaximumWidthRequest="980" HorizontalOptions="Center">
+                <Label Text="CALENDAR" Style="{StaticResource EyebrowLabel}" />
+                <Label Text="Bookings" Style="{StaticResource SectionTitle}" FontSize="24" />
+                <Label Text="{Binding ScopeLabel}" Style="{StaticResource MutedLabel}" />
+
+                <Border IsVisible="{Binding HasAccess, Converter={StaticResource InvertedBoolConverter}}"
+                        Style="{StaticResource ElevatedCard}"
+                        Padding="16,18">
+                    <Label Text="Sign in to see your bookings laid out by day, week, month, and timeline."
+                           Style="{StaticResource MutedLabel}"
+                           HorizontalTextAlignment="Center" />
+                </Border>
+
+                <VerticalStackLayout Spacing="12" IsVisible="{Binding HasAccess}">
+                    <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+                        <HorizontalStackLayout BindableLayout.ItemsSource="{Binding ModeFilters}" Spacing="8">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:CalendarFilterChip">
+                                    <Border Padding="14,8" StrokeThickness="0" StrokeShape="RoundRectangle 16" BackgroundColor="{DynamicResource BrandSurface}">
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding Source={x:Reference Root}, Path=BindingContext.SelectModeCommand}"
+                                                CommandParameter="{Binding .}" />
+                                        </Border.GestureRecognizers>
+                                        <Border.Triggers>
+                                            <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{StaticResource BrandCharcoal}" />
+                                            </DataTrigger>
+                                        </Border.Triggers>
+                                        <Label Text="{Binding Name}" FontSize="13" TextColor="{DynamicResource BrandMuted}">
+                                            <Label.Triggers>
+                                                <DataTrigger TargetType="Label" Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter Property="TextColor" Value="{StaticResource BrandIvory}" />
+                                                    <Setter Property="FontAttributes" Value="Bold" />
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </HorizontalStackLayout>
+                    </ScrollView>
+
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
+                        <Button Text="‹" Command="{Binding PreviousCommand}" Style="{StaticResource GhostButton}" Padding="12,6" MinimumHeightRequest="40" />
+                        <Label Grid.Column="1"
+                               Text="{Binding RangeTitle}"
+                               TextColor="{DynamicResource BrandInk}"
+                               FontAttributes="Bold"
+                               FontSize="16"
+                               VerticalOptions="Center"
+                               HorizontalTextAlignment="Center"
+                               LineBreakMode="TailTruncation" />
+                        <Button Grid.Column="2" Text="›" Command="{Binding NextCommand}" Style="{StaticResource GhostButton}" Padding="12,6" MinimumHeightRequest="40" />
+                        <Button Grid.Column="3" Text="Today" Command="{Binding TodayCommand}" Style="{StaticResource GhostButton}" Padding="12,6" MinimumHeightRequest="40" />
+                    </Grid>
+
+                    <Label Text="{Binding CountLabel}" Style="{StaticResource MutedLabel}" FontSize="12" />
+
+                    <Border BackgroundColor="{DynamicResource BrandSurface}"
+                            Stroke="{DynamicResource BrandLine}"
+                            StrokeThickness="1"
+                            StrokeShape="RoundRectangle 12"
+                            Padding="8,0">
+                        <SearchBar Placeholder="Search room, person, company, or centre"
+                                   Text="{Binding SearchText}"
+                                   TextColor="{DynamicResource BrandInk}"
+                                   PlaceholderColor="{DynamicResource BrandMuted}"
+                                   BackgroundColor="Transparent"
+                                   CancelButtonColor="{DynamicResource BrandGoldDeep}" />
+                    </Border>
+
+                    <ScrollView Orientation="Horizontal"
+                                HorizontalScrollBarVisibility="Never"
+                                IsVisible="{Binding HasLocationFilters}">
+                        <HorizontalStackLayout BindableLayout.ItemsSource="{Binding LocationFilters}" Spacing="8">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:CalendarFilterChip">
+                                    <Border Padding="14,8" StrokeThickness="0" StrokeShape="RoundRectangle 16" BackgroundColor="{DynamicResource BrandSurface}">
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding Source={x:Reference Root}, Path=BindingContext.SelectLocationCommand}"
+                                                CommandParameter="{Binding .}" />
+                                        </Border.GestureRecognizers>
+                                        <Border.Triggers>
+                                            <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{StaticResource BrandCharcoal}" />
+                                            </DataTrigger>
+                                        </Border.Triggers>
+                                        <Label Text="{Binding Name}" FontSize="13" TextColor="{DynamicResource BrandMuted}">
+                                            <Label.Triggers>
+                                                <DataTrigger TargetType="Label" Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter Property="TextColor" Value="{StaticResource BrandIvory}" />
+                                                    <Setter Property="FontAttributes" Value="Bold" />
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </HorizontalStackLayout>
+                    </ScrollView>
+
+                    <VerticalStackLayout x:Name="MonthHost" Spacing="4" IsVisible="{Binding ShowMonth}" />
+
+                    <VerticalStackLayout Spacing="8" IsVisible="{Binding ShowMonth}">
+                        <Label Text="{Binding AgendaTitle}" TextColor="{DynamicResource BrandGoldDeep}" FontAttributes="Bold" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding AgendaEntries}" Spacing="8">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:CalendarEntry">
+                                    <Border Style="{StaticResource ElevatedCard}" Padding="12,10">
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding Source={x:Reference Root}, Path=BindingContext.OpenCommand}"
+                                                CommandParameter="{Binding .}" />
+                                        </Border.GestureRecognizers>
+                                        <Grid ColumnDefinitions="4,*" ColumnSpacing="10">
+                                            <BoxView WidthRequest="4" Color="{Binding Status, Converter={StaticResource StatusAccentConverter}}" />
+                                            <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <Label Text="{Binding Title}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" />
+                                                    <Label Grid.Column="1" Text="{Binding StatusLabel}" TextColor="{DynamicResource BrandMuted}" FontSize="11" />
+                                                </Grid>
+                                                <Label Text="{Binding TimeLabel}" TextColor="{DynamicResource BrandGoldDeep}" FontSize="13" />
+                                                <Label Text="{Binding Facts}" TextColor="{DynamicResource BrandMuted}" FontSize="12" />
+                                                <Label Text="{Binding EquipmentLabel, StringFormat='Equipment: {0}'}"
+                                                       IsVisible="{Binding EquipmentLabel, Converter={StaticResource StringNotEmptyConverter}}"
+                                                       TextColor="{DynamicResource BrandMuted}" FontSize="12" />
+                                                <Label Text="{Binding NotesLabel}"
+                                                       IsVisible="{Binding NotesLabel, Converter={StaticResource StringNotEmptyConverter}}"
+                                                       TextColor="{DynamicResource BrandMuted}" FontSize="12" />
+                                            </VerticalStackLayout>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+
+                    <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never" IsVisible="{Binding ShowWeek}">
+                        <HorizontalStackLayout BindableLayout.ItemsSource="{Binding WeekColumns}" Spacing="8">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:CalendarWeekColumn">
+                                    <Border WidthRequest="168"
+                                            Padding="8"
+                                            StrokeThickness="1"
+                                            StrokeShape="RoundRectangle 14"
+                                            BackgroundColor="{DynamicResource BrandSurface}"
+                                            Stroke="{DynamicResource BrandLine}">
+                                        <Border.Triggers>
+                                            <DataTrigger TargetType="Border" Binding="{Binding IsToday}" Value="True">
+                                                <Setter Property="Stroke" Value="{StaticResource BrandGold}" />
+                                            </DataTrigger>
+                                        </Border.Triggers>
+                                        <VerticalStackLayout Spacing="8">
+                                            <VerticalStackLayout Spacing="0">
+                                                <Label Text="{Binding Weekday}" FontSize="11" TextColor="{DynamicResource BrandMuted}" HorizontalTextAlignment="Center" />
+                                                <Label Text="{Binding DayNumber}" FontSize="18" FontAttributes="Bold" TextColor="{DynamicResource BrandInk}" HorizontalTextAlignment="Center" />
+                                            </VerticalStackLayout>
+                                            <Label Text="No bookings" FontSize="11" TextColor="{DynamicResource BrandMuted}" IsVisible="{Binding HasEntries, Converter={StaticResource InvertedBoolConverter}}" />
+                                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Entries}" Spacing="6">
+                                                <BindableLayout.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:CalendarEntry">
+                                                        <Border Padding="8,6" StrokeThickness="0" StrokeShape="RoundRectangle 10" BackgroundColor="{DynamicResource BrandPage}">
+                                                            <Border.GestureRecognizers>
+                                                                <TapGestureRecognizer
+                                                                    Command="{Binding Source={x:Reference Root}, Path=BindingContext.OpenCommand}"
+                                                                    CommandParameter="{Binding .}" />
+                                                            </Border.GestureRecognizers>
+                                                            <VerticalStackLayout Spacing="1">
+                                                                <Label Text="{Binding TimeLabel}" FontSize="11" TextColor="{DynamicResource BrandGoldDeep}" FontAttributes="Bold" />
+                                                                <Label Text="{Binding Title}" FontSize="12" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                                                <Label Text="{Binding Person}" FontSize="11" TextColor="{DynamicResource BrandMuted}" LineBreakMode="TailTruncation" />
+                                                                <Label Text="{Binding Place}" FontSize="11" TextColor="{DynamicResource BrandMuted}" LineBreakMode="TailTruncation" />
+                                                                <Label Text="{Binding StatusLabel}" FontSize="10" TextColor="{DynamicResource BrandMuted}" />
+                                                            </VerticalStackLayout>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </BindableLayout.ItemTemplate>
+                                            </VerticalStackLayout>
+                                        </VerticalStackLayout>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </HorizontalStackLayout>
+                    </ScrollView>
+
+                    <VerticalStackLayout x:Name="DayHost" Spacing="8" IsVisible="{Binding ShowDay}" />
+
+                    <VerticalStackLayout Spacing="8" IsVisible="{Binding HasOutsideHours}">
+                        <Label Text="Outside 07:00–19:00" TextColor="{DynamicResource BrandGoldDeep}" FontAttributes="Bold" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding DayOutside}" Spacing="8">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:CalendarEntry">
+                                    <Border Style="{StaticResource ElevatedCard}" Padding="12,10">
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding Source={x:Reference Root}, Path=BindingContext.OpenCommand}"
+                                                CommandParameter="{Binding .}" />
+                                        </Border.GestureRecognizers>
+                                        <VerticalStackLayout Spacing="2">
+                                            <Label Text="{Binding TimeLabel}" TextColor="{DynamicResource BrandGoldDeep}" FontAttributes="Bold" />
+                                            <Label Text="{Binding Title}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" />
+                                            <Label Text="{Binding Facts}" TextColor="{DynamicResource BrandMuted}" FontSize="12" />
+                                        </VerticalStackLayout>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding TimelineRows}" Spacing="8" IsVisible="{Binding ShowTimeline}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CalendarTimelineRow">
+                                <VerticalStackLayout Spacing="8">
+                                    <Label Text="{Binding DateLabel}"
+                                           IsVisible="{Binding ShowDate}"
+                                           TextColor="{DynamicResource BrandGoldDeep}"
+                                           FontAttributes="Bold"
+                                           Margin="0,8,0,0" />
+                                    <Border Style="{StaticResource ElevatedCard}" Padding="12,10">
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding Source={x:Reference Root}, Path=BindingContext.OpenCommand}"
+                                                CommandParameter="{Binding Entry}" />
+                                        </Border.GestureRecognizers>
+                                        <Grid ColumnDefinitions="4,*" ColumnSpacing="10">
+                                            <BoxView WidthRequest="4" Color="{Binding Entry.Status, Converter={StaticResource StatusAccentConverter}}" />
+                                            <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <Label Text="{Binding Entry.Title}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" />
+                                                    <Label Grid.Column="1" Text="{Binding Entry.StatusLabel}" TextColor="{DynamicResource BrandMuted}" FontSize="11" />
+                                                </Grid>
+                                                <Label Text="{Binding Entry.TimeLabel}" TextColor="{DynamicResource BrandGoldDeep}" FontSize="13" />
+                                                <Label Text="{Binding Entry.Facts}" TextColor="{DynamicResource BrandMuted}" FontSize="12" />
+                                                <Label Text="{Binding Entry.EquipmentLabel, StringFormat='Equipment: {0}'}"
+                                                       IsVisible="{Binding Entry.EquipmentLabel, Converter={StaticResource StringNotEmptyConverter}}"
+                                                       TextColor="{DynamicResource BrandMuted}" FontSize="12" />
+                                                <Label Text="{Binding Entry.NotesLabel}"
+                                                       IsVisible="{Binding Entry.NotesLabel, Converter={StaticResource StringNotEmptyConverter}}"
+                                                       TextColor="{DynamicResource BrandMuted}" FontSize="12" />
+                                            </VerticalStackLayout>
+                                        </Grid>
+                                    </Border>
+                                </VerticalStackLayout>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <Border IsVisible="{Binding HasVisible, Converter={StaticResource InvertedBoolConverter}}"
+                            Style="{StaticResource ElevatedCard}"
+                            Padding="16,18">
+                        <Label Text="{Binding EmptyMessage}"
+                               Style="{StaticResource MutedLabel}"
+                               HorizontalTextAlignment="Center" />
+                    </Border>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+    </RefreshView>
+</ContentPage>

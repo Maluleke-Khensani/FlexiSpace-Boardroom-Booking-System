@@ -124,10 +124,30 @@ public static class SeedData
         }
     ];
 
+    public static readonly CatalogItem[] EquipmentCatalog =
+    [
+        new() { Name = "TV", Description = "Wall-mounted display screen" },
+        new() { Name = "Projector", Description = "Ceiling or table projector with screen" },
+        new() { Name = "Whiteboard", Description = "Whiteboard with markers" },
+        new() { Name = "Video conferencing", Description = "Camera, microphone and speaker for video calls" },
+        new() { Name = "Teams Room", Description = "Microsoft Teams Room system" },
+        new() { Name = "Flip chart", Description = "Flip chart stand with paper" },
+        new() { Name = "HDMI cables", Description = "HDMI cables for connecting laptops" }
+    ];
+
+    public static readonly CatalogItem[] CateringCatalog =
+    [
+        new() { Name = "Tea", Description = "Tea station" },
+        new() { Name = "Coffee", Description = "Filter coffee" },
+        new() { Name = "Lunch", Description = "Platter lunch" },
+        new() { Name = "Snacks", Description = "Biscuits and snacks" },
+        new() { Name = "Water", Description = "Still and sparkling water" }
+    ];
+
     public static readonly string[] EquipmentOptions =
-        ["TV", "Projector", "Whiteboard", "Video conferencing", "Teams Room", "Flip chart", "HDMI cables"];
+        [.. EquipmentCatalog.Select(item => item.Name)];
 
     public static readonly string[] CateringOptions =
-        ["Tea", "Coffee", "Lunch", "Snacks", "Water"];
+        [.. CateringCatalog.Select(item => item.Name)];
 }
 

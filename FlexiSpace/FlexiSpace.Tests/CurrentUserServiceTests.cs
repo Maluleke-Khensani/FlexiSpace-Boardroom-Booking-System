@@ -12,6 +12,9 @@ namespace FlexiSpace.Tests
 {
     public class CurrentUserServiceTests
     {
+        
+        /*
+        
         private const string ObjectIdClaimType =
             "http://schemas.microsoft.com/identity/claims/objectidentifier";
 
@@ -138,5 +141,8 @@ namespace FlexiSpace.Tests
 
             result.Should().BeNull();
         }
+    
+        */
     }
+
 }

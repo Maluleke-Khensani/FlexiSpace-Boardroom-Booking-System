@@ -19,6 +19,7 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     [ObservableProperty] private DateTime selectedDate = DateTime.Today;
     [ObservableProperty] private TimeSpan startTime = new(9, 0, 0);
     [ObservableProperty] private TimeSpan endTime = new(10, 0, 0);
+    [ObservableProperty] private bool hasChosenStart;
     [ObservableProperty] private string company = string.Empty;
     [ObservableProperty] private string attendeesText = "4";
     [ObservableProperty] private string notes = string.Empty;
@@ -37,6 +38,15 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     public ObservableCollection<Boardroom> Rooms { get; } = [];
     public ObservableCollection<SelectableOption> EquipmentOptions { get; } = [];
     public ObservableCollection<SelectableOption> CateringOptions { get; } = [];
+    public ObservableCollection<TimeSlotChoice> StartSlots { get; } = [];
+    public ObservableCollection<TimeSlotChoice> EndSlots { get; } = [];
+
+    public string RoomEquipmentLabel =>
+        SelectedRoom?.Equipment is { Count: > 0 } kit
+            ? "In this room: " + string.Join(", ", kit)
+            : string.Empty;
+
+    private readonly List<OccupiedSlot> occupied = [];
 
     public string StepHeadline => Step switch
     {
@@ -62,6 +72,10 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
         SelectedDate = DateTime.Today;
         StartTime = new TimeSpan(9, 0, 0);
         EndTime = new TimeSpan(10, 0, 0);
+        HasChosenStart = false;
+        occupied.Clear();
+        StartSlots.Clear();
+        EndSlots.Clear();
         Company = string.Empty;
         AttendeesText = "4";
         Notes = string.Empty;
@@ -106,7 +120,7 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
         ShowClientPaymentNote = user?.Role == UserRole.Client;
         if (!CanBook)
         {
-            ErrorMessage = "Your role cannot create bookings.";
+            ShowError("Your role cannot create bookings.", "Can't book");
             return;
         }
 
@@ -216,7 +230,9 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
         ShowCapacityCombineOffer = false;
         CapacityCombineMessage = string.Empty;
         ErrorMessage = null;
+        HasChosenStart = false;
         Step = 3;
+        _ = RefreshOccupiedAsync();
     }
 
     [RelayCommand]
@@ -263,22 +279,49 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     {
         if (SelectedDate.Date < DateTime.Today)
         {
-            ErrorMessage = "Bookings cannot be made for a date before today.";
+            ShowError("Bookings cannot be made for a date before today.");
+            return false;
+        }
+
+        if (!HasChosenStart)
+        {
+            ShowError("Choose a start time.");
             return false;
         }
 
         if (EndTime <= StartTime)
         {
-            ErrorMessage = "End time must be after start time.";
+            ShowError("End time must be after start time.");
+            return false;
+        }
+
+        if (Overlaps(StartTime, EndTime))
+        {
+            var ideas = SuggestStarts(3);
+            var detail = ideas.Count == 0
+                ? "That time overlaps a booking or a block."
+                : "That time overlaps a booking or a block.\n\nTry: " + string.Join(", ", ideas.Select(t => $"{t.Hours:D2}:{t.Minutes:D2}"));
+            ShowError(detail);
             return false;
         }
 
         return true;
     }
 
+    partial void OnSelectedDateChanged(DateTime value)
+    {
+        if (SelectedRoom is null || Step < 3)
+            return;
+        _ = RefreshOccupiedAsync();
+    }
+
     partial void OnAttendeesTextChanged(string value) => RefreshCapacityGuidance();
 
-    partial void OnSelectedRoomChanged(Boardroom? value) => RefreshCapacityGuidance();
+    partial void OnSelectedRoomChanged(Boardroom? value)
+    {
+        OnPropertyChanged(nameof(RoomEquipmentLabel));
+        RefreshCapacityGuidance();
+    }
 
     private void RefreshCapacityGuidance()
     {
@@ -326,13 +369,13 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     {
         if (SelectedRoom is null)
         {
-            ErrorMessage = "Select a boardroom first.";
+            ShowError("Select a boardroom first.");
             return false;
         }
 
         if (!int.TryParse(AttendeesText, out var attendees) || attendees < 1)
         {
-            ErrorMessage = "Enter a valid number of attendees.";
+            ShowError("Enter a valid number of attendees.");
             return false;
         }
 
@@ -342,7 +385,7 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
             if (ShowCapacityCombineOffer)
                 return false;
 
-            ErrorMessage = $"This room seats {SelectedRoom.Capacity}; reduce attendees or pick a bigger room.";
+            ShowError($"This room seats {SelectedRoom.Capacity}; reduce attendees or pick a bigger room.");
             return false;
         }
 
@@ -354,7 +397,7 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     {
         if (SelectedRoom is null)
         {
-            ErrorMessage = "Select a boardroom first.";
+            ShowError("Select a boardroom first.");
             return;
         }
 
@@ -393,7 +436,9 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
                         result.SuggestedSlots.Select(s => s.ToString("HH:mm")));
                 }
 
-                var detail = result.SuggestedSlots.Count > 0
+                var offerTimes = result.SuggestedSlots.Count > 0 &&
+                                 result.Message.Contains("overlapping", StringComparison.OrdinalIgnoreCase);
+                var detail = offerTimes
                     ? $"{result.Message}\n\nTry: {string.Join(", ", result.SuggestedSlots.Select(s => s.ToString("HH:mm")))}"
                     : result.Message;
                 await ActionFeedback.FailAsync(detail, "Booking blocked");
@@ -402,6 +447,15 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
 
             SuccessMessage = result.Message;
             Step = 5;
+            if (result.Booking is not null)
+            {
+                if (SelectedLocation is not null &&
+                    (string.IsNullOrWhiteSpace(result.Booking.LocationName) ||
+                     result.Booking.LocationName == result.Booking.LocationId))
+                    result.Booking.LocationName = SelectedLocation.Name;
+                BookingHandoff.Remember(result.Booking);
+            }
+
             await ActionFeedback.SuccessAsync("Your boardroom is locked in. Opening confirmation…", "Booked");
             if (result.Booking is not null)
                 await Shell.Current.GoToAsync($"BookingConfirmationPage?bookingId={result.Booking.Id}");
@@ -415,6 +469,146 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     [RelayCommand]
     private async Task OpenPrivacyAsync() =>
         await Shell.Current.GoToAsync("PrivacyPage");
+
+    [RelayCommand]
+    private void SelectStart(TimeSpan time)
+    {
+        if (IsStartUnavailable(time))
+            return;
+
+        StartTime = time;
+        HasChosenStart = true;
+        EndTime = SnapEnd(time, time.Add(TimeSpan.FromHours(1)));
+        RebuildSlots();
+    }
+
+    [RelayCommand]
+    private void SelectEnd(TimeSpan time)
+    {
+        if (!HasChosenStart || time <= StartTime || IsEndUnavailable(time))
+            return;
+
+        EndTime = time;
+        RebuildSlots();
+    }
+
+    private async Task RefreshOccupiedAsync()
+    {
+        occupied.Clear();
+        if (SelectedRoom is null)
+        {
+            RebuildSlots();
+            return;
+        }
+
+        foreach (var slot in await bookings.GetOccupiedSlotsAsync(SelectedRoom.Id, SelectedDate))
+            occupied.Add(slot);
+
+        if (HasChosenStart && (IsStartUnavailable(StartTime) || Overlaps(StartTime, EndTime)))
+        {
+            HasChosenStart = false;
+            EndTime = StartTime;
+        }
+
+        RebuildSlots();
+    }
+
+    private void RebuildSlots()
+    {
+        StartSlots.Clear();
+        for (var t = DayOpen; t <= LastStart; t = t.Add(SlotStep))
+        {
+            StartSlots.Add(new TimeSlotChoice
+            {
+                Time = t,
+                IsSelected = HasChosenStart && t == StartTime,
+                IsUnavailable = IsStartUnavailable(t)
+            });
+        }
+
+        EndSlots.Clear();
+        if (!HasChosenStart)
+            return;
+
+        for (var t = StartTime.Add(SlotStep); t <= DayClose; t = t.Add(SlotStep))
+        {
+            EndSlots.Add(new TimeSlotChoice
+            {
+                Time = t,
+                IsSelected = t == EndTime,
+                IsUnavailable = IsEndUnavailable(t)
+            });
+        }
+    }
+
+    private bool IsStartUnavailable(TimeSpan time) =>
+        occupied.SelectMany(slot => HalfHoursInside(slot.Start, slot.End)).Contains(time);
+
+    private bool IsEndUnavailable(TimeSpan time) =>
+        occupied.Any(slot => StartTime < slot.End && time > slot.Start);
+
+    private bool Overlaps(TimeSpan start, TimeSpan end) =>
+        occupied.Any(slot => start < slot.End && end > slot.Start);
+
+    private TimeSpan SnapEnd(TimeSpan start, TimeSpan proposed)
+    {
+        var end = proposed > DayClose ? DayClose : proposed;
+        var blocker = occupied
+            .Where(slot => start < slot.End && end > slot.Start)
+            .OrderBy(slot => slot.Start)
+            .FirstOrDefault();
+        if (blocker is null)
+            return end;
+        return blocker.Start > start ? blocker.Start : start;
+    }
+
+    private List<TimeSpan> SuggestStarts(int take)
+    {
+        var ideas = new List<TimeSpan>();
+        for (var t = DayOpen; t <= LastStart && ideas.Count < take; t = t.Add(SlotStep))
+        {
+            if (IsStartUnavailable(t))
+                continue;
+            var end = SnapEnd(t, t.Add(TimeSpan.FromHours(1)));
+            if (end <= t || Overlaps(t, end))
+                continue;
+            ideas.Add(t);
+        }
+
+        return ideas;
+    }
+
+    private static IEnumerable<TimeSpan> HalfHoursInside(TimeSpan start, TimeSpan end)
+    {
+        var aligned = new TimeSpan(start.Hours, start.Minutes < 30 ? 0 : 30, 0);
+        if (aligned < start)
+            aligned = aligned.Add(SlotStep);
+        for (var t = aligned < DayOpen ? DayOpen : aligned; t < end && t <= LastStart; t = t.Add(SlotStep))
+            yield return t;
+    }
+
+    private static readonly TimeSpan DayOpen = new(7, 0, 0);
+    private static readonly TimeSpan DayClose = new(19, 0, 0);
+    private static readonly TimeSpan LastStart = new(18, 30, 0);
+    private static readonly TimeSpan SlotStep = TimeSpan.FromMinutes(30);
+
+    /// <summary>
+    /// Keeps the message for any in-page logic and opens it in front of the form
+    /// so the user does not have to scroll back to a banner.
+    /// </summary>
+    private void ShowError(string message, string title = "Please check")
+    {
+        ErrorMessage = message;
+        _ = ActionFeedback.FailAsync(message, title);
+    }
+}
+
+public sealed class TimeSlotChoice
+{
+    public TimeSpan Time { get; init; }
+    public string Label => $"{Time.Hours:D2}:{Time.Minutes:D2}";
+    public bool IsSelected { get; init; }
+    public bool IsUnavailable { get; init; }
 }
 
 public partial class SelectableOption : ObservableObject

@@ -1,7 +1,8 @@
-@* Manage console for reviewing in-scope bookings. *@
+@* Manage console for reviewing in-scope bookings and blocking rooms. *@
 @page "/manage"
 @inject ManageViewModel Vm
 @inject IAuthService Auth
+@inject IJSRuntime JS
 @using Flexispace.Core.Helpers
 
 <PageTitle>Manage · Flexispace</PageTitle>
@@ -14,6 +15,10 @@ else
 {
     <div class="fs-content-wide">
         <p class="fs-subheading" style="margin-bottom:24px">@Vm.Subtitle</p>
+        @if (!string.IsNullOrEmpty(Vm.ErrorMessage))
+        {
+            <p id="fs-error-banner" class="fs-error" style="margin-bottom:20px">@Vm.ErrorMessage</p>
+        }
         @if (!string.IsNullOrEmpty(Vm.Message))
         {
             <p class="fs-message" style="margin-bottom:20px">@Vm.Message</p>
@@ -21,24 +26,172 @@ else
 
         @if (Vm.HasAccess)
         {
-            <strong style="color:var(--fs-gold-deep); font-size:15px">Bookings in scope</strong>
-            <div class="fs-grid-2" style="margin-top:16px">
-                @foreach (var booking in Vm.LocationBookings)
-                {
-                    <div class="fs-card--elevated fs-card--clickable" @onclick="() => Open(booking)">
-                        <div style="display:flex">
-                            <div class="fs-card__accent" style="background:@StatusAccent.GetColor(booking.Status)"></div>
-                            <div class="fs-card__body">
-                                <div style="display:flex; justify-content:space-between; gap:8px">
-                                    <strong>@booking.RoomName</strong>
-                                    <span class="fs-pill" style="background:@StatusAccent.GetColor(booking.Status)">@booking.Status</span>
+            <strong style="color:var(--fs-gold-deep); font-size:15px">@(Vm.CanBlockRooms ? "Bookings in scope" : "Your bookings")</strong>
+            @if (Vm.FilterLocations.Count > 1 || Vm.LockLocationFilter)
+            {
+                <p class="fs-muted" style="margin:20px 0 10px; font-size:12px">Filter by location</p>
+                <div class="fs-location-chips" style="margin-bottom:16px">
+                    @foreach (var loc in Vm.FilterLocations)
+                    {
+                        <button type="button"
+                                class="fs-location-chip @(loc.Id == Vm.LocationFilterId ? "is-active" : "")"
+                                disabled="@Vm.LockLocationFilter"
+                                @onclick="() => FilterLocation(loc)">
+                            @loc.Name
+                        </button>
+                    }
+                </div>
+            }
+            @if (!string.IsNullOrEmpty(Vm.LocationFilterId) && Vm.FilterRooms.Count > 1)
+            {
+                <p class="fs-muted" style="margin:0 0 10px; font-size:12px">Filter by room</p>
+                <div class="fs-location-chips" style="margin-bottom:16px">
+                    @foreach (var room in Vm.FilterRooms)
+                    {
+                        <button type="button"
+                                class="fs-location-chip @(room.Id == Vm.RoomFilterId ? "is-active" : "")"
+                                @onclick="() => FilterRoom(room)">
+                            @room.Name
+                        </button>
+                    }
+                </div>
+            }
+            <div class="fs-toolbar" style="margin-bottom:12px">
+                <input class="fs-field fs-search"
+                       placeholder="@(Vm.CanBlockRooms ? "Search booking ID, room, guest, company, status…" : "Search booking ID, room, company, status…")"
+                       @bind="Vm.FilterQuery"
+                       @bind:event="oninput" />
+            </div>
+
+            @if (Vm.CanBlockRooms)
+            {
+                <div class="fs-notification__actions" style="margin:0 0 16px">
+                    <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="ToggleBlockForm">Block a room</button>
+                    <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="JumpToActiveBlocks">Active blocks</button>
+                </div>
+            }
+
+            @if (Vm.CanBlockRooms && ShowBlockForm)
+            {
+                <div class="fs-toolbar" style="margin-bottom:8px">
+                    <strong style="color:var(--fs-gold-deep); font-size:15px">Block a room</strong>
+                    <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="CloseBlockForm">Close</button>
+                </div>
+                <p class="fs-muted" style="margin:8px 0 16px">Use this when a room needs maintenance, a private event, or any period that should not be booked. Guests with overlapping reservations are notified.</p>
+                <div id="manage-block-form" class="fs-card fs-stack" style="margin-bottom:24px">
+                    <div class="fs-user-form-grid">
+                        <div>
+                            <label class="fs-label" for="block-room">Room</label>
+                            <select id="block-room" class="fs-field @(Vm.ErrorAnchor == "block-room" ? "is-invalid" : "")" @bind="Vm.BlockRoomId">
+                                @foreach (var room in Vm.BlockableRooms)
+                                {
+                                    <option value="@room.Id">@room.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div>
+                            <label class="fs-label" for="block-start-date">Start date</label>
+                            <input id="block-start-date" class="fs-field" type="date" value="@DateOnly.FromDateTime(Vm.BlockStartDate).ToString("yyyy-MM-dd")" @onchange="OnBlockStartDate" />
+                        </div>
+                        <div>
+                            <label class="fs-label" for="block-start-time">Start time</label>
+                            <input id="block-start-time" class="fs-field" type="time" value="@($"{Vm.BlockStartTime.Hours:D2}:{Vm.BlockStartTime.Minutes:D2}")" @onchange="OnBlockStartTime" />
+                        </div>
+                        <div>
+                            <label class="fs-label" for="block-end">End date</label>
+                            <input id="block-end" class="fs-field @(Vm.ErrorAnchor == "block-end" ? "is-invalid" : "")" type="date" value="@DateOnly.FromDateTime(Vm.BlockEndDate).ToString("yyyy-MM-dd")" @onchange="OnBlockEndDate" />
+                        </div>
+                        <div>
+                            <label class="fs-label" for="block-end-time">End time</label>
+                            <input id="block-end-time" class="fs-field" type="time" value="@($"{Vm.BlockEndTime.Hours:D2}:{Vm.BlockEndTime.Minutes:D2}")" @onchange="OnBlockEndTime" />
+                        </div>
+                        <div>
+                            <label class="fs-label" for="block-reason-kind">Reason</label>
+                            <select id="block-reason-kind" class="fs-field @(Vm.ErrorAnchor == "block-reason" ? "is-invalid" : "")" @bind="Vm.BlockReasonKind">
+                                <option value="Cleaning">Cleaning</option>
+                                <option value="Maintenance">Maintenance</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        @if (Vm.BlockReasonKind == "Other")
+                        {
+                            <div>
+                                <label class="fs-label" for="block-reason">Describe the reason</label>
+                                <input id="block-reason" class="fs-field @(Vm.ErrorAnchor == "block-reason" ? "is-invalid" : "")" @bind="Vm.BlockReasonOther" placeholder="Why is the room unavailable?" />
+                            </div>
+                        }
+                    </div>
+                    <button type="button" class="fs-btn fs-btn--gold" disabled="@Vm.IsBusy" @onclick="BlockRoom">Block room</button>
+                </div>
+            }
+
+            @if (Vm.LocationBookings.Count == 0)
+            {
+                <div class="fs-card" style="margin-bottom:32px">
+                    <p class="fs-muted" style="margin:0">@(string.IsNullOrWhiteSpace(Vm.FilterQuery) && string.IsNullOrEmpty(Vm.RoomFilterId) && (Vm.LockLocationFilter || string.IsNullOrEmpty(Vm.LocationFilterId)) ? (Vm.CanBlockRooms ? "No bookings in scope yet." : "You have no bookings yet.") : "No bookings match those filters.")</p>
+                </div>
+            }
+            else
+            {
+                <div class="fs-grid-2" style="margin-top:16px; margin-bottom:32px">
+                    @foreach (var booking in Vm.LocationBookings)
+                    {
+                        <div class="fs-card--elevated fs-card--clickable" @onclick="() => Open(booking)">
+                            <div style="display:flex">
+                                <div class="fs-card__accent" style="background:@StatusAccent.GetColor(booking.Status)"></div>
+                                <div class="fs-card__body">
+                                    <div style="display:flex; justify-content:space-between; gap:8px">
+                                        <strong>@booking.RoomName</strong>
+                                        <span class="fs-pill" style="background:@StatusAccent.GetColor(booking.Status)">@booking.Status</span>
+                                    </div>
+                                    <p class="fs-muted" style="font-size:12px; margin:4px 0">@DisplayHelpers.BookingRef(booking.Id) · @booking.LocationName · @booking.Start.ToString("g")</p>
+                                    <p class="fs-muted" style="font-size:12px; margin:0">@booking.BookerName · @booking.Company</p>
+                                    <div class="fs-notification__actions" style="margin-left:0" @onclick:stopPropagation="true">
+                                        <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="() => Open(booking)">Details</button>
+                                        @if (Vm.CanEditBooking(booking))
+                                        {
+                                            <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="() => Edit(booking)">Edit</button>
+                                        }
+                                        @if (Vm.CanCancelBooking(booking))
+                                        {
+                                            <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="() => Cancel(booking)">Cancel</button>
+                                        }
+                                    </div>
                                 </div>
-                                <p class="fs-muted" style="font-size:12px; margin:4px 0">@booking.LocationName · @booking.Start.ToString("g")</p>
                             </div>
                         </div>
+                    }
+                </div>
+            }
+
+            @if (Vm.CanBlockRooms)
+            {
+                <strong id="manage-active-blocks" style="color:var(--fs-gold-deep); font-size:15px">Active blocks</strong>
+                @if (Vm.BlockedPeriods.Count == 0)
+                {
+                    <div class="fs-card" style="margin-top:16px"><p class="fs-muted" style="margin:0">No rooms are currently blocked.</p></div>
+                }
+                else
+                {
+                    <div class="fs-grid-2" style="margin-top:16px">
+                        @foreach (var block in Vm.BlockedPeriods)
+                        {
+                            <div class="fs-card">
+                                <div class="fs-card__body">
+                                    <strong>@block.RoomName</strong>
+                                    <p class="fs-muted" style="font-size:12px; margin:4px 0">@block.LocationName · @block.Start.ToString("g") – @block.End.ToString("g")</p>
+                                    <p class="fs-muted" style="font-size:12px; margin:0">@block.Reason</p>
+                                    @if (!string.IsNullOrEmpty(block.CreatedBy))
+                                    {
+                                        <p class="fs-muted" style="font-size:12px; margin:4px 0 0">Blocked by @block.CreatedBy</p>
+                                    }
+                                    <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" style="margin-top:12px" @onclick="() => RemoveBlock(block)">Remove block</button>
+                                </div>
+                            </div>
+                        }
                     </div>
                 }
-            </div>
+            }
         }
         else
         {
@@ -48,8 +201,52 @@ else
 }
 
 @code {
+    private bool ShowBlockForm { get; set; }
+
     protected override async Task OnInitializedAsync() =>
         await Vm.AppearingCommand.ExecuteAsync(null);
 
+    private void ToggleBlockForm() => ShowBlockForm = !ShowBlockForm;
+    private void CloseBlockForm() => ShowBlockForm = false;
+
+    private async Task JumpToActiveBlocks()
+    {
+        try { await JS.InvokeVoidAsync("flexispaceUi.scrollTo", "manage-active-blocks"); }
+        catch { }
+    }
+
     private void Open(Booking booking) => Vm.OpenBookingCommand.Execute(booking);
+    private void FilterLocation(OfficeLocation loc) => Vm.FilterLocationCommand.Execute(loc);
+    private void FilterRoom(Boardroom room) => Vm.FilterRoomCommand.Execute(room);
+    private void Edit(Booking booking) => Vm.EditBookingCommand.Execute(booking);
+    private Task Cancel(Booking booking) => Vm.CancelBookingCommand.ExecuteAsync(booking);
+    private Task BlockRoom() => Vm.BlockRoomCommand.ExecuteAsync(null);
+    private Task RemoveBlock(BlockedPeriod block) => Vm.RemoveBlockCommand.ExecuteAsync(block);
+
+    private void OnBlockStartDate(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParse(e.Value?.ToString(), out var date))
+        {
+            Vm.BlockStartDate = date.ToDateTime(TimeOnly.MinValue);
+            Vm.BlockEndDate = Vm.BlockStartDate;
+        }
+    }
+
+    private void OnBlockStartTime(ChangeEventArgs e)
+    {
+        if (TimeSpan.TryParse(e.Value?.ToString(), out var time))
+            Vm.BlockStartTime = time;
+    }
+
+    private void OnBlockEndDate(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParse(e.Value?.ToString(), out var date))
+            Vm.BlockEndDate = date.ToDateTime(TimeOnly.MinValue);
+    }
+
+    private void OnBlockEndTime(ChangeEventArgs e)
+    {
+        if (TimeSpan.TryParse(e.Value?.ToString(), out var time))
+            Vm.BlockEndTime = time;
+    }
 }

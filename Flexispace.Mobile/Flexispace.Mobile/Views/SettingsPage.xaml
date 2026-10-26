@@ -186,7 +186,7 @@
                         </Border>
                         <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
                             <Label Text="Quest popups" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="13" />
-                            <Label Text="Success and tip alerts after actions." TextColor="{DynamicResource BrandMuted}" FontSize="11" />
+                            <Label Text="Success and tip alerts. Problems always pop up." TextColor="{DynamicResource BrandMuted}" FontSize="11" />
                         </VerticalStackLayout>
                         <Switch Grid.Column="2"
                                 IsToggled="{Binding QuestPopups}"

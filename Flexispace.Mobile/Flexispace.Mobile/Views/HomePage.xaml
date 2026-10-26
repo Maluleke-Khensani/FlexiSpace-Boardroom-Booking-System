@@ -9,10 +9,6 @@
              Title="Flexispace"
              BackgroundColor="{DynamicResource BrandPage}">
 
-    <ContentPage.ToolbarItems>
-        <ToolbarItem Text="My bookings" Clicked="OnMyBookingsClicked" />
-    </ContentPage.ToolbarItems>
-
     <RefreshView IsRefreshing="{Binding IsBusy}" Command="{Binding AppearingCommand}">
         <ScrollView>
             <VerticalStackLayout Spacing="0">
@@ -21,7 +17,6 @@
                     <VerticalStackLayout Spacing="10" MaximumWidthRequest="720" HorizontalOptions="Center">
                         <Label Text="MEETING ROOMS" Style="{StaticResource EyebrowLabel}" TextColor="{StaticResource BrandGold}" />
                         <Label Text="{Binding Greeting}" TextColor="{StaticResource BrandIvory}" FontSize="28" FontAttributes="Bold" />
-                        <Label Text="{Binding Subtitle}" TextColor="#C8C2B8" FontSize="14" />
 
                         <Border StrokeThickness="0"
                                 StrokeShape="RoundRectangle 20"
@@ -123,8 +118,33 @@
                 </Border>
 
                 <VerticalStackLayout Padding="20" Spacing="18" MaximumWidthRequest="720" HorizontalOptions="Center">
-                    <Border Style="{StaticResource CardBorder}" IsVisible="{Binding ShowPayPlaceholder}">
-                        <Label Text="Client Phase 2: online payments will appear here once billing APIs are live." TextColor="{DynamicResource BrandMuted}" FontSize="13" />
+                    <Border Stroke="{StaticResource BrandGold}"
+                            StrokeThickness="1.6"
+                            StrokeShape="RoundRectangle 14"
+                            BackgroundColor="{DynamicResource BrandGoldWash}"
+                            Padding="14,14"
+                            IsVisible="{Binding ShowPayPlaceholder}">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                            <Border WidthRequest="44" HeightRequest="44"
+                                    StrokeThickness="0"
+                                    StrokeShape="RoundRectangle 22"
+                                    BackgroundColor="{StaticResource BrandGold}"
+                                    VerticalOptions="Center">
+                                <Label Style="{StaticResource MaterialGlyph}"
+                                       Text="&#xe870;"
+                                       FontSize="22"
+                                       TextColor="{StaticResource BrandBlack}"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center" />
+                            </Border>
+                            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                <Label Text="PAYMENT" Style="{StaticResource EyebrowLabel}" FontSize="11" />
+                                <Label Text="Online payment is a future enhancement."
+                                       TextColor="{DynamicResource BrandInk}"
+                                       FontAttributes="Bold"
+                                       FontSize="16" />
+                            </VerticalStackLayout>
+                        </Grid>
                     </Border>
 
                     <Grid ColumnDefinitions="Auto,*">

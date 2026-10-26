@@ -1,0 +1,183 @@
+@* Administrator location and boardroom inventory. *@
+@page "/centres"
+@inject CentresViewModel Vm
+@inject IAuthService Auth
+@inject IJSRuntime JS
+@using Flexispace.Web.Helpers
+
+<PageTitle>Centres · Flexispace</PageTitle>
+
+@if (!Auth.IsAuthenticated)
+{
+    <RedirectToLogin />
+}
+else
+{
+    <div class="fs-content-wide">
+        <p class="fs-subheading" style="margin-bottom:20px">@Vm.Subtitle</p>
+
+        @if (!string.IsNullOrEmpty(Vm.ErrorMessage))
+        {
+            <p id="fs-error-banner" class="fs-error" style="margin-bottom:16px">@Vm.ErrorMessage</p>
+        }
+        @if (!string.IsNullOrEmpty(Vm.Message))
+        {
+            <p class="fs-message" style="margin-bottom:16px">@Vm.Message</p>
+        }
+
+        @if (!Vm.HasAccess)
+        {
+            <div class="fs-card"><p class="fs-muted" style="margin:0">@Vm.Subtitle</p></div>
+        }
+        else
+        {
+            <div class="fs-flex" style="margin-bottom:20px">
+                <button type="button" class="fs-btn fs-btn--gold" @onclick="AddLocation">Add location</button>
+                <button type="button" class="fs-btn fs-btn--ghost" @onclick="AddRoom">Add boardroom</button>
+            </div>
+
+            @if (Vm.IsLocationFormOpen)
+            {
+                <div class="fs-card fs-stack" style="margin-bottom:24px">
+                    <strong>@(Vm.IsEditingLocation ? "Edit location" : "Add location")</strong>
+                    <div>
+                        <label class="fs-label" for="centre-name">Name</label>
+                        <input id="centre-name" class="fs-field @(Vm.ErrorAnchor == "centre-name" ? "is-invalid" : "")" @bind="Vm.LocationName" />
+                    </div>
+                    <div>
+                        <label class="fs-label" for="centre-address">Address</label>
+                        <input id="centre-address" class="fs-field" @bind="Vm.LocationAddress" />
+                    </div>
+                    <div class="fs-flex">
+                        <button type="button" class="fs-btn fs-btn--gold" disabled="@Vm.IsBusy" @onclick="SaveLocation">Save</button>
+                        <button type="button" class="fs-btn fs-btn--ghost" @onclick="CloseForms">Close</button>
+                    </div>
+                </div>
+            }
+
+            @if (Vm.IsRoomFormOpen)
+            {
+                <div id="centre-room-form" class="fs-card fs-stack" style="margin-bottom:24px">
+                    <strong>@(Vm.IsEditingRoom ? "Edit boardroom" : "Add boardroom")</strong>
+                    <div>
+                        <label class="fs-label" for="room-name">Name</label>
+                        <input id="room-name" class="fs-field @(Vm.ErrorAnchor == "room-name" ? "is-invalid" : "")" @bind="Vm.RoomName" />
+                    </div>
+                    <div class="fs-grid-2">
+                        <div>
+                            <label class="fs-label" for="room-location">Location</label>
+                            <select id="room-location" class="fs-field @(Vm.ErrorAnchor == "room-location" ? "is-invalid" : "")" @bind="Vm.RoomLocationId">
+                                @foreach (var location in Vm.Locations)
+                                {
+                                    <option value="@location.Id">@location.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div>
+                            <label class="fs-label" for="room-capacity">Capacity</label>
+                            <input id="room-capacity" class="fs-field @(Vm.ErrorAnchor == "room-capacity" ? "is-invalid" : "")" @bind="Vm.RoomCapacityText" />
+                        </div>
+                    </div>
+                    <div>
+                        <p class="fs-label">Equipment</p>
+                        @foreach (var option in Vm.EquipmentOptions)
+                        {
+                            <label style="display:flex; justify-content:space-between; padding:6px 0">
+                                <span>@option.Label</span>
+                                <input type="checkbox" checked="@option.IsSelected" @onchange="e => option.IsSelected = (bool)(e.Value ?? false)" />
+                            </label>
+                        }
+                    </div>
+                    <div class="fs-flex">
+                        <button type="button" class="fs-btn fs-btn--gold" disabled="@Vm.IsBusy" @onclick="SaveRoom">Save</button>
+                        <button type="button" class="fs-btn fs-btn--ghost" @onclick="CloseForms">Close</button>
+                    </div>
+                </div>
+            }
+
+            @if (Vm.IsBusy)
+            {
+                <p class="fs-muted">Loading centres…</p>
+            }
+            else if (Vm.Locations.Count == 0)
+            {
+                <div class="fs-card"><p class="fs-muted" style="margin:0">No locations yet. Add a Flexispace centre to get started.</p></div>
+            }
+            else
+            {
+                <div class="fs-centres-list">
+                @foreach (var location in Vm.Locations)
+                {
+                    <section class="fs-section-block">
+                        <div class="fs-toolbar">
+                            <div>
+                                <h2 class="fs-section-title" style="margin:0">@location.Name</h2>
+                                <p class="fs-muted" style="margin:4px 0 0">@(string.IsNullOrWhiteSpace(location.Address) ? "No address yet" : location.Address)</p>
+                            </div>
+                            <div class="fs-flex fs-centre-actions">
+                                <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="() => EditLocation(location)" @onclick:stopPropagation="true">Edit</button>
+                                <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="() => DeleteLocation(location)" @onclick:stopPropagation="true">Remove</button>
+                            </div>
+                        </div>
+                        @{
+                            var rooms = Vm.RoomsFor(location).ToList();
+                        }
+                        @if (rooms.Count == 0)
+                        {
+                            <p class="fs-muted" style="margin-top:12px">No boardrooms at this centre yet.</p>
+                        }
+                        else
+                        {
+                            <div class="fs-grid-2" style="margin-top:16px">
+                                @foreach (var room in rooms)
+                                {
+                                    <div class="fs-card">
+                                        <div style="display:flex; justify-content:space-between; gap:8px; align-items:start">
+                                            <strong>@room.Name</strong>
+                                            <span class="fs-muted">Seats @room.Capacity</span>
+                                        </div>
+                                        <p class="fs-muted" style="margin:8px 0 12px">@DisplayHelpers.JoinList(room.Equipment)</p>
+                                        <div class="fs-flex fs-centre-actions">
+                                            <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="() => EditRoom(room)" @onclick:stopPropagation="true">Edit</button>
+                                            <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="() => DeleteRoom(room)" @onclick:stopPropagation="true">Remove</button>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </section>
+                }
+                </div>
+            }
+        }
+    </div>
+}
+
+@code {
+    private bool _scrollToRoomForm;
+
+    protected override async Task OnInitializedAsync() =>
+        await Vm.AppearingCommand.ExecuteAsync(null);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_scrollToRoomForm) return;
+        _scrollToRoomForm = false;
+        try { await JS.InvokeVoidAsync("flexispaceUi.scrollTo", "centre-room-form"); }
+        catch { }
+    }
+
+    private void AddLocation() => Vm.StartAddLocationCommand.Execute(null);
+    private void AddRoom() => Vm.StartAddRoomCommand.Execute(null);
+    private void CloseForms() => Vm.CloseFormsCommand.Execute(null);
+    private void EditLocation(OfficeLocation location) => Vm.StartEditLocationCommand.Execute(location);
+    private void EditRoom(Boardroom room)
+    {
+        Vm.StartEditRoomCommand.Execute(room);
+        _scrollToRoomForm = true;
+    }
+    private Task SaveLocation() => Vm.SaveLocationCommand.ExecuteAsync(null);
+    private Task SaveRoom() => Vm.SaveRoomCommand.ExecuteAsync(null);
+    private Task DeleteLocation(OfficeLocation location) => Vm.DeleteLocationCommand.ExecuteAsync(location);
+    private Task DeleteRoom(Boardroom room) => Vm.DeleteRoomCommand.ExecuteAsync(room);
+}

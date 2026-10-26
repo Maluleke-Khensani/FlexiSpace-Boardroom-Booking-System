@@ -50,7 +50,15 @@ else
         </div>
 
         <a href="/privacy" class="fs-btn fs-btn--ghost fs-btn--block" style="margin-bottom:12px">Privacy policy</a>
-        <button type="button" class="fs-btn fs-btn--gold fs-btn--block" @onclick="Logout">Sign out</button>
+        @if (Auth.IsGuest)
+        {
+            <a href="/login" class="fs-btn fs-btn--gold fs-btn--block" style="margin-bottom:12px">Sign in to book</a>
+            <button type="button" class="fs-btn fs-btn--ghost fs-btn--block" @onclick="Logout">Leave guest browse</button>
+        }
+        else
+        {
+            <button type="button" class="fs-btn fs-btn--gold fs-btn--block" @onclick="Logout">Sign out</button>
+        }
     </div>
 }
 
@@ -58,6 +66,14 @@ else
     protected override async Task OnInitializedAsync() =>
         await Vm.AppearingCommand.ExecuteAsync(null);
 
+    [CascadingParameter(Name = "SignOutPrompt")] public Action? PromptSignOut { get; set; }
+
     private void Manage() => Vm.OpenManageCommand.Execute(null);
-    private Task Logout() => Vm.LogoutCommand.ExecuteAsync(null);
+    private void Logout()
+    {
+        if (PromptSignOut is not null)
+            PromptSignOut();
+        else
+            _ = Vm.LogoutCommand.ExecuteAsync(null);
+    }
 }

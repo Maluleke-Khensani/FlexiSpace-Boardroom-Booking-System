@@ -29,6 +29,35 @@ namespace FlexiSpace.Infrastructure.services
                 new[] { "https://graph.microsoft.com/.default" });
         }
 
+        public async Task SendEmailAsync(string toEmail, string subject, string body)
+        {
+            var message = new Message
+            {
+                Subject = subject,
+                Body = new ItemBody
+                {
+                    ContentType = BodyType.Text,
+                    Content = body
+                },
+                ToRecipients =
+                [
+                    new Recipient
+                    {
+                        EmailAddress = new EmailAddress { Address = toEmail }
+                    }
+                ]
+            };
+
+            await _graphClient
+                .Users[_senderEmail]
+                .SendMail
+                .PostAsync(new SendMailPostRequestBody
+                {
+                    Message = message,
+                    SaveToSentItems = true
+                });
+        }
+
         public async Task SendBookingConfirmationAsync(
             string recipientEmail,
             string recipientName,

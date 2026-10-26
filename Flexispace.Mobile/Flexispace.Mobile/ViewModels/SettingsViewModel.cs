@@ -108,7 +108,7 @@ public partial class SettingsViewModel(IAuthService auth) : ObservableObject
     [RelayCommand]
     private async Task ResetPreferencesAsync()
     {
-        var confirm = await Shell.Current.DisplayAlertAsync(
+        var confirm = await ActionFeedback.ConfirmAsync(
             "Reset preferences?",
             "Theme, notification, and experience toggles return to their defaults. Your account stays signed in.",
             "Reset",
@@ -127,9 +127,9 @@ public partial class SettingsViewModel(IAuthService auth) : ObservableObject
     [RelayCommand]
     private async Task LogoutAsync()
     {
-        var confirm = await Shell.Current.DisplayAlertAsync(
+        var confirm = await ActionFeedback.ConfirmAsync(
             "Sign out?",
-            "You’ll return to the welcome screen. Demo character select stays available after the next sign-in.",
+            "You’ll return to the welcome screen.",
             "Sign out",
             "Stay");
         if (!confirm) return;

@@ -6,7 +6,7 @@
              x:Class="Flexispace.Mobile.Views.ReportsPage"
              x:Name="Root"
              x:DataType="vm:ReportsViewModel"
-             Title="Ops Arena"
+             Title="{Binding Title}"
              BackgroundColor="{DynamicResource BrandPage}">
 
     <Grid>
@@ -18,8 +18,67 @@
                                      MaximumWidthRequest="780"
                                      HorizontalOptions="Center">
 
+                    <Border IsVisible="{Binding HasAccess}"
+                            BackgroundColor="{DynamicResource BrandSurface}"
+                            StrokeThickness="0"
+                            Padding="4"
+                            StrokeShape="RoundRectangle 16">
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="4">
+                            <Border Padding="10,8"
+                                    StrokeThickness="0"
+                                    StrokeShape="RoundRectangle 12"
+                                    BackgroundColor="Transparent">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding ShowArenaModeCommand}" />
+                                </Border.GestureRecognizers>
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsGamified}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{StaticResource BrandCharcoal}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <Label Text="Arena"
+                                       HorizontalTextAlignment="Center"
+                                       FontSize="13"
+                                       TextColor="{DynamicResource BrandMuted}">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="Label" Binding="{Binding IsGamified}" Value="True">
+                                            <Setter Property="TextColor" Value="{StaticResource BrandIvory}" />
+                                            <Setter Property="FontAttributes" Value="Bold" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
+                            </Border>
+                            <Border Grid.Column="1"
+                                    Padding="10,8"
+                                    StrokeThickness="0"
+                                    StrokeShape="RoundRectangle 12"
+                                    BackgroundColor="Transparent">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding ShowBriefingModeCommand}" />
+                                </Border.GestureRecognizers>
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsGamified}" Value="False">
+                                        <Setter Property="BackgroundColor" Value="{StaticResource BrandCharcoal}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <Label Text="Briefing"
+                                       HorizontalTextAlignment="Center"
+                                       FontSize="13"
+                                       TextColor="{DynamicResource BrandMuted}">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="Label" Binding="{Binding IsGamified}" Value="False">
+                                            <Setter Property="TextColor" Value="{StaticResource BrandIvory}" />
+                                            <Setter Property="FontAttributes" Value="Bold" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
+                            </Border>
+                        </Grid>
+                    </Border>
+
                     <!-- PLAYER HUD -->
                     <Border x:Name="HeroHud"
+                            IsVisible="{Binding IsGamified}"
                             StrokeThickness="0"
                             Padding="18,20"
                             BackgroundColor="{StaticResource BrandCharcoal}">
@@ -30,43 +89,20 @@
                             <Shadow Brush="#C4A035" Opacity="0.28" Radius="22" Offset="0,8" />
                         </Border.Shadow>
                         <VerticalStackLayout Spacing="12">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                                <VerticalStackLayout Spacing="4">
-                                    <Label Text="OPS ARENA · LIVE SCAN"
-                                           TextColor="{StaticResource BrandGold}"
-                                           FontSize="11"
-                                           FontAttributes="Bold"
-                                           CharacterSpacing="1.2" />
-                                    <Label Text="{Binding PlayerName, StringFormat='Commander {0}'}"
-                                           TextColor="{StaticResource BrandIvory}"
-                                           FontSize="26"
-                                           FontAttributes="Bold" />
-                                    <Label Text="{Binding RankLine}"
-                                           TextColor="#C8C2B8"
-                                           FontSize="13" />
-                                </VerticalStackLayout>
-                                <Border Grid.Column="1"
-                                        BackgroundColor="{Binding PowerTierColor}"
-                                        StrokeThickness="0"
-                                        Padding="12,8"
-                                        VerticalOptions="Start">
-                                    <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="14" />
-                                    </Border.StrokeShape>
-                                    <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
-                                        <Label Style="{StaticResource MaterialGlyph}"
-                                               Text="&#xe6e1;"
-                                               FontSize="18"
-                                               TextColor="{StaticResource BrandBlack}"
-                                               HorizontalOptions="Center" />
-                                        <Label Text="{Binding PowerTier}"
-                                               TextColor="{StaticResource BrandBlack}"
-                                               FontSize="10"
-                                               FontAttributes="Bold"
-                                               HorizontalTextAlignment="Center" />
-                                    </VerticalStackLayout>
-                                </Border>
-                            </Grid>
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="OPS ARENA · LIVE SCAN"
+                                       TextColor="{StaticResource BrandGold}"
+                                       FontSize="11"
+                                       FontAttributes="Bold"
+                                       CharacterSpacing="1.2" />
+                                <Label Text="{Binding PlayerName, StringFormat='Commander {0}'}"
+                                       TextColor="{StaticResource BrandIvory}"
+                                       FontSize="26"
+                                       FontAttributes="Bold" />
+                                <Label Text="{Binding RankLine}"
+                                       TextColor="#C8C2B8"
+                                       FontSize="13" />
+                            </VerticalStackLayout>
 
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
                                 <Border BackgroundColor="#2A2A2A" StrokeThickness="0" Padding="12,8">
@@ -145,71 +181,7 @@
                         </VerticalStackLayout>
                     </Border>
 
-                    <VerticalStackLayout IsVisible="{Binding HasAccess}" Spacing="14">
-
-                        <!-- POWER + WIN RATE -->
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                            <Border BackgroundColor="{DynamicResource BrandTealSoft}" StrokeThickness="0" Padding="14,14">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="18" />
-                                </Border.StrokeShape>
-                                <VerticalStackLayout Spacing="8">
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <Label Text="POWER METER"
-                                               TextColor="{DynamicResource BrandTeal}"
-                                               FontSize="11"
-                                               FontAttributes="Bold" />
-                                        <Label Grid.Column="1"
-                                               Style="{StaticResource MaterialGlyph}"
-                                               Text="&#xeaa2;"
-                                               FontSize="18"
-                                               TextColor="{DynamicResource BrandTeal}" />
-                                    </Grid>
-                                    <Label Text="{Binding OccupancyPercent, StringFormat='{0:0}%'}"
-                                           TextColor="{DynamicResource BrandTeal}"
-                                           FontSize="34"
-                                           FontAttributes="Bold" />
-                                    <ProgressBar Progress="{Binding OccupancyProgress}"
-                                                 ProgressColor="{DynamicResource BrandTeal}"
-                                                 HeightRequest="12" />
-                                    <Label Text="Today's utilisation charge"
-                                           TextColor="{DynamicResource BrandMuted}"
-                                           FontSize="11" />
-                                </VerticalStackLayout>
-                            </Border>
-
-                            <Border Grid.Column="1"
-                                    BackgroundColor="{DynamicResource BrandSuccessSoft}"
-                                    StrokeThickness="0"
-                                    Padding="14,14">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="18" />
-                                </Border.StrokeShape>
-                                <VerticalStackLayout Spacing="8">
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <Label Text="WIN RATE"
-                                               TextColor="{DynamicResource BrandSuccess}"
-                                               FontSize="11"
-                                               FontAttributes="Bold" />
-                                        <Label Grid.Column="1"
-                                               Style="{StaticResource MaterialGlyph}"
-                                               Text="&#xe86c;"
-                                               FontSize="18"
-                                               TextColor="{DynamicResource BrandSuccess}" />
-                                    </Grid>
-                                    <Label Text="{Binding WinRatePercent, StringFormat='{0:0}%'}"
-                                           TextColor="{DynamicResource BrandSuccess}"
-                                           FontSize="34"
-                                           FontAttributes="Bold" />
-                                    <ProgressBar Progress="{Binding WinRateProgress}"
-                                                 ProgressColor="{DynamicResource BrandSuccess}"
-                                                 HeightRequest="12" />
-                                    <Label Text="Confirmed vs cancelled"
-                                           TextColor="{DynamicResource BrandMuted}"
-                                           FontSize="11" />
-                                </VerticalStackLayout>
-                            </Border>
-                        </Grid>
+                    <VerticalStackLayout IsVisible="{Binding ShowArena}" Spacing="14">
 
                         <!-- SCOREBOARD TILES -->
                         <Label Text="⚔ SCOREBOARD"
@@ -226,8 +198,8 @@
                                 </Border.StrokeShape>
                                 <VerticalStackLayout Spacing="4">
                                     <Label Style="{StaticResource MaterialGlyph}" Text="&#xe7fd;" FontSize="20" TextColor="{DynamicResource BrandGoldDeep}" />
-                                    <Label Text="{Binding TotalUsers}" FontSize="22" FontAttributes="Bold" TextColor="{DynamicResource BrandInk}" />
-                                    <Label Text="Players" FontSize="11" TextColor="{DynamicResource BrandMuted}" />
+                                    <Label Text="{Binding ScoreboardPeople}" FontSize="22" FontAttributes="Bold" TextColor="{DynamicResource BrandInk}" />
+                                    <Label Text="{Binding ScoreboardPeopleLabel}" FontSize="11" TextColor="{DynamicResource BrandMuted}" />
                                 </VerticalStackLayout>
                             </Border>
                             <Border Grid.Column="1" BackgroundColor="{DynamicResource BrandTealSoft}" StrokeThickness="0" Padding="12,12">
@@ -530,7 +502,7 @@
                                 <RoundRectangle CornerRadius="18" />
                             </Border.StrokeShape>
                             <VerticalStackLayout Spacing="12">
-                                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                                <Grid ColumnDefinitions="*,*" ColumnSpacing="10" IsVisible="{Binding HasUserDirectory}">
                                     <Border BackgroundColor="{DynamicResource BrandSteelSoft}" StrokeThickness="0" Padding="12,10">
                                         <Border.StrokeShape>
                                             <RoundRectangle CornerRadius="12" />
@@ -741,10 +713,310 @@
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="14" />
                             </Border.StrokeShape>
-                            <Label Text="Pull to refresh for a fresh scan. Stats are scored from live mock bookings, users, blocks, and alerts in your scope."
+                            <Label Text="Pull to refresh. Figures come from live bookings, rooms, and alerts in your scope."
                                    TextColor="{DynamicResource BrandGoldDeep}"
                                    FontSize="11" />
                         </Border>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout IsVisible="{Binding ShowBriefing}" Spacing="14">
+                        <Border x:Name="ProHeader"
+                                BackgroundColor="{StaticResource BrandCharcoal}"
+                                StrokeThickness="0"
+                                Padding="18,20"
+                                StrokeShape="RoundRectangle 22">
+                            <Border.Shadow>
+                                <Shadow Brush="#C4A035" Opacity="0.22" Radius="18" Offset="0,8" />
+                            </Border.Shadow>
+                            <VerticalStackLayout Spacing="8">
+                                <Label Text="CENTRE REPORT" Style="{StaticResource EyebrowLabel}" TextColor="{StaticResource BrandGold}" />
+                                <Label Text="{Binding ScopeLabel}"
+                                       TextColor="{StaticResource BrandIvory}"
+                                       FontSize="26"
+                                       FontAttributes="Bold" />
+                                <Label Text="{Binding BriefingLine}"
+                                       TextColor="{StaticResource BrandGoldSoft}"
+                                       FontSize="14" />
+                                <Label Text="{Binding UpdatedLabel}" TextColor="#A8A29A" FontSize="11" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <Border BackgroundColor="{DynamicResource BrandSurface}"
+                                StrokeThickness="0"
+                                Padding="0"
+                                StrokeShape="RoundRectangle 20">
+                            <Border.Shadow>
+                                <Shadow Brush="#000000" Opacity="0.08" Radius="14" Offset="0,4" />
+                            </Border.Shadow>
+                            <Grid ColumnDefinitions="4,*" >
+                                <BoxView Color="{StaticResource BrandGold}" />
+                                <Grid Grid.Column="1" Padding="16,16" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <VerticalStackLayout Spacing="8" VerticalOptions="Center">
+                                        <Label Text="OCCUPANCY TODAY" Style="{StaticResource EyebrowLabel}" FontSize="10" />
+                                        <Label Text="{Binding OccupancyPercent, StringFormat='{0:0}%'}"
+                                               TextColor="{DynamicResource BrandInk}"
+                                               FontSize="40"
+                                               FontAttributes="Bold" />
+                                        <ProgressBar Progress="{Binding OccupancyProgress}"
+                                                     ProgressColor="{StaticResource BrandGold}"
+                                                     HeightRequest="10" />
+                                        <Label Text="{Binding OccupancyCaption}"
+                                               TextColor="{DynamicResource BrandMuted}"
+                                               FontSize="12"
+                                               LineBreakMode="WordWrap" />
+                                    </VerticalStackLayout>
+                                    <VerticalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                                        <Border BackgroundColor="{DynamicResource BrandGoldWash}" StrokeThickness="0" Padding="12,8" StrokeShape="RoundRectangle 12">
+                                            <VerticalStackLayout Spacing="0">
+                                                <Label Text="{Binding RoomsInScope}" FontSize="18" FontAttributes="Bold" TextColor="{DynamicResource BrandInk}" HorizontalTextAlignment="Center" />
+                                                <Label Text="Rooms" FontSize="11" TextColor="{DynamicResource BrandMuted}" HorizontalTextAlignment="Center" />
+                                            </VerticalStackLayout>
+                                        </Border>
+                                        <Border BackgroundColor="{DynamicResource BrandTealSoft}" StrokeThickness="0" Padding="12,8" StrokeShape="RoundRectangle 12">
+                                            <VerticalStackLayout Spacing="0">
+                                                <Label Text="{Binding UpcomingBookings}" FontSize="18" FontAttributes="Bold" TextColor="{DynamicResource BrandInk}" HorizontalTextAlignment="Center" />
+                                                <Label Text="Upcoming" FontSize="11" TextColor="{DynamicResource BrandMuted}" HorizontalTextAlignment="Center" />
+                                            </VerticalStackLayout>
+                                        </Border>
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <Border BackgroundColor="{DynamicResource BrandGoldWash}" StrokeThickness="0" Padding="0" StrokeShape="RoundRectangle 18">
+                                <Grid RowDefinitions="4,*">
+                                    <BoxView Color="{StaticResource BrandGold}" />
+                                    <VerticalStackLayout Grid.Row="1" Padding="14,12" Spacing="2">
+                                        <Label Text="TODAY" Style="{StaticResource EyebrowLabel}" FontSize="10" />
+                                        <Label Text="{Binding TodaysBookings}" FontSize="28" FontAttributes="Bold" TextColor="{DynamicResource BrandInk}" />
+                                        <Label Text="On the board" FontSize="12" TextColor="{DynamicResource BrandMuted}" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </Border>
+                            <Border Grid.Column="1" BackgroundColor="{DynamicResource BrandTealSoft}" StrokeThickness="0" Padding="0" StrokeShape="RoundRectangle 18">
+                                <Grid RowDefinitions="4,*">
+                                    <BoxView Color="{DynamicResource BrandTeal}" />
+                                    <VerticalStackLayout Grid.Row="1" Padding="14,12" Spacing="2">
+                                        <Label Text="THIS WEEK" Style="{StaticResource EyebrowLabel}" FontSize="10" />
+                                        <Label Text="{Binding ThisWeekBookings}" FontSize="28" FontAttributes="Bold" TextColor="{DynamicResource BrandInk}" />
+                                        <Label Text="{Binding AvgBookingsPerDayThisWeek, StringFormat='{0:0.0} a day'}" FontSize="12" TextColor="{DynamicResource BrandMuted}" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </Border>
+                        </Grid>
+
+                        <Border BackgroundColor="{DynamicResource BrandSteelSoft}" StrokeThickness="0" Padding="0" StrokeShape="RoundRectangle 18">
+                            <Grid RowDefinitions="4,*">
+                                <BoxView Color="{DynamicResource BrandSteel}" />
+                                <Grid Grid.Row="1" Padding="14,12" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                        <Label Text="THIS MONTH" Style="{StaticResource EyebrowLabel}" FontSize="10" />
+                                        <Label Text="Bookings opened this month" FontSize="12" TextColor="{DynamicResource BrandMuted}" />
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="1"
+                                           Text="{Binding ThisMonthBookings}"
+                                           FontSize="32"
+                                           FontAttributes="Bold"
+                                           TextColor="{DynamicResource BrandInk}"
+                                           VerticalOptions="Center" />
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                        <Border BackgroundColor="{DynamicResource BrandSurface}" StrokeThickness="0" Padding="16,14" StrokeShape="RoundRectangle 18">
+                            <VerticalStackLayout Spacing="10">
+                                <Label Text="HELD AND CANCELLED" Style="{StaticResource EyebrowLabel}" FontSize="10" />
+                                <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                                    <VerticalStackLayout Spacing="0">
+                                        <Label Text="{Binding ConfirmedBookings}" FontSize="26" FontAttributes="Bold" TextColor="{DynamicResource BrandSuccess}" />
+                                        <Label Text="Held" FontSize="12" TextColor="{DynamicResource BrandMuted}" />
+                                    </VerticalStackLayout>
+                                    <VerticalStackLayout Grid.Column="1" Spacing="0" HorizontalOptions="End">
+                                        <Label Text="{Binding CancelledBookings}" FontSize="26" FontAttributes="Bold" TextColor="{DynamicResource BrandDanger}" HorizontalTextAlignment="End" />
+                                        <Label Text="Cancelled" FontSize="12" TextColor="{DynamicResource BrandMuted}" HorizontalTextAlignment="End" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                                <ProgressBar Progress="{Binding ConfirmedShare}"
+                                             ProgressColor="{DynamicResource BrandSuccess}"
+                                             HeightRequest="12" />
+                                <Label Text="{Binding HeldLabel}" FontSize="12" TextColor="{DynamicResource BrandMuted}" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <Border Stroke="{StaticResource BrandGold}"
+                                StrokeThickness="1.5"
+                                BackgroundColor="{DynamicResource BrandSurface}"
+                                Padding="16,14"
+                                StrokeShape="RoundRectangle 18">
+                            <VerticalStackLayout Spacing="8">
+                                <Label Text="MOST-USED ROOM" Style="{StaticResource EyebrowLabel}" FontSize="10" />
+                                <Label Text="{Binding MostUsedRoom}"
+                                       TextColor="{DynamicResource BrandInk}"
+                                       FontAttributes="Bold"
+                                       FontSize="24" />
+                                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                                    <Border BackgroundColor="{DynamicResource BrandGoldWash}" StrokeThickness="0" Padding="10,8" StrokeShape="RoundRectangle 12">
+                                        <VerticalStackLayout Spacing="2">
+                                            <Label Text="CENTRE" Style="{StaticResource EyebrowLabel}" FontSize="10" />
+                                            <Label Text="{Binding MostUsedLocation}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="14" />
+                                        </VerticalStackLayout>
+                                    </Border>
+                                    <Border Grid.Column="1" BackgroundColor="{DynamicResource BrandClaySoft}" StrokeThickness="0" Padding="10,8" StrokeShape="RoundRectangle 12">
+                                        <VerticalStackLayout Spacing="2">
+                                            <Label Text="BUSIEST DAY" Style="{StaticResource EyebrowLabel}" FontSize="10" />
+                                            <Label Text="{Binding BusiestDayLabel}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="14" />
+                                        </VerticalStackLayout>
+                                    </Border>
+                                </Grid>
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <Label Text="Weekday pattern"
+                               Style="{StaticResource SectionTitle}"
+                               FontSize="18"
+                               IsVisible="{Binding HasWeekdayActivity}" />
+                        <Border BackgroundColor="{DynamicResource BrandSurface}"
+                                StrokeThickness="0"
+                                Padding="14,16"
+                                StrokeShape="RoundRectangle 18"
+                                IsVisible="{Binding HasWeekdayActivity}">
+                            <VerticalStackLayout Spacing="10">
+                                <Grid HeightRequest="132">
+                                    <HorizontalStackLayout BindableLayout.ItemsSource="{Binding WeekdayBars}"
+                                                           Spacing="8"
+                                                           HorizontalOptions="Center"
+                                                           VerticalOptions="End">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:WeekdayBarItem">
+                                                <VerticalStackLayout Spacing="6" WidthRequest="42" VerticalOptions="End">
+                                                    <Label Text="{Binding Count}"
+                                                           TextColor="{Binding Accent}"
+                                                           FontAttributes="Bold"
+                                                           FontSize="12"
+                                                           HorizontalTextAlignment="Center" />
+                                                    <Border BackgroundColor="{Binding Accent}"
+                                                            StrokeThickness="0"
+                                                            HeightRequest="{Binding BarHeight}"
+                                                            WidthRequest="22"
+                                                            HorizontalOptions="Center"
+                                                            StrokeShape="RoundRectangle 8" />
+                                                    <Label Text="{Binding Name}"
+                                                           TextColor="{DynamicResource BrandMuted}"
+                                                           FontSize="11"
+                                                           FontAttributes="Bold"
+                                                           HorizontalTextAlignment="Center" />
+                                                </VerticalStackLayout>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </HorizontalStackLayout>
+                                </Grid>
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <Label Text="By location"
+                               Style="{StaticResource SectionTitle}"
+                               FontSize="18"
+                               IsVisible="{Binding HasLocationBreakdown}" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding LocationMeters}"
+                                             Spacing="8"
+                                             IsVisible="{Binding HasLocationBreakdown}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:MeterRowItem">
+                                    <Border BackgroundColor="{DynamicResource BrandSurface}" StrokeThickness="0" Padding="14,12" StrokeShape="RoundRectangle 16">
+                                        <Grid ColumnDefinitions="4,*" ColumnSpacing="12">
+                                            <BoxView Color="{Binding Accent}" />
+                                            <VerticalStackLayout Grid.Column="1" Spacing="6">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <Label Text="{Binding Name}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="15" />
+                                                    <Label Grid.Column="1" Text="{Binding Count}" TextColor="{Binding Accent}" FontAttributes="Bold" FontSize="16" />
+                                                </Grid>
+                                                <ProgressBar Progress="{Binding Progress}" ProgressColor="{Binding Accent}" HeightRequest="8" />
+                                                <Label Text="{Binding Detail}" TextColor="{DynamicResource BrandMuted}" FontSize="11" />
+                                            </VerticalStackLayout>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+
+                        <Label Text="Rooms" Style="{StaticResource SectionTitle}" FontSize="18" IsVisible="{Binding HasTopRooms}" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding TopRoomsBoard}" Spacing="8" IsVisible="{Binding HasTopRooms}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:LeaderboardRoomItem">
+                                    <Border BackgroundColor="{DynamicResource BrandSurface}" StrokeThickness="0" Padding="12,12" StrokeShape="RoundRectangle 16">
+                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                            <Border BackgroundColor="{Binding RankColor}"
+                                                    StrokeThickness="0"
+                                                    WidthRequest="36"
+                                                    HeightRequest="36"
+                                                    StrokeShape="RoundRectangle 12"
+                                                    VerticalOptions="Center">
+                                                <Label Text="{Binding Rank}"
+                                                       TextColor="{StaticResource BrandBlack}"
+                                                       FontAttributes="Bold"
+                                                       FontSize="14"
+                                                       HorizontalOptions="Center"
+                                                       VerticalOptions="Center" />
+                                            </Border>
+                                            <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <Label Text="{Binding Name}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="14" />
+                                                    <Label Grid.Column="1" Text="{Binding Count, StringFormat='{0} bookings'}" TextColor="{DynamicResource BrandMuted}" FontSize="12" VerticalOptions="Center" />
+                                                </Grid>
+                                                <ProgressBar Progress="{Binding FillPercent}" ProgressColor="{Binding RankColor}" HeightRequest="6" />
+                                            </VerticalStackLayout>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+
+                        <Label Text="People and load" Style="{StaticResource SectionTitle}" FontSize="18" />
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10" RowDefinitions="Auto,Auto" RowSpacing="10">
+                            <Border BackgroundColor="{DynamicResource BrandSurface}" StrokeThickness="0" Padding="14,12" StrokeShape="RoundRectangle 16" IsVisible="{Binding HasUserDirectory}">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="EMPLOYEES" Style="{StaticResource EyebrowLabel}" FontSize="10" />
+                                    <Label Text="{Binding EmployeeUsers}" FontSize="22" FontAttributes="Bold" TextColor="{DynamicResource BrandInk}" />
+                                </VerticalStackLayout>
+                            </Border>
+                            <Border Grid.Column="1" BackgroundColor="{DynamicResource BrandSurface}" StrokeThickness="0" Padding="14,12" StrokeShape="RoundRectangle 16" IsVisible="{Binding HasUserDirectory}">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="CLIENTS" Style="{StaticResource EyebrowLabel}" FontSize="10" />
+                                    <Label Text="{Binding ClientUsers}" FontSize="22" FontAttributes="Bold" TextColor="{DynamicResource BrandInk}" />
+                                </VerticalStackLayout>
+                            </Border>
+                            <Border Grid.Row="1" BackgroundColor="{DynamicResource BrandSurface}" StrokeThickness="0" Padding="14,12" StrokeShape="RoundRectangle 16">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="GUESTS HOSTED" Style="{StaticResource EyebrowLabel}" FontSize="10" />
+                                    <Label Text="{Binding TotalAttendeesServed}" FontSize="22" FontAttributes="Bold" TextColor="{DynamicResource BrandInk}" />
+                                </VerticalStackLayout>
+                            </Border>
+                            <Border Grid.Row="1" Grid.Column="1" BackgroundColor="{DynamicResource BrandSurface}" StrokeThickness="0" Padding="14,12" StrokeShape="RoundRectangle 16">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="AVG PARTY" Style="{StaticResource EyebrowLabel}" FontSize="10" />
+                                    <Label Text="{Binding AverageAttendees, StringFormat='{0:0.0}'}" FontSize="22" FontAttributes="Bold" TextColor="{DynamicResource BrandInk}" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </Grid>
+
+                        <Label Text="Latest activity" Style="{StaticResource SectionTitle}" FontSize="18" IsVisible="{Binding HasRecentActivity}" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding RecentActivity}" Spacing="8" IsVisible="{Binding HasRecentActivity}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="services:ReportActivityItem">
+                                    <Border BackgroundColor="{DynamicResource BrandSurface}" StrokeThickness="0" Padding="0" StrokeShape="RoundRectangle 14">
+                                        <Grid ColumnDefinitions="6,*">
+                                            <BoxView Color="{Binding Kind, Converter={StaticResource NotificationAccentConverter}}" />
+                                            <Grid Grid.Column="1" Padding="12,10" RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
+                                                <Label Text="{Binding Title}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="14" />
+                                                <Label Grid.Column="1" Text="{Binding WhenLabel}" TextColor="{DynamicResource BrandGoldDeep}" FontSize="11" FontAttributes="Bold" />
+                                                <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Detail}" TextColor="{DynamicResource BrandMuted}" FontSize="12" />
+                                            </Grid>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
                     </VerticalStackLayout>
                 </VerticalStackLayout>
             </ScrollView>

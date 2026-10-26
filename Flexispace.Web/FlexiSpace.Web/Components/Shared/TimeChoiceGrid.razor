@@ -2,7 +2,7 @@
 <div class="fs-time-grid">
     @foreach (var slot in Slots)
     {
-        var selected = Minutes(slot) == Minutes(Selected);
+        var selected = Selected.HasValue && Minutes(slot) == Minutes(Selected.Value) && !IsBooked(slot);
         var booked = IsBooked(slot);
         <button type="button"
                 class="fs-time-btn @(selected ? "fs-time-btn--selected" : "") @(booked ? "fs-time-btn--booked" : "")"
@@ -14,7 +14,7 @@
 </div>
 
 @code {
-    [Parameter] public TimeSpan Selected { get; set; }
+    [Parameter] public TimeSpan? Selected { get; set; }
     [Parameter] public TimeSpan Start { get; set; } = new(7, 0, 0);
     [Parameter] public TimeSpan End { get; set; } = new(19, 0, 0);
     [Parameter] public int StepMinutes { get; set; } = 30;
@@ -37,7 +37,7 @@
         if (Unavailable.Any(s => Minutes(s) == minutes))
             return true;
 
-        return Occupied.Any(o => minutes >= Minutes(o.Start) && minutes < o.End.TotalMinutes);
+        return Occupied.Any(o => minutes >= Minutes(o.Start) && minutes < Minutes(o.End));
     }
 
     private static int Minutes(TimeSpan value) => (int)value.TotalMinutes;

@@ -29,5 +29,9 @@ namespace FlexiSpace.Core.Entities
 
         public ICollection<BoardroomEquipment> BoardroomEquipments { get; set; } = new List<BoardroomEquipment>();
 
+        public ICollection<BoardroomComponent> Components { get; set; } = new List<BoardroomComponent>();
+
+        public ICollection<BoardroomComponent> PartOfCombinations { get; set; } = new List<BoardroomComponent>();
+
     }
 }

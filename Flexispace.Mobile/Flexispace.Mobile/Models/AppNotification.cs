@@ -14,6 +14,8 @@ public class AppNotification : INotifyPropertyChanged
     public string Type { get; set; } = "Info";
     public Guid? BookingId { get; set; }
 
+    public bool OpensBooking => BookingId.HasValue;
+
     public bool IsRead
     {
         get => _isRead;

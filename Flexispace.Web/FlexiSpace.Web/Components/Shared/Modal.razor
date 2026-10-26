@@ -12,7 +12,7 @@
                 <p>@Message</p>
             }
             @ChildContent
-            <button type="button" class="fs-btn fs-btn--gold fs-btn--block" @onclick="Close">OK</button>
+            <button type="button" class="fs-btn fs-btn--gold fs-btn--block" @onclick="Close">@ButtonLabel</button>
         </div>
     </div>
 }
@@ -23,6 +23,7 @@
     [Parameter] public string? Message { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string ButtonLabel { get; set; } = "OK";
 
     private async Task Close() => await IsOpenChanged.InvokeAsync(false);
 }

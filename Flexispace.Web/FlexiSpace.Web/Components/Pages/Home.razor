@@ -18,7 +18,7 @@ else if (!Auth.IsAuthenticated)
     {
         <div class="fs-auth-page">
             <div class="fs-login-form fs-stack" style="padding:48px 24px;max-width:420px;margin:0 auto">
-                <p class="fs-error">@Auth.SessionError</p>
+                <p id="fs-error-banner" class="fs-error">@Auth.SessionError</p>
                 <a class="fs-btn fs-btn--gold fs-btn--block" href="/login">Back to sign in</a>
             </div>
         </div>
@@ -53,6 +53,10 @@ else
                 {
                     <button type="button" class="fs-btn fs-btn--ghost-light" @onclick="OpenReports">Reports</button>
                 }
+                @if (Vm.CanViewAvailability)
+                {
+                    <a href="/live" class="fs-btn fs-btn--ghost-light">Live availability</a>
+                }
                 <a href="/my-bookings" class="fs-btn fs-btn--ghost-light">My bookings</a>
             </div>
         </div>
@@ -74,6 +78,41 @@ else
             </div>
         </section>
 
+        @if (Vm.CanViewAvailability && Vm.RoomsInScope > 0)
+        {
+            <section class="fs-section-block">
+                <h2 class="fs-section-title">Current room availability</h2>
+                <div class="fs-live-ribbon" style="margin-top:16px">
+                    <div class="fs-live-stat">
+                        <strong class="fs-live-stat__n fs-live-stat__n--available">@Vm.AvailableCount</strong>
+                        <span>Available</span>
+                    </div>
+                    <div class="fs-live-stat">
+                        <strong class="fs-live-stat__n fs-live-stat__n--reserved">@Vm.ReservedCount</strong>
+                        <span>Reserved</span>
+                    </div>
+                    <div class="fs-live-stat">
+                        <strong class="fs-live-stat__n fs-live-stat__n--busy">@Vm.OccupiedCount</strong>
+                        <span>Occupied</span>
+                    </div>
+                    <div class="fs-live-stat">
+                        <strong class="fs-live-stat__n" style="color:#6E6E6E">@Vm.BlockedCount</strong>
+                        <span>Blocked</span>
+                    </div>
+                </div>
+                <div class="fs-card" style="margin-top:12px">
+                    <div class="fs-arena-meter__row">
+                        <strong>Occupancy</strong>
+                        <span>@Vm.OccupancyPercent.ToString("0")%</span>
+                    </div>
+                    <div class="fs-meter"><div class="fs-meter__fill" style="width:@(Math.Clamp(Vm.OccupancyPercent, 0, 100))%; background:var(--fs-teal)"></div></div>
+                    <p class="fs-muted" style="margin:8px 0 0">@Vm.OccupancyCaption</p>
+                </div>
+            </section>
+        }
+
+        @if (!Auth.IsGuest)
+        {
         <section class="fs-section-block">
             <h2 class="fs-section-title">Today</h2>
             @if (Vm.IsEmpty)
@@ -105,6 +144,39 @@ else
                 </div>
             }
         </section>
+
+        <section class="fs-section-block">
+            <h2 class="fs-section-title">Upcoming meetings</h2>
+            @if (Vm.UpcomingBookings.Count == 0)
+            {
+                <p class="fs-muted" style="margin-top:12px">No upcoming meetings after now.</p>
+            }
+            else
+            {
+                <div class="fs-grid-2" style="margin-top:16px">
+                    @foreach (var booking in Vm.UpcomingBookings)
+                    {
+                        <div class="fs-card--elevated fs-card--clickable" @onclick="() => OpenBooking(booking)">
+                            <div style="display:flex">
+                                <div class="fs-card__accent" style="background:@StatusAccent.GetColor(booking.Status)"></div>
+                                <div class="fs-card__body">
+                                    <div style="display:flex; justify-content:space-between; gap:8px; align-items:start">
+                                        <strong style="font-size:16px">@booking.RoomName</strong>
+                                        <span class="fs-pill" style="background:@StatusAccent.GetColor(booking.Status)">@booking.Status</span>
+                                    </div>
+                                    <p class="fs-muted" style="font-size:13px; margin:6px 0">@booking.LocationName</p>
+                                    <div style="display:flex; justify-content:space-between; font-size:13px">
+                                        <span>@booking.Start.ToString("ddd d MMM · HH:mm")</span>
+                                        <span class="fs-muted">to @booking.End.ToString("HH:mm")</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+        }
 
         <section class="fs-section-block">
             <h2 class="fs-section-title">Locations</h2>

@@ -16,7 +16,7 @@ else
 
         @if (!string.IsNullOrEmpty(Vm.ErrorMessage))
         {
-            <p class="fs-error" style="margin-bottom:16px">@Vm.ErrorMessage</p>
+            <p id="fs-error-banner" class="fs-error" style="margin-bottom:16px">@Vm.ErrorMessage</p>
         }
         @if (!string.IsNullOrEmpty(Vm.Message))
         {
@@ -36,9 +36,7 @@ else
                     @if (Vm.IsProvisioning)
                     {
                         <p class="fs-muted" style="margin:0">
-                            This creates a FlexiSpace account for the Microsoft Entra identity.
-                            If they already have a FlexiSpace app role in Entra, that role is used.
-                            Otherwise the role you pick here is saved.
+                            This links the existing Entra identity to FlexiSpace. Assign its FlexiSpace app role in Entra first, then choose a location here.
                         </p>
                     }
                     else
@@ -49,26 +47,24 @@ else
                     }
                     <div class="fs-user-form-grid">
                         <div>
-                            <label class="fs-label" for="user-first">First name</label>
-                            <input id="user-first" class="fs-field" @bind="Vm.FormFirstName" />
+                            <span class="fs-label">Name</span>
+                            <p style="margin:0">@Vm.FormFirstName @Vm.FormLastName</p>
                         </div>
                         <div>
-                            <label class="fs-label" for="user-last">Last name</label>
-                            <input id="user-last" class="fs-field" @bind="Vm.FormLastName" />
+                            <span class="fs-label">Email</span>
+                            <p style="margin:0">@Vm.FormEmail</p>
                         </div>
                         <div>
-                            <label class="fs-label" for="user-email">Email</label>
-                            <input id="user-email" class="fs-field" type="email" @bind="Vm.FormEmail" readonly="@Vm.IsProvisioning" />
+                            <span class="fs-label">FlexiSpace role</span>
+                            <p style="margin:0">@Vm.FormRoleLabel</p>
                         </div>
-                        <div>
-                            <label class="fs-label" for="user-role">Role</label>
-                            <select id="user-role" class="fs-field" @bind="Vm.FormRole">
-                                @foreach (var role in Vm.Roles)
-                                {
-                                    <option value="@role">@RolePermissions.DisplayName(role)</option>
-                                }
-                            </select>
-                        </div>
+                        @if (!Vm.IsProvisioning)
+                        {
+                            <div>
+                                <span class="fs-label">Account status</span>
+                                <p style="margin:0">@(Vm.FormIsActive ? "Active" : "Inactive")</p>
+                            </div>
+                        }
                         <div>
                             <label class="fs-label" for="user-location">Location</label>
                             <select id="user-location" class="fs-field" @bind="Vm.FormLocationId">
@@ -81,10 +77,6 @@ else
                         </div>
                     </div>
                     <div class="fs-flex">
-                        @if (!Vm.IsProvisioning && !Vm.FormIsActive)
-                        {
-                            <button type="button" class="fs-btn fs-btn--gold" disabled="@Vm.IsBusy" @onclick="Activate">Activate account</button>
-                        }
                         <button type="button" class="fs-btn @(Vm.IsProvisioning ? "fs-btn--gold" : "fs-btn--ghost")" disabled="@Vm.IsBusy" @onclick="Save">
                             @(Vm.IsProvisioning ? "Provision" : "Save")
                         </button>
@@ -104,6 +96,14 @@ else
             else
             {
                 <div class="fs-user-filters">
+                    <div>
+                        <label class="fs-label" for="filter-users">Search</label>
+                        <input id="filter-users"
+                               class="fs-field"
+                               placeholder="Search user ID, name, or email…"
+                               @bind="Vm.FilterQuery"
+                               @bind:event="oninput" />
+                    </div>
                     <div>
                         <label class="fs-label" for="filter-role">Role</label>
                         <select id="filter-role" class="fs-field" @bind="Vm.FilterRole">
@@ -126,10 +126,27 @@ else
                     </div>
                 </div>
 
+                <div class="fs-flex" role="tablist" aria-label="User lists" style="margin:18px 0">
+                    <button type="button"
+                            class="fs-btn @(Vm.IsProvisionedTab ? "fs-btn--gold" : "fs-btn--ghost")"
+                            role="tab" aria-selected="@Vm.IsProvisionedTab"
+                            @onclick="ShowProvisioned">
+                        Provisioned · @Vm.ProvisionedTotalCount total
+                    </button>
+                    <button type="button"
+                            class="fs-btn @(Vm.IsUnprovisionedTab ? "fs-btn--gold" : "fs-btn--ghost")"
+                            role="tab" aria-selected="@Vm.IsUnprovisionedTab"
+                            @onclick="ShowUnprovisioned">
+                        Unprovisioned · @Vm.UnprovisionedTotalCount total
+                    </button>
+                </div>
+
+                @if (Vm.IsProvisionedTab)
+                {
                 <section class="fs-user-section">
                     <div class="fs-user-section__head">
                         <h2 class="fs-section-title">Provisioned</h2>
-                        <span class="fs-muted">@Vm.ProvisionedUsers.Count</span>
+                        <span class="fs-muted">@Vm.ProvisionedUsers.Count shown of @Vm.ProvisionedTotalCount</span>
                     </div>
                     @if (Vm.ProvisionedUsers.Count == 0)
                     {
@@ -141,6 +158,7 @@ else
                             <table class="fs-user-table">
                                 <thead>
                                     <tr>
+                                        <th>ID</th>
                                         <th>Name</th>
                                         <th>Email</th>
                                         <th>Role</th>
@@ -154,6 +172,7 @@ else
                                     @foreach (var user in Vm.ProvisionedUsers)
                                     {
                                         <tr class="@(user.IsActive ? "" : "is-inactive")">
+                                            <td>@(user.ApiId > 0 ? user.ApiId.ToString() : "—")</td>
                                             <td><strong>@user.Name</strong></td>
                                             <td>@user.Email</td>
                                             <td><span class="fs-pill" style="background:var(--fs-gold-deep)">@user.RoleLabel</span></td>
@@ -163,10 +182,6 @@ else
                                             <td>
                                                 <div class="fs-user-table__actions">
                                                     <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="() => Edit(user)" @onclick:stopPropagation="true">Edit</button>
-                                                    @if (user.IsActive)
-                                                    {
-                                                        <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="() => Remove(user)" @onclick:stopPropagation="true">Remove</button>
-                                                    }
                                                 </div>
                                             </td>
                                         </tr>
@@ -176,11 +191,13 @@ else
                         </div>
                     }
                 </section>
-
+                }
+                @if (Vm.IsUnprovisionedTab)
+                {
                 <section class="fs-user-section">
                     <div class="fs-user-section__head">
                         <h2 class="fs-section-title">Unprovisioned</h2>
-                        <span class="fs-muted">@Vm.UnprovisionedUsers.Count</span>
+                        <span class="fs-muted">@Vm.UnprovisionedUsers.Count shown of @Vm.UnprovisionedTotalCount</span>
                     </div>
                     @if (Vm.UnprovisionedUsers.Count == 0)
                     {
@@ -192,6 +209,7 @@ else
                             <table class="fs-user-table">
                                 <thead>
                                     <tr>
+                                        <th>ID</th>
                                         <th>Name</th>
                                         <th>Email</th>
                                         <th>Role</th>
@@ -205,6 +223,7 @@ else
                                     @foreach (var user in Vm.UnprovisionedUsers)
                                     {
                                         <tr>
+                                            <td>@(user.ApiId > 0 ? user.ApiId.ToString() : "—")</td>
                                             <td><strong>@user.Name</strong></td>
                                             <td>@user.Email</td>
                                             <td><span class="fs-pill" style="background:var(--fs-gold-deep)">@user.RoleLabel</span></td>
@@ -223,6 +242,7 @@ else
                         </div>
                     }
                 </section>
+                }
             }
         }
     </div>
@@ -230,13 +250,17 @@ else
 
 @code {
     private bool HasFilters =>
-        !string.IsNullOrEmpty(Vm.FilterRole) || !string.IsNullOrEmpty(Vm.FilterLocationId);
+        !string.IsNullOrEmpty(Vm.FilterRole) ||
+        !string.IsNullOrEmpty(Vm.FilterLocationId) ||
+        !string.IsNullOrWhiteSpace(Vm.FilterQuery);
 
     protected override async Task OnInitializedAsync() =>
         await Vm.AppearingCommand.ExecuteAsync(null);
 
     private void Edit(UserDirectoryRow user) => Vm.StartEditCommand.Execute(user);
     private void Provision(UserDirectoryRow user) => Vm.StartProvisionCommand.Execute(user);
+    private void ShowProvisioned() => Vm.ShowProvisionedTabCommand.Execute(null);
+    private void ShowUnprovisioned() => Vm.ShowUnprovisionedTabCommand.Execute(null);
     private void Cancel() => Vm.CancelFormCommand.Execute(null);
     private Task Save() => Vm.SaveCommand.ExecuteAsync(null);
     private Task Activate() => Vm.ActivateCommand.ExecuteAsync(null);

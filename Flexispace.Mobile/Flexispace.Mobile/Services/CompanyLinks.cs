@@ -1,3 +1,5 @@
+using Flexispace.Mobile.Helpers;
+
 namespace Flexispace.Mobile.Services;
 
 /// <summary>
@@ -18,8 +20,7 @@ public static class CompanyLinks
         }
         catch
         {
-            if (Shell.Current is not null)
-                await Shell.Current.DisplayAlertAsync("Could not open link", url, "OK");
+            await ActionFeedback.FailAsync(url, "Could not open link");
         }
     }
 }

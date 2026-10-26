@@ -1,93 +1,110 @@
-Handover: Features implemented and current status
+# FlexiSpace New Version Handover
 
-Overview
-- Project: FlexiSpace Boardroom Booking System (API-Business-Logic branch)
-- Target: .NET 8
-- Purpose: in-app notifications, booking lifecycle business logic, audit/reporting groundwork, authentication integration points.
+**Status date:** 19 October 2026  
+**Purpose:** Record the work completed on the new FlexiSpace applications, the current integration constraints, and the work still needed before final delivery.
 
-1) Booking (core)
-- What was implemented
-  - Local booking creation, update and cancellation persisted via EF Core (BookingService).
-  - Business validation remains local (date/time conflict checks) — Graph calendar integration has been disabled/removed from the critical path.
-  - Emails: booking confirmation/modification/cancellation are implemented as best-effort calls to the IEmailService (failures do not block booking operations).
-  - In-app notifications: DB-backed Notification entity + NotificationService exists. BookingService now creates targeted notifications for BookingCreated, BookingModified and BookingCancelled (only booking owner is notified). Notification creation is best-effort (exceptions swallowed) so booking flows are not interrupted.
+## Project overview
 
-- Why Graph calendar integration is not used (summary)
-  - Users do not have Microsoft 365 mailboxes in scope. Graph calendar operations require the target mailbox to exist and be provisioned in Microsoft 365.
-  - Attempts to create availability checks or calendar events against non-365 mailboxes failed during testing. The current decision: keep booking validation & persistence local and rely on in-app notifications + emails for confirmations. Graph code was commented out to avoid runtime failures.
+The new version consists of an ASP.NET Core Web API, a Blazor web application, and a .NET MAUI mobile application. During local development, the web and mobile clients are configured to call the API running at `https://localhost:7055`. The web app's default non-development configuration still points to the hosted API, so the target must be checked before publishing or demonstrating the apps.
 
-- Remaining work / risks
-  - If you later enable Graph, you must ensure every notified user has a valid M365 mailbox and grant consent/permissions for app to access calendars.
-  - Add status-change notifications for UpdateBookingStatusAsync to avoid missing a cancellation when it's done via the status endpoint.
+The project team has five members. Application roles are stored in FlexiSpace's `Users` table; Entra ID authenticates the identity, while the API uses the local role and location assignment to control application access.
 
-2) In-app notifications
-- What was implemented
-  - Notification entity (DB) already existed; NotificationService (Infrastructure) persists notifications and exposes:
-	- CreateNotificationAsync(userId, title, message, type)
-	- GetNotificationsForUserAsync(userId)
-	- GetUnreadCountAsync(userId)
-	- MarkAsReadAsync(notificationId, userId)
-	- MarkAllAsReadAsync(userId)
-  - NotificationController exposes user-scoped endpoints:
-	- GET /api/notification — list caller's notifications
-	- GET /api/notification/unread-count — unread count
-	- PATCH /api/notification/{id}/read — mark one as read
-	- PATCH /api/notification/read-all — mark all read
-  - BookingService was updated to call CreateNotificationAsync on create/update/cancel.
+## Work completed in the new version
 
-- Business logic
-  - Notifications are targeted: default is booking owner only. Do NOT broadcast to all users.
-  - Notification creation checks that the user exists before inserting (NotificationService throws NotFound if user doesn't exist).
+### API, database, and blocked rooms
 
-- Remaining work
-  - Consider adding notification triggers for boardroom maintenance/blocked bookings (NotificationType.BookingBlocked) — must find affected confirmed bookings and notify only those owners.
-  - Decide whether to keep the push sender abstraction (IPushNotificationSender) or remove it for in-app-only behavior. Currently NotificationService is DB-only and does not require push.
+- Fixed the API compile blockers caused by duplicate DTO definitions. The API, web app, and their referenced projects now build.
+- Resolved the blocked-period database migration mismatch. The migration `20261018183000_AlignBlockedPeriodsSchema` aligns the EF Core model with the existing `BlockedPeriods` table in the shared database.
+- Admins can create blocked periods, and a blocked room is excluded through the room selection and booking flow. The user confirmed this works after applying the database update with `FlexiSpace.Infrastructure` selected as the migrations project.
+- The database is shared with the team. Do not drop or recreate it to resolve migration problems; inspect the migration history and schema first.
 
-3) Audit & Reporting
-- What was implemented
-  - AuditService exists and is used to record administrative actions (provisioning, updates). Controller code logs actions via IAuditService.LogAsync.
-  - Login/logout clients call endpoints to record sign-in/out events; controller methods were provided (me/sign-in, me/sign-out) to record audit events.
-  - Reporting groundwork: audit entries and domain entities are present so reports can be built from DB queries.
+### Booking and availability
 
-- Remaining work
-  - Create dedicated reporting endpoints or scheduled jobs to export audit summaries as CSV/Excel as required by product.
-  - Optimize audit queries (use server-side filters rather than loading large ranges into memory).
+- Booking creation validates the room, booking time, capacity, conflicts, and selected active equipment and catering items.
+- The client removed the booking approval requirement. New bookings are confirmed immediately in the API. Older `Pending`/approval types or UI code may remain in the repository and should not be presented as an active client requirement without review.
+- The booking details step distinguishes equipment already included in the room from optional additional equipment. It also presents the room capacity and checks attendee counts before submission.
+- Equipment and catering catalogue items that are inactive appear disabled in the booking flow. Active items can be selected. Admin catalogue changes are reflected in booking options.
+- The user confirmed that blocked-room periods appear throughout the booking process and that the catalogue updates work.
 
-4) Authentication & Identity
-- What exists now
-  - Microsoft Entra (Azure AD) app registrations are expected. Client ids, secrets, redirect URIs and scopes are stored in user-secrets for development and available to the app configuration.
-  - The API uses bearer token protection (controllers decorated with [Authorize]) and expects a middleware to validate tokens (AddAuthentication + AddJwtBearer). If not present, add it (see separate doc).
-  - ICurrentUserService maps incoming token claims (Entra object id) to the local User row. The API uses local User.Role for RBAC decisions.
-  - New endpoint added: GET /api/user/me — returns the caller's mapped FlexiSpace profile (local id, role, locationId, email, etc.). This is the main convenience endpoint frontends call after sign-in.
+### Live availability status bar
 
-- Important notes
-  - Redirect URIs and client secrets are client-side configuration for Entra app registrations. The API does not perform OIDC redirects itself when using Entra as the IdP for token issuance (clients handle redirect during auth flows).
-  - Ensure the API's JWT validation options use the same Authority/Tenant and Audience/Scope that the clients request from Entra.
+- The web app's `/live` page displays counts for Available, Occupied, Reserved, Cleaning, Maintenance, and Blocked rooms.
+- On 19 October, the Cleaning count was corrected. The API previously had no distinct `Cleaning` boardroom status, so the web app's Cleaning state could be collapsed into `Unavailable` and read back as Blocked.
+- Cleaning now has API enum value `3`; existing enum values remain unchanged (`Available = 0`, `Maintenance = 1`, `Unavailable = 2`). The web app maps the value both ways and keeps Cleaning from being overwritten during live availability calculation. This is an enum value change and does not require a database schema migration.
+- The web project built with 0 warnings and 0 errors. The API built with 0 errors and 2 nullable-reference warnings in `BookingService.cs` (lines 146 and 360 at the time of the build). Restart the API and web app after pulling/building this change. If a room was previously saved as `Unavailable`, edit it and save it as Cleaning so its stored value is updated to `3`.
 
-5) Other features / small fixes
-- Equipment/Catering lists in Booking DTOs were made nullable to avoid client errors when omitted.
-- Outlook/Graph calendar code remains commented-out but preserved for future restoration once mailboxes are available.
+### Admin room and catalogue management
 
-Where to look in the code
-- BookingService: FlexiSpace.Infrastructure/services/BookingService.cs
-- NotificationService: FlexiSpace.Infrastructure/services/NotificationService.cs
-- NotificationController: FlexiSpace.API/Controllers/NotificationController.cs
-- UserController (me endpoint): FlexiSpace.API/Controllers/UserController.cs
-- ICurrentUserService: FlexiSpace.Core/Common/ICurrentUserService.cs
-- Notification entity: FlexiSpace.Core/Entities/Notification.cs
+- Admins can add, edit, disable, and delete equipment and catering catalogue entries, subject to booking/history restrictions. Disabling an item is the safer choice when it is temporarily unavailable or already referenced by bookings.
+- The booking form presents unavailable catalogue entries as greyed out and shows room-provided equipment separately from optional add-ons.
+- The seeded location name is **Houghton Estate**. The source seed data uses this canonical name. Check the shared database for any old, separate `Houghton` record; correcting seed data does not automatically remove a legacy database row that is already referenced by rooms, users, or bookings.
 
-How to test the main flows locally
-1. Ensure local appsettings/user-secrets contain Azure AD values only if you plan to test token validation. For local DB-only testing you can mock tokens or bypass validation with test middleware.
-2. Create a booking via the API and verify:
-   - Booking row in DB
-   - Notification row in Notifications table for booking.UserId
-   - Email best-effort call logged (email provider dependent)
-3. Update a booking and verify a BookingModified notification.
-4. Cancel a booking and verify a BookingCancelled notification.
+### Admin audit history
 
-Contact
-- If anything is unclear, ask for the file location and I can add a short code walkthrough in the repository.
+- The Admin Audit page records booking creation, updates, cancellations and status changes; user and blocked-period changes; and changes to locations, calendar accounts, boardrooms, equipment, and catering.
+- Sign-in and sign-out audit events are supported through the session-audit API endpoints. The API resolves the acting user from the authenticated request.
+- Audit entries include the actor, action, affected record, time, and relevant change details. Passwords and tokens are not included in change details. Audit write failures are intended not to fail the underlying business action.
+- The user confirmed testing the Audit page changes.
 
+### Admin user management on web and mobile
 
----
-Generated: concise handover note for developers. Update this doc as you extend notifications or re-enable Graph integration.
+- Both apps provide Provisioned and Unprovisioned views with totals. The web view uses tabs rather than a long combined list; the mobile view also uses tabs.
+- The workflow is to create the identity in Microsoft Entra, find it under Unprovisioned, assign the FlexiSpace location, and provision it into the local `Users` table.
+- The in-app option to create Entra users was removed. Administrators manage Entra account activation in Entra; the app's user edit workflow is limited to location assignment.
+- Role and location filtering is present in the mobile user list. The mobile list deduplicates repeated Entra results by identity/email.
+- The web API client was updated to accept role values returned as enum names as well as numbers, which addressed the JSON conversion error while loading Entra users.
+- Final verification should confirm the same provisioned/unprovisioned totals and results in both apps, including a complete provision action. The final counts have not been recorded in this handover.
+
+## Email, Outlook, and identity constraints
+
+### Email
+
+- The API registers the Microsoft Graph email service only when `MicrosoftGraph:TenantId`, `MicrosoftGraph:ClientId`, `MicrosoftGraph:ClientSecret`, and `MicrosoftGraph:SenderEmail` are configured. Otherwise it uses `NoOpEmailService`, so booking can still succeed without sending email.
+- `BookingService.CreateBookingAsync` currently calls the booking confirmation email method on booking creation, on a best-effort basis. Email failure does not fail the booking.
+- The email interface contains modification and cancellation methods, but the current booking update and cancellation methods do not call them. Connecting and verifying those messages remains outstanding for the new version.
+- The sender mailbox is configured in `MicrosoftGraph:SenderEmail` in API configuration/user secrets for local development, or in the deployed API's secure configuration. It must be a mailbox that the client's tenant and Graph permissions allow the application to send as.
+- Do not claim that email delivery works in the current environment unless Graph credentials, sender mailbox, permissions, and a successful end-to-end delivery have been verified.
+
+### Outlook calendar
+
+- `LocationCalendarAccounts` stores calendar email, display name, primary/active flags, creation time, and location ID. There is no role column in this table; a calendar account is associated to a location, not assigned an application role.
+- Graph calendar service code and location calendar account management exist. However, the create-event and availability-check calls inside the current `BookingService` booking flow are commented out. Booking updates and cancellations also do not currently synchronize calendar events in that flow.
+- Multiple managers per location are represented by multiple active `LocationCalendarAccounts` rows, but sending or updating an event in every manager's calendar is not currently wired into the booking flow. Per-calendar event tracking should be reviewed before implementing multi-calendar update/cancellation behavior.
+- Outlook integration remains unverified because the current test tenant does not provide the required manager Microsoft 365 mailboxes and Graph configuration. Keep the local FlexiSpace booking rules operational without Graph; enable and test calendar sync only after the client supplies mailboxes and grants the necessary permissions.
+
+### Entra ID and customer registration
+
+- The web and mobile apps use Microsoft Entra sign-in, with FlexiSpace role and location information coming from the local `Users` record.
+- A separate Microsoft Entra External ID customer tenant and customer self-registration were considered but deferred because of subscription/resource constraints. No customer tenant was created in this work.
+- The app's policy/guest browsing flow remains an application feature. Customer self-registration and customer password-reset setup are not completed by the deferred External ID work.
+
+## Project documentation progress
+
+- The Expo presentation guide was prepared as a plain, slide-by-slide demonstration guide, with topics, explanations, and evidence to show. The Expo should be presented primarily as a demonstration rather than reading dense slides.
+- The User Guide is still outstanding because it needs screenshots from the current, updated applications.
+- Task 1 documentation was corrected earlier. It should be checked once more against the final application changes before the final report is submitted.
+
+## Outstanding work before final delivery
+
+- Verify the final user provisioning flow and matching counts on both web and mobile.
+- Complete email handling for booking modification and cancellation, then verify all email events with the client's Microsoft Graph configuration.
+- Re-enable and complete Outlook event creation, update, and deletion in the booking flow. Support every active calendar account at a location if the client requires events in multiple managers' calendars, and persist an event reference per target calendar.
+- Confirm no legacy `Houghton` location remains as a separate record in the shared database; preserve the canonical Houghton Estate record and its history.
+- Capture current screenshots and complete the User Guide.
+- Reconcile the final report and Expo presentation with the delivered functionality and client plan.
+- Publish the reviewed API version and confirm the web and mobile app configurations point to the intended deployed API.
+- Complete end-to-end acceptance checks using the client's accounts, mailboxes, and hosting configuration.
+
+## Key files
+
+- API startup and Graph service selection: `FlexiSpace/FlexiSpace.API/Program.cs`
+- Booking validations, email confirmation call, and currently disabled Graph booking calls: `FlexiSpace/FlexiSpace.Infrastructure/services/BookingService.cs`
+- EF Core schema changes: `FlexiSpace/FlexiSpace.Infrastructure/Migrations/`
+- Location calendar account entity/configuration: `FlexiSpace/FlexiSpace.Core/Entities/LocationCalendarAccount.cs` and `FlexiSpace/FlexiSpace.Infrastructure/Persistence/Configurations/LocationCalendarAccountConfiguration.cs`
+- Live availability page: `Flexispace.Web/FlexiSpace.Web/Components/Pages/Live.razor`
+- Live availability counts: `Flexispace.Web/FlexiSpace.Web/ViewModels/BookingAndAvailabilityViewModels.cs`
+- Cleaning status mapping: `FlexiSpace/FlexiSpace.Core/Enums/BoardroomStatus.cs`, `Flexispace.Web/FlexiSpace.Web/Api/ApiAdminService.cs`, `ApiEnumIntConverter.cs`, and `CatalogMapper.cs`
+- Web user management: `Flexispace.Web/FlexiSpace.Web/Components/Pages/Users.razor` and `Flexispace.Web/FlexiSpace.Web/ViewModels/OtherViewModels.cs`
+- Mobile user management: `Flexispace.Mobile/Flexispace.Mobile/Views/UsersPage.xaml` and `Flexispace.Mobile/Flexispace.Mobile/ViewModels/UsersViewModel.cs`
+- Admin audit page: `Flexispace.Web/FlexiSpace.Web/Components/Pages/Audit.razor`
+- API and client setup: `README.md`, `docs/Connect_Client_To_API.md`, `Flexispace.Mobile/Flexispace.Mobile/Services/Real/ApiConfig.cs`, and `Flexispace.Web/FlexiSpace.Web/appsettings.Development.json`

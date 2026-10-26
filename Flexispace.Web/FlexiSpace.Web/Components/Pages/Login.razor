@@ -31,11 +31,11 @@ else
 
             @if (!string.IsNullOrEmpty(Vm.ErrorMessage))
             {
-                <p class="fs-error">@Vm.ErrorMessage</p>
+                <p id="fs-error-banner" class="fs-error">@Vm.ErrorMessage</p>
             }
             @if (!string.IsNullOrEmpty(Auth.SessionError))
             {
-                <p class="fs-error">@Auth.SessionError</p>
+                <p id="@(string.IsNullOrEmpty(Vm.ErrorMessage) ? "fs-error-banner" : null)" class="fs-error">@Auth.SessionError</p>
             }
 
             <button type="button" class="fs-btn fs-btn--gold fs-btn--block" disabled="@Vm.IsBusy" @onclick="SignIn">Sign in</button>
@@ -52,6 +52,8 @@ else
                 </svg>
                 Sign in with Microsoft
             </button>
+
+            <button type="button" class="fs-btn fs-btn--ghost fs-btn--block" @onclick="ContinueAsGuest">Continue as guest</button>
 
             <a class="fs-welcome__privacy-link" href="/privacy" style="text-align:center">Privacy policy</a>
         </div>
@@ -77,4 +79,5 @@ else
 
     private Task SignIn() => Vm.LoginCommand.ExecuteAsync(null);
     private Task MicrosoftSignIn() => Vm.MicrosoftSignInCommand.ExecuteAsync(null);
+    private Task ContinueAsGuest() => Auth.ContinueAsGuestAsync();
 }

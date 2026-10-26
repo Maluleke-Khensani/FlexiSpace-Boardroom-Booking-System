@@ -5,24 +5,27 @@ using FlexiSpace.Core.Enums;
 using FlexiSpace.Core.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using FlexiSpace.API.Controllers.Base;
+using FlexiSpace.Core.Common;
 
 namespace FlexiSpace.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class CateringController : ControllerBase
+    public class CateringController : AuditableControllerBase
     {
         private readonly ICateringService _cateringService;
 
-        public CateringController(ICateringService cateringService)
+        public CateringController(ICateringService cateringService, IAuditService auditService, ICurrentUserService currentUserService) : base(auditService, currentUserService)
         {
             _cateringService = cateringService;
         }
 
         // GET: api/Catering
-        // Authenticated users can view available catering options.
+        // Guests and clients can browse catering options.
         [HttpGet]
+        [AllowAnonymous]
         public async Task<IActionResult> GetAllCatering()
         {
             var cateringItems = await _cateringService.GetAllCateringAsync();
@@ -40,6 +43,7 @@ namespace FlexiSpace.API.Controllers
 
         // GET: api/Catering/{id}
         [HttpGet("{id:int}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetCateringById(int id)
         {
             if (id <= 0)
@@ -88,6 +92,8 @@ namespace FlexiSpace.API.Controllers
 
             var createdCatering =
                 await _cateringService.CreateCateringAsync(catering);
+            await LogActionAsync(AuditAction.Create, "Catering", createdCatering.Id.ToString(), null,
+                new { createdCatering.Name, createdCatering.Description, createdCatering.IsActive });
 
             var response = new CateringResponseDto
             {
@@ -138,6 +144,9 @@ namespace FlexiSpace.API.Controllers
                 return NotFound($"Catering item with ID {id} was not found.");
             }
 
+            await LogActionAsync(AuditAction.Update, "Catering", id.ToString(), null,
+                new { catering.Name, catering.Description, catering.IsActive });
+
             return NoContent();
         }
 
@@ -167,6 +176,9 @@ namespace FlexiSpace.API.Controllers
                     "This catering item cannot be deleted because it is linked to an existing booking. " +
                     "Set IsActive to false instead.");
             }
+
+            await LogActionAsync(AuditAction.Delete, "Catering", id.ToString(),
+                new { catering.Name, catering.Description, catering.IsActive }, null);
 
             return NoContent();
         }

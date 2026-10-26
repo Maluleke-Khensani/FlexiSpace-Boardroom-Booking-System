@@ -24,11 +24,62 @@ else
         @if (Vm.IsEmpty)
         {
             <div class="fs-card" style="text-align:center; padding:48px">
-                <p class="fs-muted" style="margin:0">No bookings yet. Use Book a room to reserve a boardroom.</p>
+                @if (Vm.IsGuest)
+                {
+                    <p class="fs-muted" style="margin:0 0 16px">Guest bookings are not saved until you create a client account. You can still walk through Book a room, then sign in to keep reservations here.</p>
+                    <a href="/book" class="fs-btn fs-btn--gold">Book a room</a>
+                }
+                else
+                {
+                    <p class="fs-muted" style="margin:0">No bookings yet. Use Book a room to reserve a boardroom.</p>
+                }
             </div>
         }
         else
         {
+            @if (Vm.FilterLocations.Count > 1)
+            {
+                <p class="fs-muted" style="margin:0 0 10px; font-size:12px">Filter by location</p>
+                <div class="fs-location-chips" style="margin-bottom:16px">
+                    @foreach (var loc in Vm.FilterLocations)
+                    {
+                        <button type="button"
+                                class="fs-location-chip @(loc.Id == Vm.LocationFilterId ? "is-active" : "")"
+                                @onclick="() => FilterLocation(loc)">
+                            @loc.Name
+                        </button>
+                    }
+                </div>
+            }
+            @if (!string.IsNullOrEmpty(Vm.LocationFilterId) && Vm.FilterRooms.Count > 1)
+            {
+                <p class="fs-muted" style="margin:0 0 10px; font-size:12px">Filter by room</p>
+                <div class="fs-location-chips" style="margin-bottom:16px">
+                    @foreach (var room in Vm.FilterRooms)
+                    {
+                        <button type="button"
+                                class="fs-location-chip @(room.Id == Vm.RoomFilterId ? "is-active" : "")"
+                                @onclick="() => FilterRoom(room)">
+                            @room.Name
+                        </button>
+                    }
+                </div>
+            }
+            <div class="fs-toolbar" style="margin-bottom:16px">
+                <input class="fs-field fs-search"
+                       placeholder="Search booking ID, room, location, company, status…"
+                       @bind="Vm.FilterQuery"
+                       @bind:event="oninput" />
+            </div>
+
+            @if (Vm.Items.Count == 0)
+            {
+                <div class="fs-card">
+                    <p class="fs-muted" style="margin:0">No bookings match those filters.</p>
+                </div>
+            }
+            else
+            {
             <div class="fs-grid-2">
                 @foreach (var booking in Vm.Items)
                 {
@@ -40,14 +91,18 @@ else
                                     <strong style="font-size:16px">@booking.RoomName</strong>
                                     <span class="fs-pill" style="background:@StatusAccent.GetColor(booking.Status)">@booking.Status</span>
                                 </div>
-                                <p class="fs-muted" style="font-size:13px; margin:6px 0">@booking.LocationName</p>
+                                <p class="fs-muted" style="font-size:13px; margin:6px 0">@DisplayHelpers.BookingRef(booking.Id) · @booking.LocationName</p>
                                 <p style="font-size:13px; margin:0">@booking.Start.ToString("ddd d MMM · HH:mm")</p>
                                 <p class="fs-muted" style="font-size:12px; margin:4px 0 0">@booking.Company</p>
+                                <div class="fs-notification__actions" style="margin:10px 0 0" @onclick:stopPropagation="true">
+                                    <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="() => Open(booking)">Details</button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 }
             </div>
+            }
         }
     </div>
 }
@@ -57,5 +112,7 @@ else
         await Vm.AppearingCommand.ExecuteAsync(null);
 
     private Task SetFilter(bool mineOnly) => Vm.SetFilterCommand.ExecuteAsync(mineOnly);
+    private void FilterLocation(OfficeLocation loc) => Vm.FilterLocationCommand.Execute(loc);
+    private void FilterRoom(Boardroom room) => Vm.FilterRoomCommand.Execute(room);
     private void Open(Booking booking) => Vm.OpenCommand.Execute(booking);
 }

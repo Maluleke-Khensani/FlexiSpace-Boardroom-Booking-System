@@ -57,7 +57,7 @@ public static class RolePermissions
         UserRole.Administrator => "Add/remove rooms · configure locations · manage users · all bookings · reports",
         UserRole.CentreManager => "Manage bookings, blocks, and reports for your assigned centre only",
         UserRole.Staff => "Book rooms · cancel own bookings · view live availability · reports",
-        UserRole.Client => "Self-service booking · confirmations · (payments coming in Phase 2)",
+        UserRole.Client => "Book a room and cancel your own. Time, room, and headcount stay as booked.",
         _ => string.Empty
     };
 

@@ -1,4 +1,4 @@
-@* Live room availability with location filters and map/list views. *@
+@* Live room availability with location filters, status ribbon, and map/list views. *@
 @page "/live"
 @inject AvailabilityViewModel Vm
 @inject IAuthService Auth
@@ -15,77 +15,134 @@
 else
 {
     <div class="fs-content-wide">
+        <div class="fs-live-head">
+            <div class="fs-live-head__orb" aria-hidden="true">
+                <NavIcon Name="wifi" />
+            </div>
+            <div>
+                <p class="fs-eyebrow">LIVE</p>
+                <h2 class="fs-section-title" style="margin:0">Room status across Flexispace</h2>
+            </div>
+        </div>
+
         @if (!string.IsNullOrEmpty(Vm.AccessMessage))
         {
-            <div class="fs-card"><p class="fs-error" style="margin:0">@Vm.AccessMessage</p></div>
+            <div class="fs-card" style="margin-top:20px">
+                <p id="fs-error-banner" class="fs-error" style="margin:0">@Vm.AccessMessage</p>
+            </div>
         }
         else
         {
-            <div class="fs-choice-section">
-                <div class="fs-toolbar">
-                    <p class="fs-choice-section__label" style="margin:0">Location</p>
-                    <div class="fs-view-toggle">
-                        <button type="button" class="@(ShowMap ? "active" : "")" @onclick="() => ShowMap = true">Map</button>
-                        <button type="button" class="@(!ShowMap ? "active" : "")" @onclick="() => ShowMap = false">List</button>
-                    </div>
+            <p class="fs-muted" style="margin:20px 0 10px; font-size:12px">Filter by location</p>
+            <div class="fs-location-chips">
+                @foreach (var loc in Vm.Locations)
+                {
+                    <button type="button"
+                            class="fs-location-chip @(loc.Id == Vm.SelectedLocationId ? "is-active" : "")"
+                            disabled="@Vm.LockLocationFilter"
+                            @onclick="() => Filter(loc)">
+                        @loc.Name
+                    </button>
+                }
+            </div>
+
+            <div class="fs-live-ribbon" aria-label="Room status counts">
+                <div class="fs-live-stat">
+                    <strong class="fs-live-stat__n fs-live-stat__n--available">@Vm.AvailableCount</strong>
+                    <span>Available</span>
                 </div>
-                @if (!Vm.LockLocationFilter)
-                {
-                    <LocationChoiceGrid Items="Vm.Locations"
-                                        SelectedId="Vm.SelectedLocationId"
-                                        Compact="true"
-                                        OnSelect="Filter" />
-                }
-                else
-                {
-                    <p class="fs-muted" style="margin:0"><strong>@Vm.SelectedLocationName</strong></p>
-                }
+                <div class="fs-live-stat">
+                    <strong class="fs-live-stat__n fs-live-stat__n--busy">@Vm.OccupiedCount</strong>
+                    <span>Occupied</span>
+                </div>
+                <div class="fs-live-stat">
+                    <strong class="fs-live-stat__n fs-live-stat__n--reserved">@Vm.ReservedCount</strong>
+                    <span>Reserved</span>
+                </div>
+                <div class="fs-live-stat">
+                    <strong class="fs-live-stat__n" style="color:#4A6FA5">@Vm.CleaningCount</strong>
+                    <span>Cleaning</span>
+                </div>
+                <div class="fs-live-stat">
+                    <strong class="fs-live-stat__n" style="color:#8A6A3A">@Vm.MaintenanceCount</strong>
+                    <span>Maintenance</span>
+                </div>
+                <div class="fs-live-stat">
+                    <strong class="fs-live-stat__n" style="color:#6E6E6E">@Vm.BlockedCount</strong>
+                    <span>Blocked</span>
+                </div>
+            </div>
+
+            <div class="fs-live-legend">
+                <span><i style="background:#2E7D4F"></i> Available</span>
+                <span><i style="background:#B33A3A"></i> Occupied</span>
+                <span><i style="background:#C9A227"></i> Reserved</span>
+                <span><i style="background:#4A6FA5"></i> Cleaning</span>
+                <span><i style="background:#8A6A3A"></i> Maintenance</span>
+                <span><i style="background:#6E6E6E"></i> Blocked</span>
+            </div>
+
+            <div class="fs-toolbar" style="margin-top:8px">
+                <p class="fs-muted" style="margin:0; font-size:12px">Tap a room photo or name — map layout until floor plans ship.</p>
+                <div class="fs-view-toggle">
+                    <button type="button" class="@(ShowMap ? "active" : "")" @onclick="() => ShowMap = true">Map</button>
+                    <button type="button" class="@(!ShowMap ? "active" : "")" @onclick="() => ShowMap = false">List</button>
+                </div>
             </div>
 
             @if (Vm.IsEmpty)
             {
-                <p class="fs-muted">No rooms found for this filter.</p>
+                <p class="fs-muted" style="margin-top:16px">No rooms found for this filter.</p>
             }
             else if (ShowMap)
             {
-                @foreach (var group in GroupedItems)
+                @foreach (var group in RoomsByLocation)
                 {
                     <RoomMap GroupTitle="@group.Key"
                              GroupSubtitle="@GetLocationSubtitle(group.Key)"
-                             Tiles="@group.Value"
+                             Tiles="@ToTiles(group)"
                              OnTileSelected="OnMapTileSelected" />
                 }
             }
             else
             {
-                <div class="fs-grid-2">
-                    @foreach (var item in Vm.Items)
-                    {
-                        <div class="fs-card" style="padding:0; overflow:hidden">
-                            <div style="display:grid; grid-template-columns:100px 1fr; gap:0">
-                                <img src="@DisplayHelpers.ImageUrl(item.Room.ImageKey)" alt="@item.Room.Name" style="width:100px; height:100px; object-fit:cover" />
-                                <div style="padding:14px 16px">
-                                    <div style="display:flex; justify-content:space-between; gap:8px; align-items:start">
-                                        <strong>@item.Room.Name</strong>
-                                        <span class="fs-pill" style="background:@item.StatusColor">@item.StatusText</span>
-                                    </div>
-                                    <p class="fs-muted" style="font-size:13px; margin:4px 0">@item.LocationName</p>
-                                    <div style="display:flex; justify-content:space-between; align-items:end; margin-top:8px">
-                                        <span style="color:var(--fs-gold-soft); font-size:12px">Seats @item.Room.Capacity</span>
-                                        @if (Vm.CanBook)
-                                        {
-                                            <button type="button" class="fs-btn fs-btn--gold fs-btn--sm" @onclick="() => Book(item)">Book</button>
-                                        }
-                                        else
-                                        {
-                                            <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="() => ShowDetail(item)">Details</button>
-                                        }
+                @foreach (var group in RoomsByLocation)
+                {
+                    <div class="fs-live-list-group">
+                        <div class="fs-room-map__header">
+                            <div class="fs-room-map__header-title">@group.Key</div>
+                            <div class="fs-room-map__header-sub">@GetLocationSubtitle(group.Key)</div>
+                        </div>
+                        <div class="fs-grid-2" style="margin-top:16px">
+                            @foreach (var item in group)
+                            {
+                                <div class="fs-card" style="padding:0; overflow:hidden">
+                                    <div style="display:grid; grid-template-columns:100px 1fr; gap:0">
+                                        <img src="@DisplayHelpers.ImageUrl(item.Room.ImageKey)" alt="@item.Room.Name" style="width:100px; height:100px; object-fit:cover" />
+                                        <div style="padding:14px 16px">
+                                            <div style="display:flex; justify-content:space-between; gap:8px; align-items:start">
+                                                <strong>@item.Room.Name</strong>
+                                                <span class="fs-pill" style="background:@item.StatusColor">@item.StatusText</span>
+                                            </div>
+                                            <p class="fs-muted" style="font-size:13px; margin:4px 0">@item.LocationName</p>
+                                            <div style="display:flex; justify-content:space-between; align-items:end; margin-top:8px">
+                                                <span style="color:var(--fs-gold-soft); font-size:12px">Seats @item.Room.Capacity</span>
+                                                @if (Vm.CanBook)
+                                                {
+                                                    <button type="button" class="fs-btn fs-btn--gold fs-btn--sm" @onclick="() => Book(item)">Book</button>
+                                                }
+                                                else
+                                                {
+                                                    <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="() => ShowDetail(item)">Details</button>
+                                                }
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            }
                         </div>
-                    }
-                </div>
+                    </div>
+                }
             }
         }
     </div>
@@ -99,19 +156,16 @@ else
     private string? ModalTitle { get; set; }
     private string? ModalMessage { get; set; }
 
-    private static readonly string[] RingColors = ["#C4A035", "#1F6F78", "#3D5A73", "#B5622E", "#1E8E5A", "#9A7A1F"];
+    private IEnumerable<IGrouping<string, AvailabilityItem>> RoomsByLocation =>
+        Vm.Items.GroupBy(i => i.LocationName);
 
-    private Dictionary<string, List<RoomMapTile>> GroupedItems =>
-        Vm.Items
-            .GroupBy(i => i.LocationName)
-            .ToDictionary(
-                g => g.Key,
-                g => g.Select((item, i) => new RoomMapTile(
-                    item.Room.Name,
-                    LiveTileSubtitle(item),
-                    item.Room.ImageKey,
-                    item.StatusColor,
-                    item)).ToList());
+    private static List<RoomMapTile> ToTiles(IEnumerable<AvailabilityItem> rooms) =>
+        rooms.Select(item => new RoomMapTile(
+            item.Room.Name,
+            LiveTileSubtitle(item),
+            item.Room.ImageKey,
+            item.StatusColor,
+            item)).ToList();
 
     private static string LiveTileSubtitle(AvailabilityItem item)
     {
@@ -129,13 +183,15 @@ else
     private Task Filter(OfficeLocation loc) => Vm.FilterCommand.ExecuteAsync(loc);
     private void Book(AvailabilityItem item) => Vm.BookRoomCommand.Execute(item);
 
-    private async Task OnMapTileSelected(RoomMapTile tile)
+    private Task OnMapTileSelected(RoomMapTile tile)
     {
-        if (tile.Payload is not AvailabilityItem item) return;
+        if (tile.Payload is not AvailabilityItem item)
+            return Task.CompletedTask;
         if (Vm.CanBook)
             Vm.BookRoomCommand.Execute(item);
         else
             ShowDetail(item);
+        return Task.CompletedTask;
     }
 
     private void ShowDetail(AvailabilityItem item)

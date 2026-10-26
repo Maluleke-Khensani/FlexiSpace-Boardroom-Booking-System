@@ -10,10 +10,12 @@ public sealed class HttpNotificationService(ApiClient api) : INotificationServic
     public async Task<IReadOnlyList<AppNotification>> GetNotificationsAsync()
     {
         var items = await api.GetAsync<List<ApiNotificationDto>>("api/Notification") ?? [];
-        return items
+        var list = items
             .OrderByDescending(n => n.CreatedAt)
             .Select(Map)
             .ToList();
+        UnreadCountChanged?.Invoke(list.Count(n => !n.IsRead));
+        return list;
     }
 
     public async Task<int> GetUnreadCountAsync()
@@ -31,8 +33,12 @@ public sealed class HttpNotificationService(ApiClient api) : INotificationServic
             await GetUnreadCountAsync();
     }
 
-    public Task MarkAsUnreadAsync(Guid notificationId) =>
-        Task.CompletedTask; // API has no unread endpoint
+    public async Task MarkAsUnreadAsync(Guid notificationId)
+    {
+        using var response = await api.PatchAsync($"api/Notification/{IdAdapter.ToInt(notificationId)}/unread");
+        if (response.IsSuccessStatusCode)
+            await GetUnreadCountAsync();
+    }
 
     public async Task MarkAllAsReadAsync()
     {
@@ -50,6 +56,7 @@ public sealed class HttpNotificationService(ApiClient api) : INotificationServic
     private static AppNotification Map(ApiNotificationDto dto) => new()
     {
         Id = IdAdapter.ToGuid(dto.Id),
+        BookingId = dto.BookingId is > 0 ? IdAdapter.ToGuid(dto.BookingId.Value) : null,
         Title = dto.Title,
         Message = dto.Message,
         CreatedAt = dto.CreatedAt.ToLocalTime(),
@@ -62,7 +69,7 @@ public sealed class HttpNotificationService(ApiClient api) : INotificationServic
         "BookingCreated" => "Confirmation",
         "BookingCancelled" => "Cancellation",
         "BookingReminder" => "Reminder",
-        "BookingModified" => "Info",
+        "BookingModified" => "Update",
         _ => string.IsNullOrWhiteSpace(type) ? "Info" : type
     };
 }

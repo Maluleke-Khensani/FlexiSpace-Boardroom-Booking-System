@@ -69,14 +69,6 @@
                             <Entry Text="{Binding ConfirmPassword}" IsPassword="True" Placeholder="Re-enter password" Style="{StaticResource FieldEntry}" BackgroundColor="Transparent" />
                         </Border>
 
-                        <Border IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}"
-                                StrokeThickness="0"
-                                StrokeShape="RoundRectangle 10"
-                                BackgroundColor="{DynamicResource BrandDangerSoft}"
-                                Padding="12,10">
-                            <Label Text="{Binding ErrorMessage}" TextColor="{DynamicResource BrandDanger}" FontSize="13" />
-                        </Border>
-
                         <Button Text="Create account"
                                 Command="{Binding RegisterCommand}"
                                 Style="{StaticResource GoldButton}"

@@ -41,13 +41,29 @@ public sealed class ApiBookingService(
 
     public async Task<Booking?> GetBookingAsync(Guid bookingId)
     {
-        if (IdMap.ToInt(bookingId) <= 0)
-            return (await LoadBookingsAsync()).FirstOrDefault(b => b.Id == bookingId);
+        try
+        {
+            if (IdMap.ToInt(bookingId) > 0)
+            {
+                var dto = await api.GetAsync<BookingDto>($"api/booking/{IdMap.ToInt(bookingId)}");
+                if (dto is not null)
+                    return await MapAsync(dto);
+            }
+        }
+        catch
+        {
+            // Fall through to the list lookup so a missing single-booking
+            // endpoint cannot leave the details page spinning forever.
+        }
 
-        var dto = await api.GetAsync<BookingDto>($"api/booking/{IdMap.ToInt(bookingId)}");
-        if (dto is null)
+        try
+        {
+            return (await LoadBookingsAsync()).FirstOrDefault(b => b.Id == bookingId);
+        }
+        catch
+        {
             return null;
-        return await MapAsync(dto);
+        }
     }
 
     public Task<IReadOnlyList<Booking>> GetTodaysBookingsAsync() =>
@@ -55,21 +71,19 @@ public sealed class ApiBookingService(
 
     public async Task<IReadOnlyList<OccupiedSlot>> GetOccupiedSlotsAsync(string roomId, DateTime day)
     {
-        var room = await rooms.GetRoomAsync(roomId);
-        var physicalIds = room?.IsCombined == true && room.CombinedRoomIds.Count > 0
-            ? room.CombinedRoomIds
-            : [roomId];
+        var linked = RoomCombinations.GetConflictRoomIds(roomId);
+        var boardroomIds = linked
+            .Select(id => IdMap.TryToInt(id, out var n) ? n : 0)
+            .Where(n => n > 0)
+            .ToHashSet();
 
         var date = DateOnly.FromDateTime(day);
-        var boardroomIds = new HashSet<int>();
+        var dayStart = day.Date;
+        var dayEnd = dayStart.AddDays(1);
         var slots = new List<OccupiedSlot>();
 
-        foreach (var physicalId in physicalIds)
+        foreach (var boardroomId in boardroomIds)
         {
-            if (!IdMap.TryToInt(physicalId, out var boardroomId))
-                continue;
-
-            boardroomIds.Add(boardroomId);
             try
             {
                 var dtos = await api.GetAsync<List<OccupiedSlotDto>>(
@@ -88,19 +102,19 @@ public sealed class ApiBookingService(
 
         try
         {
-            var bookings = await api.GetAsync<List<BookingDto>>("api/booking") ?? [];
-            foreach (var booking in bookings)
+            foreach (var booking in await LoadBookingsAsync())
             {
-                if (!boardroomIds.Contains(booking.BoardroomId) || booking.BookingDate != date)
+                if (booking.Status is BookingStatus.Cancelled or BookingStatus.Completed)
                     continue;
-                if (booking.Status is 1 or 2)
+                if (!RoomMatches(linked, boardroomIds, booking.RoomId))
+                    continue;
+                if (booking.Start >= dayEnd || booking.End <= dayStart)
                     continue;
 
-                slots.Add(new OccupiedSlot
-                {
-                    Start = booking.StartTime.ToTimeSpan(),
-                    End = booking.EndTime.ToTimeSpan()
-                });
+                var occStart = booking.Start <= dayStart ? TimeSpan.Zero : booking.Start.TimeOfDay;
+                var occEnd = booking.End >= dayEnd ? TimeSpan.FromHours(24) : booking.End.TimeOfDay;
+                if (occEnd > occStart)
+                    slots.Add(new OccupiedSlot { Start = occStart, End = occEnd });
             }
         }
         catch
@@ -108,11 +122,35 @@ public sealed class ApiBookingService(
             // Keep whatever occupied slots we already collected.
         }
 
+        try
+        {
+            foreach (var block in await GetBlockedPeriodsAsync())
+            {
+                if (!RoomMatches(linked, boardroomIds, block.RoomId))
+                    continue;
+                if (block.Start >= dayEnd || block.End <= dayStart)
+                    continue;
+
+                var occStart = block.Start <= dayStart ? TimeSpan.Zero : block.Start.TimeOfDay;
+                var occEnd = block.End >= dayEnd ? TimeSpan.FromHours(24) : block.End.TimeOfDay;
+                if (occEnd > occStart)
+                    slots.Add(new OccupiedSlot { Start = occStart, End = occEnd });
+            }
+        }
+        catch
+        {
+            // Blocked periods are optional occupancy data.
+        }
+
         return slots
             .GroupBy(slot => (Start: FloorToHalfHour(slot.Start), End: slot.End))
             .Select(group => new OccupiedSlot { Start = group.Key.Start, End = group.Key.End })
             .ToList();
     }
+
+    private static bool RoomMatches(IReadOnlyList<string> linked, HashSet<int> boardroomIds, string roomId) =>
+        linked.Contains(roomId) ||
+        (IdMap.TryToInt(roomId, out var id) && boardroomIds.Contains(id));
 
     private static bool TryParseOccupied(OccupiedSlotDto dto, out OccupiedSlot slot)
     {
@@ -218,10 +256,28 @@ public sealed class ApiBookingService(
         };
     }
 
-    public async Task<bool> CancelBookingAsync(Guid bookingId)
+    public async Task<BookingResult> CancelBookingAsync(Guid bookingId)
     {
-        var response = await api.DeleteAsync($"api/booking/{IdMap.ToInt(bookingId)}");
-        return response.IsSuccessStatusCode;
+        var id = IdMap.ToInt(bookingId);
+        if (id <= 0)
+            return Fail("This booking could not be cancelled.");
+
+        var response = await api.DeleteAsync($"api/booking/{id}");
+        if (response.IsSuccessStatusCode)
+            return Ok("Booking cancelled.");
+
+        // Hosted API forbids DELETE for administrators; status patch is allowed for them.
+        var fallback = await api.PatchAsJsonAsync($"api/booking/{id}/status", new BookingStatusPayload
+        {
+            Status = 1
+        });
+        if (fallback.IsSuccessStatusCode)
+            return Ok("Booking cancelled.");
+
+        var detail = await FlexiSpaceApiClient.ReadErrorAsync(fallback);
+        return Fail(string.IsNullOrWhiteSpace(detail) || detail.StartsWith("Request failed", StringComparison.Ordinal)
+            ? "You don't have permission to cancel this booking."
+            : detail);
     }
 
     public Task<bool> ApproveBookingAsync(Guid bookingId)
@@ -230,50 +286,154 @@ public sealed class ApiBookingService(
         return Task.FromResult(true);
     }
 
-    public Task<bool> DeclineBookingAsync(Guid bookingId) => CancelBookingAsync(bookingId);
+    public async Task<bool> DeclineBookingAsync(Guid bookingId) =>
+        (await CancelBookingAsync(bookingId)).Success;
 
-    public async Task<bool> UpdateBookingAsync(Guid bookingId, DateTime start, DateTime end, int attendees, string notes)
+    public async Task<BookingResult> UpdateBookingAsync(Guid bookingId, DateTime start, DateTime end, int attendees, string notes)
     {
-        var existing = await GetBookingAsync(bookingId);
-        if (existing is null || !IdMap.TryToInt(existing.RoomId, out var boardroomId))
-            return false;
+        var id = IdMap.ToInt(bookingId);
+        if (id <= 0)
+            return Fail("This booking could not be updated.");
+
+        if (end <= start)
+            return Fail("End time must be after start time.");
+
+        BookingDto? dto = null;
+        try
+        {
+            dto = await api.GetAsync<BookingDto>($"api/booking/{id}");
+        }
+        catch
+        {
+        }
+
+        if (dto is null)
+        {
+            var mapped = await GetBookingAsync(bookingId);
+            if (mapped is null || !IdMap.TryToInt(mapped.RoomId, out var roomId))
+                return Fail("Booking not found.");
+
+            dto = new BookingDto
+            {
+                Id = id,
+                BoardroomId = roomId,
+                Company = mapped.Company,
+                NumberOfAttendees = mapped.Attendees,
+                Notes = mapped.Notes
+            };
+        }
 
         var payload = new BookingUpdatePayload
         {
-            BoardroomId = boardroomId,
+            BoardroomId = dto.BoardroomId,
             BookingDate = DateOnly.FromDateTime(start),
             StartTime = TimeOnly.FromDateTime(start),
             EndTime = TimeOnly.FromDateTime(end),
-            Company = existing.Company,
+            Company = string.IsNullOrWhiteSpace(dto.Company) ? "Flexispace" : dto.Company,
             NumberOfAttendees = Math.Max(1, attendees),
-            Notes = notes
+            Notes = notes,
+            Equipment = dto.Equipment ?? [],
+            Catering = dto.Catering ?? []
         };
 
-        var response = await api.PutAsJsonAsync($"api/booking/{IdMap.ToInt(bookingId)}", payload);
-        return response.IsSuccessStatusCode;
+        var response = await api.PutAsJsonAsync($"api/booking/{id}", payload);
+        if (response.IsSuccessStatusCode)
+            return Ok("Booking updated.");
+
+        if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            return Fail("The server did not allow this account to change the booking times. Sign in as the booker or a centre manager, then try again.");
+
+        var detail = await FlexiSpaceApiClient.ReadErrorAsync(response);
+        return Fail(string.IsNullOrWhiteSpace(detail) ? "Update failed — check the times and try again." : detail);
     }
 
-    public async Task<bool> BlockRoomAsync(string roomId, DateTime start, DateTime end, string reason)
+    private static BookingResult Ok(string message) =>
+        new() { Success = true, Message = message };
+
+    private static BookingResult Fail(string message) =>
+        new() { Success = false, Message = message };
+
+    public async Task<BookingResult> BlockRoomAsync(string roomId, DateTime start, DateTime end, string reason)
     {
-        _ = start;
-        _ = end;
-        if (!IdMap.TryToInt(roomId, out var boardroomId))
-            return false;
+        if (!IdMap.TryToInt(roomId, out var boardroomId) || end <= start)
+            return Fail("Choose a valid room and a period that ends after it starts.");
 
-        var dto = await api.GetAsync<BoardroomDto>($"api/boardroom/{boardroomId}");
-        if (dto is null)
-            return false;
+        var text = string.IsNullOrWhiteSpace(reason) ? "Blocked by Centre Manager" : reason.Trim();
+        var startLocal = DateTime.SpecifyKind(start, DateTimeKind.Unspecified);
+        var endLocal = DateTime.SpecifyKind(end, DateTimeKind.Unspecified);
 
-        var payload = new BoardroomUpdatePayload
+        // Hosted API expects Start/End datetimes. Local API also accepts split date/time.
+        var response = await api.PostAsJsonAsync("api/blockedperiod", new
         {
-            Name = dto.Name,
-            Capacity = dto.Capacity,
-            Status = 2,
-            LocationId = dto.LocationId,
-            Equipment = dto.Equipment
-        };
+            boardroomId,
+            start = startLocal,
+            end = endLocal,
+            reason = text
+        });
+        if (!response.IsSuccessStatusCode)
+        {
+            response = await api.PostAsJsonAsync("api/blockedperiod", new BlockedPeriodCreatePayload
+            {
+                BoardroomId = boardroomId,
+                Start = startLocal,
+                End = endLocal,
+                StartDate = DateOnly.FromDateTime(startLocal),
+                StartTime = TimeOnly.FromDateTime(startLocal),
+                EndDate = DateOnly.FromDateTime(endLocal),
+                EndTime = TimeOnly.FromDateTime(endLocal),
+                Reason = text
+            });
+        }
 
-        var response = await api.PutAsJsonAsync($"api/boardroom/{boardroomId}", payload);
+        if (response.IsSuccessStatusCode)
+            return Ok("The room is now blocked for that period.");
+
+        var detail = await FlexiSpaceApiClient.ReadErrorAsync(response);
+        return Fail(string.IsNullOrWhiteSpace(detail) || detail.StartsWith("Request failed", StringComparison.Ordinal)
+            ? "The room could not be blocked. Check the times and try again."
+            : detail);
+    }
+
+    public async Task<IReadOnlyList<BlockedPeriod>> GetBlockedPeriodsAsync(string? roomId = null)
+    {
+        try
+        {
+            var url = "api/blockedperiod";
+            if (!string.IsNullOrEmpty(roomId) && IdMap.TryToInt(roomId, out var boardroomId))
+                url += $"?boardroomId={boardroomId}";
+
+            var dtos = await api.GetAsync<List<BlockedPeriodDto>>(url) ?? [];
+            var locations = (await rooms.GetLocationsAsync()).ToDictionary(l => l.Id, l => l.Name);
+            return dtos.Select(dto => new BlockedPeriod
+            {
+                Id = IdMap.ToGuid(dto.Id),
+                RoomId = dto.BoardroomId.ToString(),
+                RoomName = dto.BoardroomName,
+                LocationId = dto.LocationId.ToString(),
+                LocationName = locations.GetValueOrDefault(dto.LocationId.ToString(), string.Empty),
+                Start = dto.Start ?? (dto.StartDate == default
+                    ? default
+                    : dto.StartDate.ToDateTime(dto.StartTime)),
+                End = dto.End ?? (dto.EndDate == default
+                    ? default
+                    : dto.EndDate.ToDateTime(dto.EndTime)),
+                Reason = dto.Reason,
+                CreatedBy = dto.CreatedByName
+            }).ToList();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<bool> RemoveBlockedPeriodAsync(Guid blockId)
+    {
+        var id = IdMap.ToInt(blockId);
+        if (id <= 0)
+            return false;
+
+        var response = await api.DeleteAsync($"api/blockedperiod/{id}");
         return response.IsSuccessStatusCode;
     }
 

@@ -26,7 +26,7 @@ public sealed class ApiAdminService(
         if (auth.CurrentUser is null || !RolePermissions.CanManageUsers(auth.CurrentUser.Role))
             return [];
 
-        var dtos = await api.GetAsync<List<EntraUserDto>>("api/entrauser") ?? [];
+        var dtos = await api.GetRequiredAsync<List<EntraUserDto>>("api/entrauser");
         return dtos.Select(ToEntraUser).ToList();
     }
 
@@ -84,20 +84,7 @@ public sealed class ApiAdminService(
         });
         if (provision.IsSuccessStatusCode)
             return (true, $"{user.Name} is now provisioned in FlexiSpace.");
-
-        var directory = await api.PostAsJsonAsync("api/user/directory", new UserCreatePayload
-        {
-            FirstName = user.FirstName.Trim(),
-            LastName = user.LastName.Trim(),
-            Email = user.Email.Trim(),
-            Role = CatalogMapper.ToApiRole(user.Role),
-            LocationId = locationId,
-            EntraObjectId = user.EntraObjectId
-        });
-
-        return directory.IsSuccessStatusCode
-            ? (true, $"{user.Name} is now provisioned in FlexiSpace.")
-            : (false, await FlexiSpaceApiClient.ReadErrorAsync(directory));
+        return (false, await FlexiSpaceApiClient.ReadErrorAsync(provision));
     }
 
     public async Task<(bool Ok, string Message)> UpdateUserAsync(User user)
@@ -155,35 +142,154 @@ public sealed class ApiAdminService(
             : "User deactivated. Open Edit to activate them again.");
     }
 
-    public async Task<bool> AddRoomAsync(Boardroom room)
+    public async Task<(bool Ok, string Message)> AddRoomAsync(Boardroom room)
     {
         if (auth.CurrentUser is null || !RolePermissions.CanManageRooms(auth.CurrentUser.Role))
-            return false;
+            return (false, "Only Administrators can add boardrooms.");
         if (string.IsNullOrWhiteSpace(room.Name) || !IdMap.TryToInt(room.LocationId, out var locationId))
-            return false;
+            return (false, "Choose a location and enter a boardroom name.");
 
-        var payload = new BoardroomCreatePayload
+        var catalog = await api.GetAsync<List<EquipmentDto>>("api/equipment") ?? [];
+        var equipment = room.Equipment
+            .Select(name => catalog.FirstOrDefault(e => e.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            .Where(e => e is not null)
+            .Select(e => new BoardroomEquipmentDto { EquipmentId = e!.Id, Quantity = 1 })
+            .ToList();
+
+        var response = await api.PostAsJsonAsync("api/boardroom", new BoardroomCreatePayload
         {
-            Name = room.Name,
+            Name = room.Name.Trim(),
             Capacity = Math.Max(1, room.Capacity),
             LocationId = locationId,
             Status = 0,
-            Equipment = []
-        };
+            Equipment = equipment
+        });
 
-        var response = await api.PostAsJsonAsync("api/boardroom", payload);
-        return response.IsSuccessStatusCode;
+        if (!response.IsSuccessStatusCode)
+            return (false, await FlexiSpaceApiClient.ReadErrorAsync(response));
+
+        rooms.InvalidateCatalog();
+        return (true, $"{room.Name.Trim()} was added.");
     }
 
-    public async Task<bool> RemoveRoomAsync(string roomId)
+    public async Task<(bool Ok, string Message)> UpdateRoomAsync(Boardroom room)
     {
         if (auth.CurrentUser is null || !RolePermissions.CanManageRooms(auth.CurrentUser.Role))
-            return false;
+            return (false, "Only Administrators can update boardrooms.");
+        if (!IdMap.TryToInt(room.Id, out var id) ||
+            string.IsNullOrWhiteSpace(room.Name) ||
+            !IdMap.TryToInt(room.LocationId, out var locationId))
+            return (false, "Choose a location and enter a boardroom name.");
+
+        var catalog = await api.GetAsync<List<EquipmentDto>>("api/equipment") ?? [];
+        var equipment = room.Equipment
+            .Select(name => catalog.FirstOrDefault(e => e.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            .Where(e => e is not null)
+            .Select(e => new BoardroomEquipmentDto { EquipmentId = e!.Id, Quantity = 1 })
+            .ToList();
+
+        var response = await api.PutAsJsonAsync($"api/boardroom/{id}", new BoardroomUpdatePayload
+        {
+            Name = room.Name.Trim(),
+            Capacity = Math.Max(1, room.Capacity),
+            LocationId = locationId,
+            Status = ToApiRoomStatus(room.Status),
+            Equipment = equipment
+        });
+
+        if (!response.IsSuccessStatusCode)
+            return (false, await FlexiSpaceApiClient.ReadErrorAsync(response));
+
+        rooms.InvalidateCatalog();
+        return (true, $"{room.Name.Trim()} was updated.");
+    }
+
+    public async Task<(bool Ok, string Message)> RemoveRoomAsync(string roomId)
+    {
+        if (auth.CurrentUser is null || !RolePermissions.CanManageRooms(auth.CurrentUser.Role))
+            return (false, "Only Administrators can remove boardrooms.");
         if (!IdMap.TryToInt(roomId, out var id))
-            return false;
+            return (false, "Boardroom not found.");
 
         var response = await api.DeleteAsync($"api/boardroom/{id}");
-        return response.IsSuccessStatusCode;
+        if (!response.IsSuccessStatusCode)
+            return (false, await FlexiSpaceApiClient.ReadErrorAsync(response));
+
+        rooms.InvalidateCatalog();
+        return (true, "Boardroom removed.");
+    }
+
+    public async Task<(bool Ok, string Message)> CreateLocationAsync(OfficeLocation location)
+    {
+        if (auth.CurrentUser is null || !RolePermissions.CanConfigureLocations(auth.CurrentUser.Role))
+            return (false, "Only Administrators can add locations.");
+        if (string.IsNullOrWhiteSpace(location.Name))
+            return (false, "Enter a location name.");
+
+        var response = await api.PostAsJsonAsync("api/location", new LocationWritePayload
+        {
+            Name = location.Name.Trim(),
+            Address = location.Address.Trim()
+        });
+        if (!response.IsSuccessStatusCode)
+            return (false, await FlexiSpaceApiClient.ReadErrorAsync(response));
+
+        rooms.InvalidateCatalog();
+        return (true, $"{location.Name.Trim()} was added.");
+    }
+
+    public async Task<(bool Ok, string Message)> UpdateLocationAsync(OfficeLocation location)
+    {
+        if (auth.CurrentUser is null || !RolePermissions.CanConfigureLocations(auth.CurrentUser.Role))
+            return (false, "Only Administrators can update locations.");
+        if (!IdMap.TryToInt(location.Id, out var id))
+            return (false, "Location not found.");
+
+        var response = await api.PutAsJsonAsync($"api/location/{id}", new LocationWritePayload
+        {
+            Name = location.Name.Trim(),
+            Address = location.Address.Trim()
+        });
+        if (!response.IsSuccessStatusCode)
+            return (false, await FlexiSpaceApiClient.ReadErrorAsync(response));
+
+        rooms.InvalidateCatalog();
+        return (true, $"{location.Name.Trim()} was updated.");
+    }
+
+    public async Task<(bool Ok, string Message)> DeleteLocationAsync(string locationId)
+    {
+        if (auth.CurrentUser is null || !RolePermissions.CanConfigureLocations(auth.CurrentUser.Role))
+            return (false, "Only Administrators can remove locations.");
+        if (!IdMap.TryToInt(locationId, out var id))
+            return (false, "Location not found.");
+
+        var response = await api.DeleteAsync($"api/location/{id}");
+        if (!response.IsSuccessStatusCode)
+            return (false, await FlexiSpaceApiClient.ReadErrorAsync(response));
+
+        rooms.InvalidateCatalog();
+        return (true, "Location removed.");
+    }
+
+    public async Task<IReadOnlyList<AuditLogEntry>> GetRecentAuditAsync(int count = 100)
+    {
+        if (auth.CurrentUser is null || !RolePermissions.CanManageUsers(auth.CurrentUser.Role))
+            return [];
+
+        var dtos = await api.GetAsync<List<AuditLogDto>>($"api/auditlog/recent?count={Math.Clamp(count, 1, 500)}") ?? [];
+        return dtos.Select(dto => new AuditLogEntry
+        {
+            Id = dto.Id,
+            ActingUserId = dto.ActingUserId,
+            ActingUserName = string.IsNullOrWhiteSpace(dto.ActingUserName) ? "—" : dto.ActingUserName,
+            Action = dto.Action,
+            EntityName = dto.EntityName,
+            EntityId = dto.EntityId,
+            Timestamp = dto.Timestamp.Kind == DateTimeKind.Utc ? dto.Timestamp.ToLocalTime() : dto.Timestamp,
+            OldValues = dto.OldValues,
+            NewValues = dto.NewValues
+        }).ToList();
     }
 
     public async Task<ReportSummary> GetReportSummaryAsync()
@@ -221,6 +327,14 @@ public sealed class ApiAdminService(
         return dtos.Select(CatalogMapper.ToUser).ToList();
     }
 
+    private static int ToApiRoomStatus(RoomStatus status) => status switch
+    {
+        RoomStatus.Maintenance => 1,
+        RoomStatus.Blocked => 2,
+        RoomStatus.Cleaning => 3,
+        _ => 0
+    };
+
     private static User ToEntraUser(EntraUserDto dto)
     {
         var first = dto.FirstName.Trim();
@@ -237,7 +351,8 @@ public sealed class ApiAdminService(
             LastName = last,
             Name = name,
             Email = dto.Email,
-            Role = UserRole.Staff,
+            Role = dto.Role ?? UserRole.Staff,
+            HasAssignedFlexiSpaceRole = dto.Role.HasValue,
             IsActive = dto.IsActive
         };
     }

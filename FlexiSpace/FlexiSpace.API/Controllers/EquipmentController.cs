@@ -1,28 +1,31 @@
 ﻿using FlexiSpace.API.Authorization;
-using FlexiSpace.Core.Common;
 using FlexiSpace.Core.DTOs.Equipment;
 using FlexiSpace.Core.Entities;
 using FlexiSpace.Core.Enums;
 using FlexiSpace.Core.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using FlexiSpace.API.Controllers.Base;
+using FlexiSpace.Core.Common;
 
 namespace FlexiSpace.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class EquipmentController : ControllerBase
+    public class EquipmentController : AuditableControllerBase
     {
         private readonly IEquipmentService _equipmentService;
 
-        public EquipmentController(IEquipmentService equipmentService)
+        public EquipmentController(IEquipmentService equipmentService, IAuditService auditService, ICurrentUserService currentUserService) : base(auditService, currentUserService)
         {
             _equipmentService = equipmentService;
         }
 
         // Retrieves all equipment available in the system.
+        // Guests and clients can browse the catalogue; only administrators can change it.
         [HttpGet]
+        [AllowAnonymous]
         public async Task<IActionResult> GetAllEquipment()
         {
             var equipment = await _equipmentService
@@ -35,6 +38,7 @@ namespace FlexiSpace.API.Controllers
 
         // Retrieves a single piece of equipment using its unique ID.
         [HttpGet("{id:int}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetEquipmentById(int id)
         {
             if (id <= 0)
@@ -77,6 +81,8 @@ namespace FlexiSpace.API.Controllers
 
             var createdEquipment = await _equipmentService
                 .CreateEquipmentAsync(equipment);
+            await LogActionAsync(AuditAction.Create, "Equipment", createdEquipment.Id.ToString(), null,
+                new { createdEquipment.Name, createdEquipment.Description, createdEquipment.IsActive });
 
             return CreatedAtAction(
                 nameof(GetEquipmentById),
@@ -121,6 +127,9 @@ namespace FlexiSpace.API.Controllers
                 return NotFound();
             }
 
+            await LogActionAsync(AuditAction.Update, "Equipment", id.ToString(), null,
+                new { equipment.Name, equipment.Description, equipment.IsActive });
+
             return NoContent();
         }
 
@@ -155,6 +164,9 @@ namespace FlexiSpace.API.Controllers
                     "This equipment has been used in an existing booking " +
                     "and cannot be deleted. Deactivate it instead.");
             }
+
+            await LogActionAsync(AuditAction.Delete, "Equipment", id.ToString(),
+                new { equipment.Name, equipment.Description, equipment.IsActive }, null);
 
             return NoContent();
         }

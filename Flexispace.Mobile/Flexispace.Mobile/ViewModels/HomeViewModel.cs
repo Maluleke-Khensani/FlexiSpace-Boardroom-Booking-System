@@ -10,7 +10,6 @@ namespace Flexispace.Mobile.ViewModels;
 public partial class HomeViewModel(IAuthService auth, IBookingService bookings, IRoomService rooms, INotificationService notifications) : ObservableObject
 {
     [ObservableProperty] private string greeting = "Welcome";
-    [ObservableProperty] private string subtitle = "You run your business — we run the rest.";
     [ObservableProperty] private string roleBanner = string.Empty;
     [ObservableProperty] private int unreadCount;
     [ObservableProperty] private bool isEmpty;
@@ -27,6 +26,24 @@ public partial class HomeViewModel(IAuthService auth, IBookingService bookings, 
     public ObservableCollection<Booking> TodaysBookings { get; } = [];
     public ObservableCollection<OfficeLocation> Locations { get; } = [];
 
+    private bool _watchingUnread;
+
+    public void WatchUnread(bool watch)
+    {
+        if (watch == _watchingUnread)
+            return;
+
+        if (watch)
+            notifications.UnreadCountChanged += OnLiveUnread;
+        else
+            notifications.UnreadCountChanged -= OnLiveUnread;
+
+        _watchingUnread = watch;
+    }
+
+    private void OnLiveUnread(int count) =>
+        MainThread.BeginInvokeOnMainThread(() => UnreadCount = count);
+
     [RelayCommand]
     private async Task AppearingAsync()
     {
@@ -42,15 +59,7 @@ public partial class HomeViewModel(IAuthService auth, IBookingService bookings, 
                 CanAccessManage = RolePermissions.CanAccessManageHub(user.Role);
                 CanViewReports = RolePermissions.CanViewReports(user.Role);
                 ShowPayPlaceholder = RolePermissions.CanSeePayPlaceholder(user.Role);
-                RoleBanner = $"{RolePermissions.DisplayName(user.Role)} · {RolePermissions.Describe(user.Role)}";
-                Subtitle = user.Role switch
-                {
-                    UserRole.Administrator => "All locations · rooms, users & reports",
-                    UserRole.CentreManager => $"Managing {user.LocationId ?? "your centre"}",
-                    UserRole.Staff => "Book rooms · live availability · operations reports",
-                    UserRole.Client => "Self-service booking across Flexispace",
-                    _ => "You run your business — we run the rest."
-                };
+                RoleBanner = string.Empty;
             }
             else
             {
@@ -76,6 +85,7 @@ public partial class HomeViewModel(IAuthService auth, IBookingService bookings, 
         catch (Exception ex)
         {
             RoleBanner = $"Could not refresh home: {ex.Message}";
+            await ActionFeedback.FailAsync(RoleBanner, "Home");
         }
         finally
         {

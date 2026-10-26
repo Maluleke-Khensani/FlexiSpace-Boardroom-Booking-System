@@ -38,6 +38,55 @@
                     <Label Text="Bookings in scope" TextColor="{DynamicResource BrandGoldDeep}" FontAttributes="Bold" />
                     <Label Text="Open a booking to see its details, change its status, or edit the schedule."
                            Style="{StaticResource MutedLabel}" FontSize="12" />
+
+                    <Border BackgroundColor="{DynamicResource BrandSurface}"
+                            Stroke="{DynamicResource BrandLine}"
+                            StrokeThickness="1"
+                            StrokeShape="RoundRectangle 12"
+                            Padding="8,0">
+                        <SearchBar Placeholder="Search room, person, company, or centre"
+                                   Text="{Binding SearchText}"
+                                   TextColor="{DynamicResource BrandInk}"
+                                   PlaceholderColor="{DynamicResource BrandMuted}"
+                                   BackgroundColor="Transparent"
+                                   CancelButtonColor="{DynamicResource BrandGoldDeep}" />
+                    </Border>
+
+                    <ScrollView Orientation="Horizontal"
+                                HorizontalScrollBarVisibility="Never"
+                                IsVisible="{Binding HasLocationFilters}">
+                        <HorizontalStackLayout BindableLayout.ItemsSource="{Binding LocationFilters}" Spacing="8">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:LocationFilterChip">
+                                    <Border Padding="14,8"
+                                            StrokeThickness="0"
+                                            StrokeShape="RoundRectangle 16"
+                                            BackgroundColor="{DynamicResource BrandSurface}">
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding Source={x:Reference Root}, Path=BindingContext.SelectLocationCommand}"
+                                                CommandParameter="{Binding .}" />
+                                        </Border.GestureRecognizers>
+                                        <Border.Triggers>
+                                            <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{StaticResource BrandCharcoal}" />
+                                            </DataTrigger>
+                                        </Border.Triggers>
+                                        <Label Text="{Binding Name}"
+                                               FontSize="13"
+                                               TextColor="{DynamicResource BrandMuted}">
+                                            <Label.Triggers>
+                                                <DataTrigger TargetType="Label" Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter Property="TextColor" Value="{StaticResource BrandIvory}" />
+                                                    <Setter Property="FontAttributes" Value="Bold" />
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </HorizontalStackLayout>
+                    </ScrollView>
                     <VerticalStackLayout BindableLayout.ItemsSource="{Binding LocationBookings}"
                                          Spacing="8"
                                          IsVisible="{Binding HasLocationBookings}">
@@ -74,8 +123,8 @@
                     <Border IsVisible="{Binding HasLocationBookings, Converter={StaticResource InvertedBoolConverter}}"
                             Style="{StaticResource ElevatedCard}" Padding="16,18">
                         <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
-                            <Label Text="No bookings in scope" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" HorizontalTextAlignment="Center" />
-                            <Label Text="Bookings for your centre will list here once someone books a room."
+                            <Label Text="{Binding EmptyBookingsTitle}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" HorizontalTextAlignment="Center" />
+                            <Label Text="{Binding EmptyBookingsMessage}"
                                    Style="{StaticResource MutedLabel}" FontSize="12" HorizontalTextAlignment="Center" />
                         </VerticalStackLayout>
                     </Border>
@@ -265,13 +314,16 @@
                                                 BackgroundColor="#22C4A035"
                                                 Padding="12,10">
                                             <VerticalStackLayout Spacing="2">
-                                                <Label Text="Blocked" TextColor="{DynamicResource BrandGoldDeep}" FontAttributes="Bold" FontSize="12" />
+                                                <Label Text="{Binding StatusLabel}" TextColor="{DynamicResource BrandGoldDeep}" FontAttributes="Bold" FontSize="12" />
                                                 <HorizontalStackLayout Spacing="4">
                                                     <Label Text="{Binding Start, StringFormat='{0:HH:mm}'}" TextColor="{DynamicResource BrandInk}" FontSize="13" />
                                                     <Label Text="–" TextColor="{DynamicResource BrandMuted}" FontSize="13" />
                                                     <Label Text="{Binding End, StringFormat='{0:HH:mm}'}" TextColor="{DynamicResource BrandInk}" FontSize="13" />
                                                 </HorizontalStackLayout>
-                                                <Label Text="{Binding Reason}" TextColor="{DynamicResource BrandMuted}" FontSize="12" />
+                                                <Label Text="{Binding Reason}"
+                                                       IsVisible="{Binding ShowReasonDetail}"
+                                                       TextColor="{DynamicResource BrandMuted}"
+                                                       FontSize="12" />
                                             </VerticalStackLayout>
                                         </Border>
                                     </DataTemplate>

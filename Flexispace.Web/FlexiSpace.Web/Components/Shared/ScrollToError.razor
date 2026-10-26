@@ -1,0 +1,15 @@
+@* Scrolls to the first validation error or error banner anywhere in the app. *@
+@inject IJSRuntime JS
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("flexispaceUi.scrollToFirstError");
+        }
+        catch
+        {
+        }
+    }
+}

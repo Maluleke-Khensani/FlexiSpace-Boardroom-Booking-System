@@ -46,7 +46,7 @@ namespace FlexiSpace.Infrastructure.Services
             DateTime? to)
         {
             var query = _context.BlockedPeriods
-                .Include(bp => bp.CreatedBy)
+                .Include(bp => bp.CreatedByUser)
                 .AsQueryable();
 
             if (boardroomId.HasValue)
@@ -73,7 +73,7 @@ namespace FlexiSpace.Infrastructure.Services
         public async Task<BlockedPeriod?> GetBlockedPeriodByIdAsync(int id)
         {
             return await _context.BlockedPeriods
-                .Include(bp => bp.CreatedBy)
+                .Include(bp => bp.CreatedByUser)
                 .FirstOrDefaultAsync(bp => bp.Id == id);
         }
 
@@ -170,7 +170,7 @@ namespace FlexiSpace.Infrastructure.Services
 
             // Reload with CreatedBy so the response can show who set it.
             return await _context.BlockedPeriods
-                .Include(bp => bp.CreatedBy)
+                .Include(bp => bp.CreatedByUser)
                 .FirstAsync(bp => bp.Id == blockedPeriod.Id);
         }
 

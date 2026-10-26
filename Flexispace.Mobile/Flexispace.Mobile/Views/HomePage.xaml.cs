@@ -24,6 +24,7 @@ public partial class HomePage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        _vm.WatchUnread(true);
         await _vm.AppearingCommand.ExecuteAsync(null);
         _homeIndex = Math.Clamp(_homeIndex, 0, Math.Max(0, _vm.Locations.Count - 1));
         RefreshHomeCarousel();
@@ -43,6 +44,7 @@ public partial class HomePage : ContentPage
 
     protected override void OnDisappearing()
     {
+        _vm.WatchUnread(false);
         base.OnDisappearing();
         _homeHoverCts?.Cancel();
     }
@@ -155,7 +157,4 @@ public partial class HomePage : ContentPage
         if (_vm.Locations.Count == 0) return;
         await _vm.OpenLocationCommand.ExecuteAsync(_vm.Locations[_homeIndex]);
     }
-
-    private async void OnMyBookingsClicked(object? sender, EventArgs e) =>
-        await Shell.Current.GoToAsync(nameof(MyBookingsPage));
 }

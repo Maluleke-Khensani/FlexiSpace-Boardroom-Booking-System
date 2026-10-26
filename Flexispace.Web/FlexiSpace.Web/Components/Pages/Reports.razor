@@ -44,7 +44,7 @@ else
         {
             <div class="fs-arena-locked">
                 <p class="fs-arena-locked__title">Dungeon locked</p>
-                <p>@Vm.Subtitle</p>
+                <p id="fs-error-banner" class="fs-error">@Vm.Subtitle</p>
             </div>
         }
         else if (Vm.IsBusy)
@@ -67,6 +67,15 @@ else
                     <p>Confirmed vs cancelled</p>
                 </div>
             </div>
+
+            <h2 class="fs-arena-heading">📋 Booking reports</h2>
+            <div class="fs-arena-score">
+                <div class="fs-arena-tile fs-arena-tile--success"><span>@Vm.TodaysBookings</span><small>Daily bookings</small></div>
+                <div class="fs-arena-tile fs-arena-tile--teal"><span>@Vm.ThisMonthBookings</span><small>Monthly usage</small></div>
+                <div class="fs-arena-tile fs-arena-tile--gold"><span>@Vm.OccupancyPercent.ToString("0")%</span><small>Occupancy</small></div>
+                <div class="fs-arena-tile fs-arena-tile--steel"><span>@Vm.CancelledBookings</span><small>Cancelled</small></div>
+            </div>
+            <p class="fs-muted" style="margin:0 0 20px">Most used room · @Vm.MostUsedRoom</p>
 
             <h2 class="fs-arena-heading">⚔ Scoreboard</h2>
             <div class="fs-arena-score">

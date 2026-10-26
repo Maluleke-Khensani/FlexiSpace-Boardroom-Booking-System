@@ -16,6 +16,13 @@ public partial class AvailabilityItem : ObservableObject
     public Color StatusColor => RoomStatusPalette.GetColor(StatusText);
 }
 
+public sealed class AvailabilityGroup
+{
+    public string LocationName { get; init; } = string.Empty;
+    public string CountLabel { get; init; } = string.Empty;
+    public ObservableCollection<AvailabilityItem> Rooms { get; } = [];
+}
+
 public partial class AvailabilityViewModel(IAuthService auth, IRoomService rooms) : ObservableObject
 {
     [ObservableProperty] private string selectedLocationId = string.Empty;
@@ -31,6 +38,7 @@ public partial class AvailabilityViewModel(IAuthService auth, IRoomService rooms
     [ObservableProperty] private int occupiedCount;
 
     public ObservableCollection<AvailabilityItem> Items { get; } = [];
+    public ObservableCollection<AvailabilityGroup> Groups { get; } = [];
     public ObservableCollection<OfficeLocation> Locations { get; } = [];
 
     [RelayCommand]
@@ -45,6 +53,7 @@ public partial class AvailabilityViewModel(IAuthService auth, IRoomService rooms
         {
             AccessMessage = "Live availability is for Staff, Centre Managers, and Administrators.";
             Items.Clear();
+            Groups.Clear();
             IsEmpty = true;
             return;
         }
@@ -82,21 +91,37 @@ public partial class AvailabilityViewModel(IAuthService auth, IRoomService rooms
         IsBusy = true;
         try
         {
-            var locMap = DistinctById(await rooms.GetLocationsAsync())
-                .ToDictionary(l => l.Id, l => l.Name, StringComparer.OrdinalIgnoreCase);
+            var locMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var loc in await rooms.GetLocationsAsync())
+                locMap.TryAdd(loc.Id, loc.Name);
             var roomsList = await rooms.GetAvailabilityAsync(
                 string.IsNullOrEmpty(SelectedLocationId) ? null : SelectedLocationId,
                 DateTime.Today);
 
-            Items.Clear();
-            foreach (var room in roomsList)
+            var built = roomsList.Select(room => new AvailabilityItem
             {
-                Items.Add(new AvailabilityItem
+                Room = room,
+                LocationName = locMap.GetValueOrDefault(room.LocationId, room.LocationId)
+            }).ToList();
+
+            Items.Clear();
+            Groups.Clear();
+            foreach (var group in built.GroupBy(i => i.LocationName).OrderBy(g => g.Key))
+            {
+                var section = new AvailabilityGroup
                 {
-                    Room = room,
-                    LocationName = locMap.GetValueOrDefault(room.LocationId, room.LocationId)
-                });
+                    LocationName = string.IsNullOrWhiteSpace(group.Key) ? "Centre" : group.Key,
+                    CountLabel = group.Count() == 1 ? "1 room" : $"{group.Count()} rooms"
+                };
+                foreach (var item in group)
+                {
+                    section.Rooms.Add(item);
+                    Items.Add(item);
+                }
+
+                Groups.Add(section);
             }
+
             IsEmpty = Items.Count == 0;
             AvailableCount = Items.Count(i => i.Room.Status == RoomStatus.Available);
             ReservedCount = Items.Count(i => i.Room.Status == RoomStatus.Reserved);
@@ -128,18 +153,9 @@ public partial class AvailabilityViewModel(IAuthService auth, IRoomService rooms
             return;
         }
 
-        if (Shell.Current is null) return;
         var equipment = item.Room.Equipment.Count > 0 ? string.Join(", ", item.Room.Equipment) : "—";
-        await Shell.Current.DisplayAlertAsync(
-            item.Room.Name,
+        await ActionFeedback.MessageAsync(
             $"{item.LocationName} · Seats {item.Room.Capacity}\nStatus: {item.StatusText}\nEquipment: {equipment}",
-            "OK");
+            item.Room.Name);
     }
-
-    private static List<OfficeLocation> DistinctById(IEnumerable<OfficeLocation> locations) =>
-        locations
-            .Where(l => !string.IsNullOrWhiteSpace(l.Id))
-            .GroupBy(l => l.Id, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First())
-            .ToList();
 }

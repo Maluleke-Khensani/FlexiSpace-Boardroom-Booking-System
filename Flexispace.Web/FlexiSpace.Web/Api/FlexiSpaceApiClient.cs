@@ -20,7 +20,8 @@ public sealed class FlexiSpaceApiClient(
     {
         PropertyNameCaseInsensitive = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Converters = { new JsonStringEnumConverter() }
     };
 
     private readonly HttpClient _http = httpClientFactory.CreateClient("FlexiSpaceApi");
@@ -31,6 +32,24 @@ public sealed class FlexiSpaceApiClient(
         if (!response.IsSuccessStatusCode)
             return default;
         return await response.Content.ReadFromJsonAsync<T>(Json, cancellationToken);
+    }
+
+    public async Task<T> GetRequiredAsync<T>(string url, CancellationToken cancellationToken = default)
+    {
+        using var response = await SendAsync(HttpMethod.Get, url, content: null, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var detail = await ReadErrorAsync(response);
+            throw new HttpRequestException(
+                $"The API could not load {url} ({(int)response.StatusCode}): {detail}",
+                inner: null,
+                statusCode: response.StatusCode);
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<T>(Json, cancellationToken);
+        if (payload is null)
+            throw new InvalidDataException($"The API returned no data for {url}.");
+        return payload;
     }
 
     public Task<HttpResponseMessage> PostAsJsonAsync<T>(string url, T body, CancellationToken cancellationToken = default) =>
@@ -67,6 +86,7 @@ public sealed class FlexiSpaceApiClient(
 
     private async Task AttachTokenAsync(HttpRequestMessage request)
     {
+
         try
         {
             var state = await authenticationStateProvider.GetAuthenticationStateAsync();

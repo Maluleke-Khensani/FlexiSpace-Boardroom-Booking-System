@@ -49,12 +49,15 @@ public static class RolePermissions
     public static bool CanAccessManageHub(UserRole role) =>
         role is UserRole.CentreManager or UserRole.Administrator;
 
+    public static bool CanOpenManage(UserRole role) =>
+        CanAccessManageHub(role) || role is UserRole.Client;
+
     public static string Describe(UserRole role) => role switch
     {
         UserRole.Administrator => "Add/remove rooms · configure locations · manage users · all bookings · reports",
         UserRole.CentreManager => "View, edit, block, and cancel bookings for your centre · reports",
         UserRole.Staff => "Book rooms · cancel own bookings · view live availability · reports",
-        UserRole.Client => "Self-service booking across Flexispace locations",
+        UserRole.Client => "Book rooms · manage and cancel your own bookings",
         _ => string.Empty
     };
 

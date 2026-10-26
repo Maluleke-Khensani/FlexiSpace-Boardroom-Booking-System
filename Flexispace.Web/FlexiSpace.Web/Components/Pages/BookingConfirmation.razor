@@ -41,9 +41,13 @@ else
             <h1 class="fs-heading fs-heading--sm">Your boardroom is ready.</h1>
 
             <div class="fs-card" style="margin:28px 0; text-align:center">
+                <p class="fs-muted" style="margin:0 0 8px">@DisplayHelpers.BookingRef(Vm.Booking.Id)</p>
                 <strong style="font-size:18px">@Vm.Booking.RoomName</strong>
                 <p class="fs-muted" style="margin:6px 0">@Vm.Booking.LocationName</p>
-                <p style="color:var(--fs-gold-soft); margin:6px 0">@Vm.Booking.Start.ToString("f")</p>
+                <p style="color:var(--fs-gold-soft); margin:6px 0">@Vm.Booking.Start.ToString("f") – @Vm.Booking.End.ToString("t")</p>
+                <p class="fs-muted" style="margin:6px 0">@Vm.Booking.Company · @Vm.Booking.Attendees attendees</p>
+                <p class="fs-muted" style="margin:6px 0">Equipment · @DisplayHelpers.JoinList(Vm.Booking.Equipment)</p>
+                <p class="fs-muted" style="margin:6px 0">Catering · @DisplayHelpers.JoinList(Vm.Booking.Catering)</p>
                 <p style="color:var(--fs-gold-deep); font-weight:700; margin:0">Status · @Vm.Booking.Status</p>
             </div>
 
