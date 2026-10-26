@@ -7,6 +7,7 @@ using FlexiSpace.Core.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using FlexiSpace.API.Authorization;
+using FlexiSpace.API.Controllers.Base;
 using FlexiSpace.Core.Enums;
 
 namespace FlexiSpace.API.Controllers
@@ -14,7 +15,7 @@ namespace FlexiSpace.API.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class BookingController : ControllerBase
+    public class BookingController : AuditableControllerBase
     {
         private readonly IBookingService _bookingService;
         private readonly ICurrentUserService _currentUserService;
@@ -22,7 +23,8 @@ namespace FlexiSpace.API.Controllers
 
         public BookingController(IBookingService bookingService,
             ICurrentUserService currentUserService,
-            IBoardroomService boardroomService)
+            IBoardroomService boardroomService,
+            IAuditService auditService) : base(auditService, currentUserService)
         {
             _bookingService = bookingService;
             _currentUserService = currentUserService;
@@ -211,6 +213,12 @@ namespace FlexiSpace.API.Controllers
             {
                 var createdBooking = await _bookingService.CreateBookingAsync(booking);
 
+                await LogActionAsync(AuditAction.Create, "Booking", createdBooking.Id.ToString(), null, new
+                {
+                    createdBooking.BoardroomId, createdBooking.BookingDate, createdBooking.StartTime,
+                    createdBooking.EndTime, createdBooking.NumberOfAttendees, createdBooking.Status
+                });
+
                 return CreatedAtAction(
                     nameof(GetBookingById),
                     new { id = createdBooking.Id },
@@ -305,6 +313,16 @@ namespace FlexiSpace.API.Controllers
                     return NotFound();
                 }
 
+                await LogActionAsync(AuditAction.Update, "Booking", id.ToString(), new
+                {
+                    existing.BoardroomId, existing.BookingDate, existing.StartTime, existing.EndTime,
+                    existing.NumberOfAttendees, existing.Status
+                }, new
+                {
+                    booking.BoardroomId, booking.BookingDate, booking.StartTime, booking.EndTime,
+                    booking.NumberOfAttendees
+                });
+
                 return NoContent();
             }
             catch (NotFoundException ex)
@@ -365,6 +383,12 @@ namespace FlexiSpace.API.Controllers
                     return NotFound();
                 }
 
+                await LogActionAsync(AuditAction.Delete, "Booking", id.ToString(), new
+                {
+                    existing.BoardroomId, existing.BookingDate, existing.StartTime, existing.EndTime,
+                    existing.Status
+                }, new { Status = "Cancelled" });
+
                 return NoContent();
             }
             catch (BusinessRuleException ex)
@@ -405,6 +429,9 @@ namespace FlexiSpace.API.Controllers
                 {
                     return NotFound();
                 }
+
+                await LogActionAsync(AuditAction.Update, "Booking", id.ToString(),
+                    new { existing.Status }, new { dto.Status });
 
                 return NoContent();
             }

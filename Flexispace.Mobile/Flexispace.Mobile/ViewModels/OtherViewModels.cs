@@ -16,7 +16,7 @@ public partial class NotificationsViewModel(INotificationService notifications) 
     [ObservableProperty] private int readCount;
     [ObservableProperty] private int totalCount;
     [ObservableProperty] private double clearProgress;
-    [ObservableProperty] private string questLine = "You're all caught up.";
+    [ObservableProperty] private string summary = "No alerts yet.";
     [ObservableProperty] private string emptyTitle = "Inbox zero";
     [ObservableProperty] private string emptySubtitle = "You're clear. New alerts will land here.";
 
@@ -25,20 +25,63 @@ public partial class NotificationsViewModel(INotificationService notifications) 
     public ObservableCollection<AppNotification> Items { get; } = [];
     public ObservableCollection<AppNotification> VisibleItems { get; } = [];
 
-    [RelayCommand]
-    private async Task AppearingAsync()
+    private bool _watching;
+    private bool _syncing;
+
+    /// <summary>
+    /// While the inbox is on screen, a change in the unread count reloads the list
+    /// so an alert created for this person by someone else appears in place.
+    /// </summary>
+    public void WatchInbox(bool watch)
     {
-        IsBusy = true;
+        if (watch == _watching)
+            return;
+
+        if (watch)
+            notifications.UnreadCountChanged += OnInboxChanged;
+        else
+            notifications.UnreadCountChanged -= OnInboxChanged;
+
+        _watching = watch;
+    }
+
+    private void OnInboxChanged(int count)
+    {
+        if (!_watching || _syncing || count == UnreadCount)
+            return;
+
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            if (!_watching || _syncing || count == UnreadCount)
+                return;
+            _ = LoadAsync(showBusy: false);
+        });
+    }
+
+    [RelayCommand]
+    private Task AppearingAsync() => LoadAsync(showBusy: true);
+
+    private async Task LoadAsync(bool showBusy)
+    {
+        if (_syncing)
+            return;
+
+        _syncing = true;
+        if (showBusy)
+            IsBusy = true;
         try
         {
+            var latest = await notifications.GetNotificationsAsync();
             Items.Clear();
-            foreach (var n in await notifications.GetNotificationsAsync())
+            foreach (var n in latest)
                 Items.Add(n);
             ApplyFilter();
         }
         finally
         {
-            IsBusy = false;
+            if (showBusy)
+                IsBusy = false;
+            _syncing = false;
         }
     }
 
@@ -50,13 +93,7 @@ public partial class NotificationsViewModel(INotificationService notifications) 
         ApplyFilter();
     }
 
-    partial void OnUnreadCountChanged(int value)
-    {
-        OnPropertyChanged(nameof(HasUnread));
-        QuestLine = value > 0
-            ? $"Clear {value} to hit inbox zero."
-            : "Inbox zero — you're in the clear.";
-    }
+    partial void OnUnreadCountChanged(int value) => OnPropertyChanged(nameof(HasUnread));
 
     private void ApplyFilter()
     {
@@ -70,10 +107,8 @@ public partial class NotificationsViewModel(INotificationService notifications) 
         ClearProgress = TotalCount == 0 ? 1 : ReadCount / (double)TotalCount;
         IsEmpty = VisibleItems.Count == 0;
         OnPropertyChanged(nameof(HasUnread));
-        QuestLine = UnreadCount > 0
-            ? $"Clear {UnreadCount} to hit inbox zero."
-            : "Inbox zero — you're in the clear.";
-        EmptyTitle = Filter == "All" ? "Inbox zero" : "Nothing in this lane";
+        Summary = DescribeInbox();
+        EmptyTitle = Filter == "All" ? "No alerts" : "Nothing in this filter";
         EmptySubtitle = Filter == "All"
             ? "You're clear. New alerts will land here."
             : "Try All, or swipe a card to change its read state.";
@@ -83,7 +118,7 @@ public partial class NotificationsViewModel(INotificationService notifications) 
     {
         "Unread" => !n.IsRead,
         "Reminder" => n.Type == "Reminder",
-        "Booking" => n.Type is "Confirmation" or "Cancellation",
+        "Booking" => n.Type is "Confirmation" or "Cancellation" or "Update",
         _ => true
     };
 
@@ -91,10 +126,12 @@ public partial class NotificationsViewModel(INotificationService notifications) 
     private async Task MarkAllReadAsync()
     {
         await notifications.MarkAllAsReadAsync();
+        foreach (var item in Items)
+            item.IsRead = true;
         ApplyFilter();
         await ActionFeedback.SuccessAsync(
-            UnreadCount == 0 ? "Inbox zero. You're in the clear." : "Marked what we could as read.",
-            "Alerts cleared");
+            UnreadCount == 0 ? "Every alert is marked read." : "Marked what we could as read.",
+            "Alerts");
     }
 
     /// <summary>
@@ -118,7 +155,7 @@ public partial class NotificationsViewModel(INotificationService notifications) 
         if (notification.BookingId.HasValue)
             await Shell.Current.GoToAsync($"BookingDetailPage?bookingId={notification.BookingId}");
         else
-            await Shell.Current.DisplayAlertAsync(notification.Title, notification.Message, "OK");
+            await ActionFeedback.MessageAsync(notification.Message, notification.Title);
     }
 
     private async Task MarkReadInPlaceAsync(AppNotification notification)
@@ -141,20 +178,36 @@ public partial class NotificationsViewModel(INotificationService notifications) 
         ClearProgress = TotalCount == 0 ? 1 : ReadCount / (double)TotalCount;
         IsEmpty = VisibleItems.Count == 0;
         OnPropertyChanged(nameof(HasUnread));
-        QuestLine = UnreadCount > 0
-            ? $"Clear {UnreadCount} to hit inbox zero."
-            : "Inbox zero — you're in the clear.";
+        Summary = DescribeInbox();
     }
+
+    private string DescribeInbox() => TotalCount == 0
+        ? "No alerts yet."
+        : UnreadCount == 0
+            ? $"{TotalCount} alerts, all read."
+            : $"{UnreadCount} unread of {TotalCount}.";
 
     [RelayCommand]
     private async Task ToggleReadAsync(AppNotification? notification)
     {
         if (notification is null) return;
         if (notification.IsRead)
+        {
             await notifications.MarkAsUnreadAsync(notification.Id);
+            notification.IsRead = false;
+        }
         else
+        {
             await notifications.MarkAsReadAsync(notification.Id);
-        ApplyFilter();
+            notification.IsRead = true;
+        }
+
+        if (Filter == "Unread" && notification.IsRead)
+            VisibleItems.Remove(notification);
+        else if (Filter == "Unread" && !notification.IsRead && !VisibleItems.Contains(notification))
+            VisibleItems.Insert(0, notification);
+
+        RefreshStats();
     }
 
     [RelayCommand]
@@ -172,7 +225,6 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
     [ObservableProperty] private string name = string.Empty;
     [ObservableProperty] private string firstName = string.Empty;
     [ObservableProperty] private string email = string.Empty;
-    [ObservableProperty] private string currentEmail = string.Empty;
     [ObservableProperty] private string role = string.Empty;
     [ObservableProperty] private string rankTitle = string.Empty;
     [ObservableProperty] private string rankLine = string.Empty;
@@ -187,7 +239,23 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
     [ObservableProperty] private int upcomingCount;
     [ObservableProperty] private int unreadAlerts;
 
-    public ObservableCollection<User> DemoUsers { get; } = [];
+    private bool _watchingUnread;
+
+    public void WatchUnread(bool watch)
+    {
+        if (watch == _watchingUnread)
+            return;
+
+        if (watch)
+            notifications.UnreadCountChanged += OnLiveUnread;
+        else
+            notifications.UnreadCountChanged -= OnLiveUnread;
+
+        _watchingUnread = watch;
+    }
+
+    private void OnLiveUnread(int count) =>
+        MainThread.BeginInvokeOnMainThread(() => UnreadAlerts = count);
 
     [RelayCommand]
     private async Task AppearingAsync()
@@ -196,7 +264,6 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
         Name = user?.Name ?? "Guest";
         FirstName = string.IsNullOrWhiteSpace(Name) ? "there" : Name.Split(' ')[0];
         Email = user?.Email ?? string.Empty;
-        CurrentEmail = Email;
         Role = user is null ? "—" : RolePermissions.DisplayName(user.Role);
         RankTitle = user is null ? "Guest" : RolePermissions.RankTitle(user.Role);
         AccessLevel = user is null ? 0 : RolePermissions.AccessLevel(user.Role);
@@ -207,10 +274,6 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
         CanViewAvailability = user is not null && RolePermissions.CanViewAvailability(user.Role);
         CanViewReports = user is not null && RolePermissions.CanViewReports(user.Role);
         ShowPayPlaceholder = user is not null && RolePermissions.CanSeePayPlaceholder(user.Role);
-
-        DemoUsers.Clear();
-        foreach (var u in auth.GetDemoUsers())
-            DemoUsers.Add(u);
 
         try
         {
@@ -223,18 +286,6 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
         {
             TodayCount = UpcomingCount = UnreadAlerts = 0;
         }
-    }
-
-    [RelayCommand]
-    private async Task SwitchUserAsync(User? user)
-    {
-        if (user is null) return;
-        await auth.SwitchDemoUserAsync(user.Email);
-        await ActionFeedback.SuccessAsync(
-            $"Now playing as {user.Name} · {RolePermissions.DisplayName(user.Role)}.",
-            "Character select");
-        // Rebuild the Shell so the tab bar matches the new role's permissions exactly.
-        await ShellReloader.ReloadAsync();
     }
 
     [RelayCommand]
@@ -254,7 +305,7 @@ public partial class ProfileViewModel(IAuthService auth, IBookingService booking
 
     [RelayCommand]
     private async Task OpenBookingsAsync() =>
-        await Shell.Current.GoToAsync("MyBookingsPage");
+        await Shell.Current.GoToAsync("//MyBookingsPage");
 
     [RelayCommand]
     private async Task OpenLocationsAsync() =>

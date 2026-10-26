@@ -8,60 +8,283 @@ using Flexispace.Web.Services;
 
 namespace Flexispace.Web.ViewModels;
 
-//Manage console for Centre Managers and Administrators: in-scope bookings.
-public partial class ManageViewModel(IAuthService auth, IBookingService bookings, INavigationService nav, IRoomService rooms) : ObservableObject
+//Manage console for Centre Managers and Administrators: in-scope bookings and room blocks.
+public partial class ManageViewModel(IAuthService auth, IBookingService bookings, INavigationService nav, IRoomService rooms, INotificationService notifications) : ObservableObject
 {
     [ObservableProperty] private string title = "Manage";
     [ObservableProperty] private string subtitle = string.Empty;
     [ObservableProperty] private bool isCentreManager;
     [ObservableProperty] private bool isAdministrator;
     [ObservableProperty] private bool hasAccess;
+    [ObservableProperty] private bool canBlockRooms;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string? message;
+    [ObservableProperty] private string? errorMessage;
+    [ObservableProperty] private string? errorAnchor;
+    [ObservableProperty] private string filterQuery = string.Empty;
+    [ObservableProperty] private string locationFilterId = string.Empty;
+    [ObservableProperty] private string roomFilterId = string.Empty;
+    [ObservableProperty] private bool lockLocationFilter;
+    [ObservableProperty] private string blockRoomId = string.Empty;
+    [ObservableProperty] private DateTime blockStartDate = DateTime.Today;
+    [ObservableProperty] private TimeSpan blockStartTime = new(8, 0, 0);
+    [ObservableProperty] private DateTime blockEndDate = DateTime.Today;
+    [ObservableProperty] private TimeSpan blockEndTime = new(18, 0, 0);
+    [ObservableProperty] private string blockReasonKind = "Cleaning";
+    [ObservableProperty] private string blockReasonOther = string.Empty;
+
+    private readonly List<Booking> _allBookings = [];
 
     public ObservableCollection<Booking> PendingBookings { get; } = [];
     public ObservableCollection<Booking> LocationBookings { get; } = [];
+    public ObservableCollection<OfficeLocation> FilterLocations { get; } = [];
+    public ObservableCollection<Boardroom> FilterRooms { get; } = [];
+    public ObservableCollection<Boardroom> BlockableRooms { get; } = [];
+    public ObservableCollection<BlockedPeriod> BlockedPeriods { get; } = [];
 
     [RelayCommand]
     private async Task AppearingAsync()
     {
         var user = auth.CurrentUser;
-        HasAccess = user is not null && RolePermissions.CanAccessManageHub(user.Role);
+        HasAccess = user is not null && !auth.IsGuest && RolePermissions.CanOpenManage(user.Role);
         if (!HasAccess)
         {
             Title = "Manage";
-            Subtitle = "Only Centre Managers and Administrators can open this console.";
-            IsCentreManager = IsAdministrator = false;
+            Subtitle = "Sign in with a Flexispace account to manage your bookings.";
+            IsCentreManager = IsAdministrator = CanBlockRooms = false;
             return;
         }
 
         IsCentreManager = user!.Role == UserRole.CentreManager;
         IsAdministrator = user.Role == UserRole.Administrator;
-        Title = IsAdministrator ? "Admin console" : "Centre management";
+        CanBlockRooms = RolePermissions.CanBlockRooms(user.Role);
+        Title = IsAdministrator
+            ? "Admin console"
+            : IsCentreManager
+                ? "Centre management"
+                : "My bookings";
         var locationName = user.LocationId is null
             ? null
             : (await rooms.GetLocationAsync(user.LocationId))?.Name;
         Subtitle = IsAdministrator
-            ? "Review bookings across every location."
-            : $"Review and manage bookings for {locationName ?? "your centre"}.";
+            ? "Review bookings, search the diary, and block rooms across every location."
+            : IsCentreManager
+                ? $"Review bookings, search the diary, and block rooms for {locationName ?? "your centre"}."
+                : "View, edit, or cancel the rooms you have booked.";
 
         IsBusy = true;
         Message = null;
+        ErrorMessage = null;
         try
         {
-            LocationBookings.Clear();
+            _allBookings.Clear();
             PendingBookings.Clear();
             foreach (var b in await bookings.GetBookingsForCurrentUserScopeAsync())
             {
-                LocationBookings.Add(b);
+                _allBookings.Add(b);
                 if (b.Status == BookingStatus.Pending)
                     PendingBookings.Add(b);
             }
+
+            FilterLocations.Clear();
+            LockLocationFilter = IsCentreManager && !string.IsNullOrEmpty(user.LocationId);
+            if (CanBlockRooms)
+            {
+                if (!LockLocationFilter)
+                    FilterLocations.Add(new OfficeLocation { Id = string.Empty, Name = "All locations" });
+
+                foreach (var loc in await rooms.GetLocationsAsync())
+                {
+                    if (LockLocationFilter && loc.Id != user.LocationId) continue;
+                    FilterLocations.Add(loc);
+                }
+
+                if (LockLocationFilter)
+                    LocationFilterId = user.LocationId!;
+            }
+            else
+            {
+                FilterLocations.Add(new OfficeLocation { Id = string.Empty, Name = "All locations" });
+                foreach (var loc in _allBookings
+                    .GroupBy(b => b.LocationId)
+                    .Select(g => new OfficeLocation { Id = g.Key, Name = g.First().LocationName })
+                    .OrderBy(l => l.Name, StringComparer.OrdinalIgnoreCase))
+                {
+                    FilterLocations.Add(loc);
+                }
+            }
+
+            if (CanBlockRooms)
+                await LoadBlocksAsync();
+            RebuildRoomFilter();
+            ApplyBookingFilter();
         }
         finally
         {
             IsBusy = false;
         }
+    }
+
+    partial void OnFilterQueryChanged(string value) => ApplyBookingFilter();
+    partial void OnRoomFilterIdChanged(string value) => ApplyBookingFilter();
+    partial void OnLocationFilterIdChanged(string value)
+    {
+        RebuildRoomFilter();
+        ApplyBookingFilter();
+    }
+
+    [RelayCommand]
+    private void FilterLocation(OfficeLocation? location)
+    {
+        if (location is null || LockLocationFilter) return;
+        LocationFilterId = location.Id;
+    }
+
+    [RelayCommand]
+    private void FilterRoom(Boardroom? room)
+    {
+        if (room is null) return;
+        RoomFilterId = room.Id;
+    }
+
+    private void RebuildRoomFilter()
+    {
+        FilterRooms.Clear();
+        if (string.IsNullOrEmpty(LocationFilterId))
+        {
+            RoomFilterId = string.Empty;
+            return;
+        }
+
+        FilterRooms.Add(new Boardroom { Id = string.Empty, Name = "All rooms" });
+
+        IEnumerable<Boardroom> rooms = BlockableRooms.Count > 0
+            ? BlockableRooms.Where(r => r.LocationId == LocationFilterId)
+            : _allBookings
+                .Where(b => b.LocationId == LocationFilterId)
+                .GroupBy(b => b.RoomId)
+                .Select(g => new Boardroom
+                {
+                    Id = g.Key,
+                    Name = g.First().RoomName,
+                    LocationId = g.First().LocationId
+                });
+
+        foreach (var room in rooms.OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase))
+            FilterRooms.Add(room);
+
+        if (!string.IsNullOrEmpty(RoomFilterId) && FilterRooms.All(r => r.Id != RoomFilterId))
+            RoomFilterId = string.Empty;
+    }
+
+    private void ApplyBookingFilter()
+    {
+        LocationBookings.Clear();
+        foreach (var booking in BookingListQuery.Apply(_allBookings, FilterQuery, LocationFilterId, RoomFilterId))
+            LocationBookings.Add(booking);
+    }
+
+    private async Task LoadBlocksAsync()
+    {
+        BlockableRooms.Clear();
+        BlockedPeriods.Clear();
+
+        var user = auth.CurrentUser;
+        var locationId = user?.Role == UserRole.CentreManager ? user.LocationId : null;
+        foreach (var room in await rooms.GetRoomsAsync(locationId))
+        {
+            if (!room.IsCombined)
+                BlockableRooms.Add(room);
+        }
+
+        if (string.IsNullOrEmpty(BlockRoomId) || BlockableRooms.All(r => r.Id != BlockRoomId))
+            BlockRoomId = BlockableRooms.FirstOrDefault()?.Id ?? string.Empty;
+
+        foreach (var block in await bookings.GetBlockedPeriodsAsync())
+            BlockedPeriods.Add(block);
+
+        RebuildRoomFilter();
+    }
+
+    [RelayCommand]
+    private async Task BlockRoomAsync()
+    {
+        if (!CanBlockRooms) return;
+        ErrorMessage = null;
+        ErrorAnchor = null;
+        Message = null;
+
+        if (string.IsNullOrEmpty(BlockRoomId))
+        {
+            ErrorMessage = "Choose a room to block.";
+            ErrorAnchor = "fs-error-banner";
+            return;
+        }
+
+        var start = BlockStartDate.Date + BlockStartTime;
+        var end = BlockEndDate.Date + BlockEndTime;
+        if (end <= start)
+        {
+            ErrorMessage = "The block must end after it starts.";
+            ErrorAnchor = "fs-error-banner";
+            return;
+        }
+
+        var reason = BlockReasonKind == "Other" ? BlockReasonOther.Trim() : BlockReasonKind;
+        if (BlockReasonKind == "Other" && string.IsNullOrWhiteSpace(BlockReasonOther))
+        {
+            ErrorMessage = "Describe why the room is unavailable.";
+            ErrorAnchor = "block-reason";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            ErrorMessage = "Choose a reason so guests understand why the room is unavailable.";
+            ErrorAnchor = "block-reason";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var result = await bookings.BlockRoomAsync(BlockRoomId, start, end, reason);
+            if (!result.Success)
+            {
+                ErrorMessage = string.IsNullOrWhiteSpace(result.Message)
+                    ? "The room could not be blocked. Check the times and try again."
+                    : result.Message;
+                ErrorAnchor = "fs-error-banner";
+                return;
+            }
+
+            Message = string.IsNullOrWhiteSpace(result.Message)
+                ? "The room is now blocked for that period. Anyone with an overlapping booking has been notified."
+                : result.Message;
+            var room = BlockableRooms.FirstOrDefault(r => r.Id == BlockRoomId);
+            await notifications.AddAsync(new AppNotification
+            {
+                Title = "Room blocked",
+                Message = $"{room?.Name ?? "The room"} is unavailable {start:g}–{end:t}. {reason}",
+                Type = "Blocked"
+            });
+            BlockReasonOther = string.Empty;
+            BlockReasonKind = "Cleaning";
+            await LoadBlocksAsync();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task RemoveBlockAsync(BlockedPeriod? block)
+    {
+        if (block is null || !CanBlockRooms) return;
+        var ok = await bookings.RemoveBlockedPeriodAsync(block.Id);
+        Message = ok ? "The room is available again for that period." : "Could not remove this block.";
+        await LoadBlocksAsync();
     }
 
     [RelayCommand]
@@ -88,6 +311,61 @@ public partial class ManageViewModel(IAuthService auth, IBookingService bookings
         if (booking is null) return;
         nav.NavigateTo($"/bookings/{booking.Id}");
     }
+
+    public bool CanEditBooking(Booking booking)
+    {
+        var user = auth.CurrentUser;
+        if (user is null || booking.Status == BookingStatus.Cancelled)
+            return false;
+        return booking.BookerId == user.Id || RolePermissions.CanEditBookings(user.Role);
+    }
+
+    public bool CanCancelBooking(Booking booking)
+    {
+        var user = auth.CurrentUser;
+        if (user is null || booking.Status is not (BookingStatus.Confirmed or BookingStatus.Pending))
+            return false;
+        return (booking.BookerId == user.Id && RolePermissions.CanCancelOwnBookings(user.Role))
+               || RolePermissions.CanCancelAnyBooking(user.Role);
+    }
+
+    [RelayCommand]
+    private void EditBooking(Booking? booking)
+    {
+        if (booking is null || !CanEditBooking(booking)) return;
+        nav.NavigateTo($"/bookings/{booking.Id}");
+    }
+
+    [RelayCommand]
+    private async Task CancelBookingAsync(Booking? booking)
+    {
+        if (booking is null || !CanCancelBooking(booking)) return;
+        var result = await bookings.CancelBookingAsync(booking.Id);
+        if (!result.Success)
+        {
+            ErrorMessage = string.IsNullOrWhiteSpace(result.Message)
+                ? "Could not cancel this booking."
+                : result.Message;
+            ErrorAnchor = "fs-error-banner";
+            return;
+        }
+
+        try
+        {
+            await notifications.AddAsync(new AppNotification
+            {
+                Title = "Booking cancelled",
+                Message = $"{booking.BookerName}'s booking for {booking.RoomName} on {booking.Start:g} has been cancelled.",
+                Type = "Cancellation",
+                BookingId = booking.Id
+            });
+        }
+        catch
+        {
+        }
+        Message = "Booking cancelled.";
+        await AppearingAsync();
+    }
 }
 
 //Administrator directory of FlexiSpace users, split into provisioned and unprovisioned.
@@ -104,11 +382,17 @@ public partial class UsersViewModel(IAuthService auth, IAdminService admin, IRoo
     [ObservableProperty] private string formFirstName = string.Empty;
     [ObservableProperty] private string formLastName = string.Empty;
     [ObservableProperty] private string formEmail = string.Empty;
+    [ObservableProperty] private string formRoleLabel = string.Empty;
     [ObservableProperty] private string formLocationId = string.Empty;
     [ObservableProperty] private UserRole formRole = UserRole.Staff;
     [ObservableProperty] private bool formIsActive = true;
     [ObservableProperty] private string filterRole = string.Empty;
     [ObservableProperty] private string filterLocationId = string.Empty;
+    [ObservableProperty] private string filterQuery = string.Empty;
+    [ObservableProperty] private string? errorAnchor;
+    [ObservableProperty] private bool isProvisionedTab = true;
+    [ObservableProperty] private int provisionedTotalCount;
+    [ObservableProperty] private int unprovisionedTotalCount;
 
     private int _editingApiId;
     private Guid _editingId;
@@ -120,6 +404,15 @@ public partial class UsersViewModel(IAuthService auth, IAdminService admin, IRoo
     public ObservableCollection<UserDirectoryRow> UnprovisionedUsers { get; } = [];
     public ObservableCollection<OfficeLocation> Locations { get; } = [];
     public UserRole[] Roles { get; } = Enum.GetValues<UserRole>();
+    public bool IsUnprovisionedTab => !IsProvisionedTab;
+
+    partial void OnIsProvisionedTabChanged(bool value) => OnPropertyChanged(nameof(IsUnprovisionedTab));
+
+    [RelayCommand]
+    private void ShowProvisionedTab() => IsProvisionedTab = true;
+
+    [RelayCommand]
+    private void ShowUnprovisionedTab() => IsProvisionedTab = false;
 
     [RelayCommand]
     private async Task AppearingAsync()
@@ -131,6 +424,10 @@ public partial class UsersViewModel(IAuthService auth, IAdminService admin, IRoo
             Subtitle = "Only Administrators can open user control.";
             ProvisionedUsers.Clear();
             UnprovisionedUsers.Clear();
+            _provisionedAll.Clear();
+            _unprovisionedAll.Clear();
+            ProvisionedTotalCount = 0;
+            UnprovisionedTotalCount = 0;
             IsEmpty = true;
             return;
         }
@@ -147,13 +444,15 @@ public partial class UsersViewModel(IAuthService auth, IAdminService admin, IRoo
             var locationNames = Locations.ToDictionary(l => l.Id, l => l.Name, StringComparer.OrdinalIgnoreCase);
             var flexiUsers = await admin.GetUsersAsync();
             IReadOnlyList<User> entraUsers = [];
+            string? entraLoadError = null;
             try
             {
                 entraUsers = await admin.GetEntraDirectoryAsync();
             }
-            catch
+            catch (Exception ex)
             {
                 entraUsers = [];
+                entraLoadError = ex.Message;
             }
 
             _provisionedAll.Clear();
@@ -164,25 +463,36 @@ public partial class UsersViewModel(IAuthService auth, IAdminService admin, IRoo
 
             var provisionedEmails = flexiUsers
                 .Select(u => u.Email)
-                .Where(email => !string.IsNullOrWhiteSpace(email))
+                .Select(NormalizeEmail)
+                .Where(email => email.Length > 0)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             var provisionedOids = flexiUsers
                 .Select(u => u.EntraObjectId)
                 .Where(oid => oid != Guid.Empty)
                 .ToHashSet();
+            var seenEntraOids = new HashSet<Guid>();
+            var seenEntraEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var account in entraUsers)
             {
                 if (provisionedOids.Contains(account.EntraObjectId))
                     continue;
-                if (!string.IsNullOrWhiteSpace(account.Email) && provisionedEmails.Contains(account.Email))
+                if (account.EntraObjectId != Guid.Empty && !seenEntraOids.Add(account.EntraObjectId))
+                    continue;
+                var normalizedEmail = NormalizeEmail(account.Email);
+                if (normalizedEmail.Length > 0 && (provisionedEmails.Contains(normalizedEmail) || !seenEntraEmails.Add(normalizedEmail)))
                     continue;
 
                 _unprovisionedAll.Add(ToRow(account, locationNames, canManage: false, source: "Microsoft Entra"));
             }
 
             ApplyFilters();
+            ProvisionedTotalCount = _provisionedAll.Count;
+            UnprovisionedTotalCount = _unprovisionedAll.Count;
             IsEmpty = _provisionedAll.Count == 0 && _unprovisionedAll.Count == 0;
+            ErrorMessage = entraLoadError is null
+                ? null
+                : $"Could not load Microsoft Entra users. {entraLoadError}";
         }
         finally
         {
@@ -195,6 +505,7 @@ public partial class UsersViewModel(IAuthService auth, IAdminService admin, IRoo
     {
         if (row is null || !row.CanManage) return;
         IsProvisioning = false;
+        IsProvisionedTab = true;
         IsFormOpen = true;
         _editingApiId = row.ApiId;
         _editingId = row.Id;
@@ -203,6 +514,7 @@ public partial class UsersViewModel(IAuthService auth, IAdminService admin, IRoo
         FormLastName = row.LastName;
         FormEmail = row.Email;
         FormRole = row.Role;
+        FormRoleLabel = row.RoleLabel;
         FormLocationId = row.LocationId;
         FormIsActive = row.IsActive;
         ErrorMessage = null;
@@ -214,6 +526,7 @@ public partial class UsersViewModel(IAuthService auth, IAdminService admin, IRoo
     {
         if (row is null || row.EntraObjectId == Guid.Empty) return;
         IsProvisioning = true;
+        IsProvisionedTab = false;
         IsFormOpen = true;
         _editingApiId = 0;
         _editingId = row.Id;
@@ -222,6 +535,7 @@ public partial class UsersViewModel(IAuthService auth, IAdminService admin, IRoo
         FormLastName = row.LastName;
         FormEmail = row.Email;
         FormRole = row.Role == default ? UserRole.Staff : row.Role;
+        FormRoleLabel = row.RoleLabel;
         FormLocationId = row.LocationId;
         FormIsActive = true;
         ErrorMessage = null;
@@ -241,7 +555,36 @@ public partial class UsersViewModel(IAuthService auth, IAdminService admin, IRoo
     {
         if (!HasAccess) return;
         ErrorMessage = null;
+        ErrorAnchor = null;
         Message = null;
+
+        if (IsProvisioning && string.IsNullOrWhiteSpace(FormFirstName))
+        {
+            ErrorMessage = "First name is required.";
+            ErrorAnchor = "user-first";
+            return;
+        }
+
+        if (IsProvisioning && string.IsNullOrWhiteSpace(FormLastName))
+        {
+            ErrorMessage = "Last name is required.";
+            ErrorAnchor = "user-last";
+            return;
+        }
+
+        if (IsProvisioning && (string.IsNullOrWhiteSpace(FormEmail) || !FormEmail.Contains('@')))
+        {
+            ErrorMessage = "Enter a valid email address.";
+            ErrorAnchor = "user-email";
+            return;
+        }
+
+        if (IsProvisioning && string.IsNullOrWhiteSpace(FormLocationId))
+        {
+            ErrorMessage = "Choose a location before provisioning this user.";
+            ErrorAnchor = "fs-error-banner";
+            return;
+        }
 
         var draft = new User
         {
@@ -263,11 +606,14 @@ public partial class UsersViewModel(IAuthService auth, IAdminService admin, IRoo
         if (!result.Ok)
         {
             ErrorMessage = result.Message;
+            ErrorAnchor = "fs-error-banner";
             return;
         }
 
         Message = result.Message;
         IsFormOpen = false;
+        IsProvisioning = false;
+        IsProvisionedTab = true;
         await AppearingAsync();
     }
 
@@ -282,6 +628,7 @@ public partial class UsersViewModel(IAuthService auth, IAdminService admin, IRoo
         if (!result.Ok)
         {
             ErrorMessage = result.Message;
+            ErrorAnchor = "fs-error-banner";
             return;
         }
 
@@ -297,6 +644,7 @@ public partial class UsersViewModel(IAuthService auth, IAdminService admin, IRoo
 
     partial void OnFilterRoleChanged(string value) => ApplyFilters();
     partial void OnFilterLocationIdChanged(string value) => ApplyFilters();
+    partial void OnFilterQueryChanged(string value) => ApplyFilters();
 
     public async Task DeleteUserAsync(UserDirectoryRow? row)
     {
@@ -304,6 +652,7 @@ public partial class UsersViewModel(IAuthService auth, IAdminService admin, IRoo
         if (row.Id == auth.CurrentUser?.Id || row.ApiId == auth.CurrentUser?.ApiId)
         {
             ErrorMessage = "You cannot remove your own account.";
+            ErrorAnchor = "fs-error-banner";
             return;
         }
 
@@ -316,6 +665,7 @@ public partial class UsersViewModel(IAuthService auth, IAdminService admin, IRoo
             if (!result.Ok)
             {
                 ErrorMessage = result.Message;
+                ErrorAnchor = "fs-error-banner";
                 return;
             }
 
@@ -327,6 +677,7 @@ public partial class UsersViewModel(IAuthService auth, IAdminService admin, IRoo
         catch (Exception ex)
         {
             ErrorMessage = $"Could not remove this user. {ex.Message}";
+            ErrorAnchor = "fs-error-banner";
         }
         finally
         {
@@ -350,7 +701,26 @@ public partial class UsersViewModel(IAuthService auth, IAdminService admin, IRoo
             return false;
         if (!string.IsNullOrEmpty(FilterLocationId) && row.LocationId != FilterLocationId)
             return false;
-        return true;
+        if (string.IsNullOrWhiteSpace(FilterQuery))
+            return true;
+
+        var query = FilterQuery.Trim().TrimStart('#');
+        return MatchesUserId(row, query) ||
+               row.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+               row.FirstName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+               row.LastName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+               row.Email.Contains(query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeEmail(string? email) => email?.Trim() ?? string.Empty;
+
+    private static bool MatchesUserId(UserDirectoryRow row, string query)
+    {
+        if (row.ApiId <= 0)
+            return false;
+
+        return row.ApiId.ToString().Contains(query, StringComparison.OrdinalIgnoreCase) ||
+               int.TryParse(query, out var apiId) && row.ApiId == apiId;
     }
 
     private static UserDirectoryRow ToRow(
@@ -369,7 +739,9 @@ public partial class UsersViewModel(IAuthService auth, IAdminService admin, IRoo
             Name = string.IsNullOrWhiteSpace(account.Name) ? "Unnamed user" : account.Name,
             Email = account.Email,
             Role = account.Role,
-            RoleLabel = RolePermissions.DisplayName(account.Role),
+            RoleLabel = account.HasAssignedFlexiSpaceRole
+                ? RolePermissions.DisplayName(account.Role)
+                : "No FlexiSpace app role assigned in Entra",
             LocationId = account.LocationId ?? string.Empty,
             Location = string.IsNullOrEmpty(account.LocationId)
                 ? "All locations"
@@ -467,11 +839,22 @@ public partial class NotificationsViewModel(INotificationService notifications, 
     private async Task ToggleReadAsync(AppNotification? notification)
     {
         if (notification is null) return;
+
         if (notification.IsRead)
+        {
+            notification.IsRead = false;
             await notifications.MarkAsUnreadAsync(notification.Id);
+        }
         else
+        {
+            notification.IsRead = true;
             await notifications.MarkAsReadAsync(notification.Id);
-        await AppearingAsync();
+        }
+
+        var index = Items.IndexOf(notification);
+        if (index >= 0)
+            Items[index] = notification;
+        OnPropertyChanged(nameof(Items));
     }
 
     [RelayCommand]
@@ -503,7 +886,7 @@ public partial class ProfileViewModel(IAuthService auth, INavigationService nav,
         Email = user?.Email ?? string.Empty;
         Role = user is null ? "—" : RolePermissions.DisplayName(user.Role);
         RoleDescription = user is null ? string.Empty : RolePermissions.Describe(user.Role);
-        CanAccessManage = user is not null && RolePermissions.CanAccessManageHub(user.Role);
+        CanAccessManage = user is not null && !auth.IsGuest && RolePermissions.CanOpenManage(user.Role);
         CanManageUsers = user is not null && RolePermissions.CanManageUsers(user.Role);
         CanViewReports = user is not null && RolePermissions.CanViewReports(user.Role);
 
@@ -519,11 +902,7 @@ public partial class ProfileViewModel(IAuthService auth, INavigationService nav,
     }
 
     [RelayCommand]
-    private async Task LogoutAsync()
-    {
-        await auth.LogoutAsync();
-        nav.NavigateTo("/", forceLoad: true);
-    }
+    private Task LogoutAsync() => auth.LogoutAsync();
 
     [RelayCommand]
     private void OpenManage()

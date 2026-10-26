@@ -25,7 +25,7 @@ else
         {
             @foreach (var n in Vm.Items)
             {
-                <div class="fs-notification @(n.IsRead ? "fs-notification--read" : "")" @onclick="() => Open(n)">
+                <div class="fs-notification @(n.IsRead ? "fs-notification--read" : "")" @key="n.Id" @onclick="() => Open(n)">
                     <div class="fs-notification__icon" style="background:@DisplayHelpers.NotificationAccent(n.Type)">
                         @DisplayHelpers.NotificationIcon(n.Type)
                     </div>
@@ -33,12 +33,12 @@ else
                         <strong style="font-size:15px">@n.Title</strong>
                         <p class="fs-muted" style="font-size:13px; margin:4px 0">@n.Message</p>
                         <span style="color:var(--fs-gold-deep); font-size:11px">@DisplayHelpers.TimeAgo(n.CreatedAt)</span>
+                        <div class="fs-notification__actions" @onclick:stopPropagation="true">
+                            <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="() => ToggleRead(n)">@(n.IsRead ? "Mark unread" : "Mark read")</button>
+                            <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="() => Delete(n)">Delete</button>
+                        </div>
                     </div>
                     @if (!n.IsRead) { <div class="fs-unread-dot"></div> }
-                </div>
-                <div class="fs-notification__actions">
-                    <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick:stopPropagation="true" @onclick="() => ToggleRead(n)">@(n.IsRead ? "Mark unread" : "Mark read")</button>
-                    <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick:stopPropagation="true" @onclick="() => Delete(n)">Delete</button>
                 </div>
             }
         }

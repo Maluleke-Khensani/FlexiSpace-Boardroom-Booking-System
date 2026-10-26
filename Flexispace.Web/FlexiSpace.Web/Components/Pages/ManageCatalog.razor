@@ -1,0 +1,221 @@
+@page "/manage/catalog"
+@inject IAuthService Auth
+@inject ICatalogManagementService Catalog
+@inject IJSRuntime JS
+@using Flexispace.Web.Api
+
+<PageTitle>Equipment &amp; catering</PageTitle>
+
+@if (!Auth.IsAuthenticated)
+{
+    <RedirectToLogin />
+}
+else if (Auth.CurrentUser?.Role != UserRole.Administrator)
+{
+    <div class="fs-content-wide"><p class="fs-error">Only Administrators can manage equipment and catering options.</p></div>
+}
+else
+{
+    <div class="fs-content-wide">
+        <p class="fs-subheading" style="margin-bottom:20px">Manage the optional equipment and catering choices shown during booking.</p>
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <p class="fs-error" role="alert" style="margin-bottom:16px">@_error</p>
+        }
+        @if (!string.IsNullOrWhiteSpace(_message))
+        {
+            <p class="fs-message" role="status" style="margin-bottom:16px">@_message</p>
+        }
+        @if (_busy && !_loaded)
+        {
+            <div class="fs-card"><p class="fs-muted" style="margin:0">Loading catalogue…</p></div>
+        }
+        else
+        {
+            <section class="fs-section-block">
+                <div class="fs-toolbar">
+                    <div>
+                        <h2 class="fs-section-title" style="margin:0">Additional equipment</h2>
+                        <p class="fs-muted" style="margin:4px 0 0">Optional items customers can request beyond what is already in a room.</p>
+                    </div>
+                </div>
+                <div class="fs-card fs-stack" style="margin:14px 0 18px">
+                    <strong>Add equipment option</strong>
+                    <label><span class="fs-label">Name</span><input class="fs-field" @bind="_newEquipmentName" /></label>
+                    <label><span class="fs-label">Description</span><textarea class="fs-field" @bind="_newEquipmentDescription" rows="2"></textarea></label>
+                    <button type="button" class="fs-btn fs-btn--gold" disabled="@_busy" @onclick="CreateEquipmentAsync">Add equipment</button>
+                </div>
+                @if (_equipment.Count == 0)
+                {
+                    <div class="fs-card"><p class="fs-muted" style="margin:0">No equipment options found.</p></div>
+                }
+                else
+                {
+                    <div class="fs-grid-2">
+                        @foreach (var item in _equipment)
+                        {
+                            <div class="fs-card fs-stack">
+                                <label><span class="fs-label">Name</span><input class="fs-field" @bind="item.Name" /></label>
+                                <label><span class="fs-label">Description</span><textarea class="fs-field" @bind="item.Description" rows="2"></textarea></label>
+                                <label><input type="checkbox" @bind="item.IsActive" /> Available for new bookings</label>
+                                <div class="fs-flex">
+                                    <button type="button" class="fs-btn fs-btn--gold fs-btn--sm" disabled="@_busy" @onclick="() => SaveEquipmentAsync(item)">Save changes</button>
+                                    <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" disabled="@_busy" @onclick="() => DeleteEquipmentAsync(item)">Delete</button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </section>
+
+            <section class="fs-section-block" style="margin-top:36px">
+                <div class="fs-toolbar">
+                    <div>
+                        <h2 class="fs-section-title" style="margin:0">Catering</h2>
+                        <p class="fs-muted" style="margin:4px 0 0">Optional catering choices customers can add to a booking.</p>
+                    </div>
+                </div>
+                <div class="fs-card fs-stack" style="margin:14px 0 18px">
+                    <strong>Add catering option</strong>
+                    <label><span class="fs-label">Name</span><input class="fs-field" @bind="_newCateringName" /></label>
+                    <label><span class="fs-label">Description (optional)</span><textarea class="fs-field" @bind="_newCateringDescription" rows="2"></textarea></label>
+                    <button type="button" class="fs-btn fs-btn--gold" disabled="@_busy" @onclick="CreateCateringAsync">Add catering</button>
+                </div>
+                @if (_catering.Count == 0)
+                {
+                    <div class="fs-card"><p class="fs-muted" style="margin:0">No catering options found.</p></div>
+                }
+                else
+                {
+                    <div class="fs-grid-2">
+                        @foreach (var item in _catering)
+                        {
+                            <div class="fs-card fs-stack">
+                                <label><span class="fs-label">Name</span><input class="fs-field" @bind="item.Name" /></label>
+                                <label><span class="fs-label">Description (optional)</span><textarea class="fs-field" @bind="item.Description" rows="2"></textarea></label>
+                                <label><input type="checkbox" @bind="item.IsActive" /> Available for new bookings</label>
+                                <div class="fs-flex">
+                                    <button type="button" class="fs-btn fs-btn--gold fs-btn--sm" disabled="@_busy" @onclick="() => SaveCateringAsync(item)">Save changes</button>
+                                    <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" disabled="@_busy" @onclick="() => DeleteCateringAsync(item)">Delete</button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </section>
+        }
+    </div>
+}
+
+@code {
+    private List<EquipmentDto> _equipment = [];
+    private List<CateringDto> _catering = [];
+    private string _newEquipmentName = string.Empty;
+    private string _newEquipmentDescription = string.Empty;
+    private string _newCateringName = string.Empty;
+    private string _newCateringDescription = string.Empty;
+    private string? _error;
+    private string? _message;
+    private bool _busy;
+    private bool _loaded;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            _equipment = (await Catalog.GetEquipmentAsync()).ToList();
+            _catering = (await Catalog.GetCateringAsync()).ToList();
+            _loaded = true;
+        }
+        catch (Exception ex)
+        {
+            _error = $"Could not load the catalogue: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task CreateEquipmentAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newEquipmentName) || string.IsNullOrWhiteSpace(_newEquipmentDescription))
+        {
+            _error = "Enter an equipment name and description.";
+            _message = null;
+            return;
+        }
+        await RunAsync(() => Catalog.CreateEquipmentAsync(_newEquipmentName, _newEquipmentDescription), "Equipment option added.");
+        if (string.IsNullOrEmpty(_error))
+        {
+            _newEquipmentName = string.Empty;
+            _newEquipmentDescription = string.Empty;
+        }
+    }
+
+    private Task SaveEquipmentAsync(EquipmentDto item) =>
+        RunAsync(() => Catalog.UpdateEquipmentAsync(item), $"{item.Name} updated.");
+
+    private async Task DeleteEquipmentAsync(EquipmentDto item)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", $"Delete '{item.Name}'? If it is in booking history, the system will prevent deletion; you can deactivate it instead."))
+            return;
+        await RunAsync(() => Catalog.DeleteEquipmentAsync(item.Id), $"{item.Name} deleted.");
+    }
+
+    private async Task CreateCateringAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newCateringName))
+        {
+            _error = "Enter a catering option name.";
+            _message = null;
+            return;
+        }
+        await RunAsync(() => Catalog.CreateCateringAsync(_newCateringName, _newCateringDescription), "Catering option added.");
+        if (string.IsNullOrEmpty(_error))
+        {
+            _newCateringName = string.Empty;
+            _newCateringDescription = string.Empty;
+        }
+    }
+
+    private Task SaveCateringAsync(CateringDto item) =>
+        RunAsync(() => Catalog.UpdateCateringAsync(item), $"{item.Name} updated.");
+
+    private async Task DeleteCateringAsync(CateringDto item)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", $"Delete '{item.Name}'? If it is in booking history, the system will prevent deletion; you can deactivate it instead."))
+            return;
+        await RunAsync(() => Catalog.DeleteCateringAsync(item.Id), $"{item.Name} deleted.");
+    }
+
+    private async Task RunAsync(Func<Task<(bool Ok, string Message)>> operation, string successMessage)
+    {
+        _busy = true;
+        _error = null;
+        _message = null;
+        try
+        {
+            var result = await operation();
+            if (!result.Ok)
+                _error = result.Message;
+            else
+            {
+                _message = successMessage;
+                await LoadAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Flexispace.Mobile.Controls.FeedbackOverlay"
+             x:Name="Root"
+             HorizontalOptions="Fill"
+             VerticalOptions="Fill">
+
+    <Grid>
+        <BoxView x:Name="Scrim" Color="#80111111">
+            <BoxView.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnScrimTapped" />
+            </BoxView.GestureRecognizers>
+        </BoxView>
+
+        <Border x:Name="Card"
+                BackgroundColor="{DynamicResource BrandSurface}"
+                Stroke="{StaticResource BrandGold}"
+                StrokeThickness="1.4"
+                StrokeShape="RoundRectangle 24"
+                Padding="22,24"
+                MaximumWidthRequest="420"
+                HorizontalOptions="Center"
+                VerticalOptions="Center"
+                Margin="24">
+            <Border.Shadow>
+                <Shadow Brush="{StaticResource BrandBlack}" Opacity="0.28" Radius="28" Offset="0,12" />
+            </Border.Shadow>
+
+            <VerticalStackLayout Spacing="12">
+                <Border x:Name="IconWell"
+                        WidthRequest="56"
+                        HeightRequest="56"
+                        StrokeThickness="0"
+                        StrokeShape="RoundRectangle 28"
+                        HorizontalOptions="Center"
+                        BackgroundColor="{DynamicResource BrandDangerSoft}">
+                    <Label x:Name="IconGlyph"
+                           Style="{StaticResource MaterialGlyph}"
+                           Text="&#xe000;"
+                           FontSize="28"
+                           TextColor="{DynamicResource BrandDanger}" />
+                </Border>
+
+                <Label x:Name="TitleLabel"
+                       FontSize="20"
+                       FontAttributes="Bold"
+                       TextColor="{DynamicResource BrandInk}"
+                       HorizontalTextAlignment="Center"
+                       LineBreakMode="WordWrap" />
+
+                <Label x:Name="MessageLabel"
+                       FontSize="14"
+                       TextColor="{DynamicResource BrandMuted}"
+                       HorizontalTextAlignment="Center"
+                       LineBreakMode="WordWrap" />
+
+                <Label x:Name="SuggestionCaption"
+                       Text="Suggested times"
+                       FontSize="11"
+                       FontAttributes="Bold"
+                       TextColor="{DynamicResource BrandGoldDeep}"
+                       HorizontalTextAlignment="Center"
+                       IsVisible="False"
+                       Margin="0,4,0,0" />
+
+                <FlexLayout x:Name="Suggestions"
+                            Wrap="Wrap"
+                            JustifyContent="Center"
+                            AlignItems="Center"
+                            IsVisible="False" />
+
+                <Button x:Name="AcceptButton"
+                        Text="Got it"
+                        Style="{StaticResource GoldButton}"
+                        Margin="0,8,0,0"
+                        Clicked="OnAcceptClicked" />
+
+                <Button x:Name="CancelButton"
+                        Text="Cancel"
+                        Style="{StaticResource GhostButton}"
+                        IsVisible="False"
+                        Clicked="OnCancelClicked" />
+            </VerticalStackLayout>
+        </Border>
+    </Grid>
+</ContentView>

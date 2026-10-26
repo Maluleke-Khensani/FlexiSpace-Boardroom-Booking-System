@@ -5,18 +5,20 @@ using FlexiSpace.Core.Enums;
 using FlexiSpace.Core.DTOs.Location;
 using FlexiSpace.Core.Services;
 using FlexiSpace.Core.Entities;
+using FlexiSpace.API.Controllers.Base;
+using FlexiSpace.Core.Common;
 
 namespace FlexiSpace.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class LocationController : ControllerBase
+    public class LocationController : AuditableControllerBase
     {
         private readonly ILocationService _locationService;
         private readonly ILocationCalendarAccountService _locationCalendarAccountService;
 
-        public LocationController(ILocationService locationService, ILocationCalendarAccountService locationCalendarAccountService)
+        public LocationController(ILocationService locationService, ILocationCalendarAccountService locationCalendarAccountService, IAuditService auditService, ICurrentUserService currentUserService) : base(auditService, currentUserService)
         {
             _locationService = locationService;
             _locationCalendarAccountService = locationCalendarAccountService;
@@ -26,17 +28,18 @@ namespace FlexiSpace.API.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> GetAllLocations()
         {
-            // Retrieving all locations from the service and stroing them in a variable
+            // Retrieving locations and excluding the obsolete duplicate centre name.
             var locations = await _locationService.GetAllLocationsAsync();
 
             //Mapping the locations to LocationResponseDto
-            var response = locations.Select(location => new LocationResponseDto
-            {
-                Id = location.Id,
-                Name = location.Name,
-                Address = location.Address,
-
-            });
+            var response = locations
+                .Where(location => !string.Equals(location.Name?.Trim(), "Houghton", StringComparison.OrdinalIgnoreCase))
+                .Select(location => new LocationResponseDto
+                {
+                    Id = location.Id,
+                    Name = location.Name,
+                    Address = location.Address
+                });
 
             return Ok(response);
         }
@@ -49,6 +52,8 @@ namespace FlexiSpace.API.Controllers
             try
             {
                 var account = await _locationCalendarAccountService.CreateAsync(dto);
+                await LogActionAsync(AuditAction.Create, "LocationCalendarAccount", account.Id.ToString(), null,
+                    new { account.Email, account.DisplayName, account.IsPrimary, account.IsActive, account.LocationId });
 
                 var response = new LocationCalendarAccountResponseDto
                 {
@@ -82,6 +87,8 @@ namespace FlexiSpace.API.Controllers
 
             // Send the entity to the service to be saved
             var createdLocation = await _locationService.CreateLocationAsync(location);
+            await LogActionAsync(AuditAction.Create, "Location", createdLocation.Id.ToString(), null,
+                new { createdLocation.Name, createdLocation.Address });
 
             // Convert the saved entity back into a Response DTO
             var response = new LocationResponseDto
@@ -107,7 +114,7 @@ namespace FlexiSpace.API.Controllers
             var location = await _locationService.GetLocationByIdAsync(id);
 
             // If no location exists, return HTTP 404
-            if (location == null)
+            if (location == null || string.IsNullOrWhiteSpace(location.Name) || string.Equals(location.Name.Trim(), "Houghton", StringComparison.OrdinalIgnoreCase))
             {
                 return NotFound();
             }
@@ -127,6 +134,8 @@ namespace FlexiSpace.API.Controllers
         [AuthorizeRoles(UserRole.Administrator)]
         public async Task<IActionResult> UpdateLocation(int id, [FromBody] LocationUpdateDto locationDto)
         {
+            var before = await _locationService.GetLocationByIdAsync(id);
+            if (before == null) return NotFound();
             // Convert the Update DTO into a Location entity
             var location = new Location
             {
@@ -143,6 +152,9 @@ namespace FlexiSpace.API.Controllers
                 return NotFound();
             }
 
+            await LogActionAsync(AuditAction.Update, "Location", id.ToString(),
+                new { before.Name, before.Address }, new { location.Name, location.Address });
+
             // Return HTTP 204 (No Content)
             return NoContent();
         }
@@ -151,6 +163,8 @@ namespace FlexiSpace.API.Controllers
         [AuthorizeRoles(UserRole.Administrator)]
         public async Task<IActionResult> DeleteLocation(int id)
         {
+            var before = await _locationService.GetLocationByIdAsync(id);
+            if (before == null) return NotFound();
             // Ask the service to delete the location
             var deleted = await _locationService.DeleteLocationAsync(id);
 
@@ -160,6 +174,9 @@ namespace FlexiSpace.API.Controllers
                 return NotFound();
             }
 
+            await LogActionAsync(AuditAction.Delete, "Location", id.ToString(),
+                new { before.Name, before.Address }, null);
+
             // Return HTTP 204 (No Content)
             return NoContent();
         }
@@ -167,4 +184,5 @@ namespace FlexiSpace.API.Controllers
 
     }
 }
+
 

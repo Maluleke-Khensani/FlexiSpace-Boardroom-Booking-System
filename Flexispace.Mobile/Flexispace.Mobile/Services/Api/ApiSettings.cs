@@ -5,12 +5,7 @@ namespace Flexispace.Mobile.Services.Api;
 public sealed class ApiSettings
 {
     /// <summary>Trailing slash required.</summary>
-    public string BaseUrl { get; set; } = "https://flexispace-exdye9dzg3bhejh9.southafricanorth-01.azurewebsites.net/";
-
-    /// <summary>
-    /// When true, MauiProgram registers Mock* services.
-    /// </summary>
-    public bool UseMockServices { get; set; }
+    public string BaseUrl { get; set; } = "https://localhost:7055/";
 
     /// <summary>Entra tenant id (from local azuread.local.json — not committed).</summary>
     public string TenantId { get; set; } = string.Empty;
@@ -38,8 +33,7 @@ public sealed class ApiSettings
     {
         var settings = new ApiSettings
         {
-            UseMockServices = false,
-            BaseUrl = "https://flexispace-exdye9dzg3bhejh9.southafricanorth-01.azurewebsites.net/"
+            BaseUrl = "https://localhost:7055/"
         };
 
         try

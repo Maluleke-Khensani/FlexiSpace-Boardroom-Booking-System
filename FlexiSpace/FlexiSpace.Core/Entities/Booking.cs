@@ -36,6 +36,10 @@ public class Booking
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ModifiedAt { get; set; }
 
+    public DateTime? Reminder24hSentAt { get; set; }
+    public DateTime? Reminder2hSentAt { get; set; }
+    public DateTime? ReminderSentAt { get; set; }
+
 
     public int? ModifiedById { get; set; }
     public User? ModifiedBy { get; set; }

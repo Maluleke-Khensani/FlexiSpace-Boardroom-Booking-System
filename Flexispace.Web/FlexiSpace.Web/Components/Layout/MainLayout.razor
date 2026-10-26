@@ -1,4 +1,4 @@
-﻿@* Authenticated app shell: sidebar navigation, page header, and content area. *@
+@* Authenticated app shell: sidebar navigation, page header, and content area. *@
 @inherits LayoutComponentBase
 @inject IAuthService Auth
 @inject NavigationManager Navigation
@@ -7,6 +7,7 @@
 
 @if (ShowAppShell)
 {
+    <CascadingValue Name="SignOutPrompt" Value="PromptSignOutHandler">
     <div class="fs-shell">
         <aside class="fs-sidebar">
             <div class="fs-sidebar__brand">
@@ -22,8 +23,11 @@
                 }
             </nav>
             <div class="fs-sidebar__footer">
-                <div class="fs-sidebar__user">@(Auth.CurrentUser?.Name ?? "Guest")</div>
-                <div class="fs-sidebar__role">@(Auth.CurrentUser is null ? "" : RolePermissions.DisplayName(Auth.CurrentUser.Role))</div>
+                <div class="fs-sidebar__identity">
+                    <div class="fs-sidebar__user">@(Auth.CurrentUser?.Name ?? "Guest")</div>
+                    <div class="fs-sidebar__role">@(Auth.IsGuest ? "Guest client" : Auth.CurrentUser is null ? "" : RolePermissions.DisplayName(Auth.CurrentUser.Role))</div>
+                </div>
+                <button type="button" class="fs-sidebar__signout" @onclick="SignOut">Sign out</button>
             </div>
         </aside>
 
@@ -50,11 +54,20 @@
             }
         </div>
     </div>
+    <Modal IsOpen="ShowThanks"
+           IsOpenChanged="OnThanksClosed"
+           Title="Thank you for visiting"
+           Message="We hope to see you again soon at Flexispace."
+           ButtonLabel="Continue" />
+    </CascadingValue>
 }
 else
 {
     @Body
 }
+
+<ScrollToError />
+<UnreadAlertsToast />
 
 @code {
     [Parameter] public RenderFragment? HeaderActions { get; set; }
@@ -83,7 +96,7 @@ else
         get
         {
             var path = Navigation.ToBaseRelativePath(Navigation.Uri).Split('?')[0].TrimEnd('/');
-            return !IsConfirmationRoute && path is not "users";
+            return !IsConfirmationRoute && path is not "users" and not "centres";
         }
     }
 
@@ -107,8 +120,12 @@ else
         "home" => "Dashboard",
         "book" => "Book a boardroom",
         "live" => "Live availability",
+        "calendar" => "Calendar",
         "manage" => "Manage bookings",
         "users" => "Users",
+        "centres" => "Centres",
+        "manage/catalog" => "Equipment & catering",
+        "audit" => "Audit",
         "reports" => "Ops Arena",
         "notifications" => "Alerts",
         "profile" => "My profile",
@@ -126,15 +143,25 @@ else
             var role = Auth.CurrentUser?.Role;
             yield return new("home", "Dashboard", "/home", NavLinkMatch.All);
             yield return new("book", "Book a room", "/book", NavLinkMatch.Prefix);
-            if (role is null || RolePermissions.CanViewAvailability(role.Value))
+            yield return new("my-bookings", "My bookings", "/my-bookings", NavLinkMatch.Prefix);
+            if (!Auth.IsGuest && role is not null && RolePermissions.CanViewAvailability(role.Value))
                 yield return new("live", "Live availability", "/live", NavLinkMatch.Prefix);
-            if (role is null || RolePermissions.CanAccessManageHub(role.Value))
+            if (!Auth.IsGuest)
+                yield return new("calendar", "Calendar", "/calendar", NavLinkMatch.Prefix);
+            if (!Auth.IsGuest && role is not null && RolePermissions.CanOpenManage(role.Value))
                 yield return new("manage", "Manage", "/manage", NavLinkMatch.Prefix);
-            if (role is null || RolePermissions.CanManageUsers(role.Value))
+            if (!Auth.IsGuest && (role is null || RolePermissions.CanManageUsers(role.Value)))
                 yield return new("users", "Users", "/users", NavLinkMatch.Prefix);
-            if (role is null || RolePermissions.CanViewReports(role.Value))
+            if (!Auth.IsGuest && (role is null || RolePermissions.CanManageRooms(role.Value)))
+                yield return new("building", "Centres", "/centres", NavLinkMatch.Prefix);
+                if (!Auth.IsGuest && role == UserRole.Administrator)
+                    yield return new("building", "Equipment & catering", "/manage/catalog", NavLinkMatch.Prefix);
+            if (!Auth.IsGuest && (role is null || RolePermissions.CanViewReports(role.Value)))
                 yield return new("reports", "Reports", "/reports", NavLinkMatch.Prefix);
-            yield return new("alerts", "Alerts", "/notifications", NavLinkMatch.Prefix);
+            if (!Auth.IsGuest && (role is null || RolePermissions.CanManageUsers(role.Value)))
+                yield return new("audit", "Audit", "/audit", NavLinkMatch.Prefix);
+            if (!Auth.IsGuest)
+                yield return new("alerts", "Alerts", "/notifications", NavLinkMatch.Prefix);
             yield return new("profile", "Profile", "/profile", NavLinkMatch.Prefix);
         }
     }
@@ -148,11 +175,31 @@ else
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
+        if (!Auth.IsAuthenticated)
+            await Auth.EnsureSessionAsync();
         if (Auth.IsAuthenticated && !IsAuthRoute && !await Consent.HasAcceptedAsync())
             Navigation.NavigateTo("/");
     }
 
+    private bool ShowThanks { get; set; }
+    private Action PromptSignOutHandler => PromptSignOut;
+
     private void OnAuthChanged(object? sender, EventArgs e) => InvokeAsync(StateHasChanged);
+
+    private void PromptSignOut()
+    {
+        ShowThanks = true;
+        StateHasChanged();
+    }
+
+    private void SignOut() => PromptSignOut();
+
+    private async Task OnThanksClosed(bool open)
+    {
+        ShowThanks = open;
+        if (!open)
+            await Auth.LogoutAsync();
+    }
 
     public void Dispose() =>
         Auth.AuthStateChanged -= OnAuthChanged;

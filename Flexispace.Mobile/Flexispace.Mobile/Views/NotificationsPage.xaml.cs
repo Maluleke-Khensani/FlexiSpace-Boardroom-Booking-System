@@ -15,8 +15,15 @@ public partial class NotificationsPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        _vm.WatchInbox(true);
         await _vm.AppearingCommand.ExecuteAsync(null);
         _ = PlayHeroEntranceAsync();
+    }
+
+    protected override void OnDisappearing()
+    {
+        _vm.WatchInbox(false);
+        base.OnDisappearing();
     }
 
     private async Task PlayHeroEntranceAsync()

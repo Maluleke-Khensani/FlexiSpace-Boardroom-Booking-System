@@ -6,10 +6,8 @@ public interface IAdminService
 {
     Task<IReadOnlyList<User>> GetUsersAsync();
     Task<IReadOnlyList<User>> GetEntraDirectoryAsync();
-    Task<(bool Ok, string Message)> ProvisionUserAsync(User user);
-    Task<(bool Ok, string Message)> UpdateUserAsync(User user);
-    Task<(bool Ok, string Message)> RemoveUserAsync(int apiUserId);
-    Task<(bool Ok, string Message)> SetUserActiveAsync(int apiUserId, bool isActive);
+    Task<AuthResult> ProvisionUserAsync(Guid entraObjectId, string? locationId);
+    Task<AuthResult> UpdateUserLocationAsync(User user, string? locationId);
     Task<bool> AddRoomAsync(Boardroom room);
     Task<bool> RemoveRoomAsync(string roomId);
     Task<ReportSummary> GetReportSummaryAsync();
@@ -18,6 +16,7 @@ public interface IAdminService
 public class ReportSummary
 {
     public bool HasAccess { get; set; }
+    public bool HasUserDirectory { get; set; }
     public string ScopeLabel { get; set; } = "All locations";
     public DateTime GeneratedAt { get; set; } = DateTime.Now;
 
@@ -48,6 +47,7 @@ public class ReportSummary
     public int UnreadAlerts { get; set; }
     public int BlockedPeriods { get; set; }
     public int RoomsInScope { get; set; }
+    public int InUseNow { get; set; }
     public double OccupancyPercent { get; set; }
     public string MostUsedRoom { get; set; } = "—";
     public string MostUsedLocation { get; set; } = "—";

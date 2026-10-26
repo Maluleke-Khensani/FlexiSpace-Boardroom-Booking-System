@@ -31,32 +31,69 @@
                        HorizontalTextAlignment="Center" FontSize="26"
                        IsVisible="{Binding IsConfirmed}" />
 
-                <Border Style="{StaticResource ElevatedCard}" Padding="0">
+                <Border Style="{StaticResource ElevatedCard}" Padding="0" IsVisible="{Binding HasBooking}">
                     <Border.Stroke>
                         <SolidColorBrush Color="{StaticResource BrandGold}" />
                     </Border.Stroke>
                     <Grid ColumnDefinitions="4,*">
                         <BoxView Color="{StaticResource BrandGold}" />
                         <VerticalStackLayout Grid.Column="1" Spacing="8" Padding="18,16">
-                            <Label Text="{Binding Booking.RoomName}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="20" HorizontalTextAlignment="Center" />
+                            <Label Text="{Binding ReferenceLabel}"
+                                   IsVisible="{Binding ReferenceLabel, Converter={StaticResource StringNotEmptyConverter}}"
+                                   Style="{StaticResource EyebrowLabel}"
+                                   HorizontalTextAlignment="Center" />
+                            <Label Text="{Binding RoomName}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="20" HorizontalTextAlignment="Center" />
                             <HorizontalStackLayout Spacing="6" HorizontalOptions="Center">
                                 <Label Style="{StaticResource MaterialGlyph}" Text="&#xe55f;" FontSize="14" TextColor="{StaticResource BrandGold}" />
-                                <Label Text="{Binding Booking.LocationName}" TextColor="{DynamicResource BrandMuted}" FontSize="14" VerticalOptions="Center" />
+                                <Label Text="{Binding LocationName}" TextColor="{DynamicResource BrandMuted}" FontSize="14" VerticalOptions="Center" />
                             </HorizontalStackLayout>
                             <HorizontalStackLayout Spacing="6" HorizontalOptions="Center">
                                 <Label Style="{StaticResource MaterialGlyph}" Text="&#xe878;" FontSize="14" TextColor="{StaticResource BrandGold}" />
-                                <Label Text="{Binding Booking.Start, StringFormat='{0:ddd d MMM · HH:mm}'}" TextColor="{DynamicResource BrandInk}" FontSize="14" VerticalOptions="Center" />
-                                <Label Text="{Binding Booking.End, StringFormat='– {0:HH:mm}'}" TextColor="{DynamicResource BrandMuted}" FontSize="14" VerticalOptions="Center" />
+                                <Label Text="{Binding WhenLabel}" TextColor="{DynamicResource BrandInk}" FontSize="14" VerticalOptions="Center" LineBreakMode="WordWrap" />
                             </HorizontalStackLayout>
                             <Border Style="{StaticResource StatusPillBorder}" BackgroundColor="{DynamicResource BrandSuccess}"
                                     HorizontalOptions="Center" IsVisible="{Binding IsConfirmed}">
-                                <Label Text="Confirmed" Style="{StaticResource StatusPillText}" />
+                                <Label Text="{Binding StatusLabel}" Style="{StaticResource StatusPillText}" />
                             </Border>
                         </VerticalStackLayout>
                     </Grid>
                 </Border>
 
-                <Label Text="A confirmation is in Alerts — tap it to reopen this booking. Outlook sync lands when the API is live."
+                <Border Style="{StaticResource ElevatedCard}" Padding="16" IsVisible="{Binding HasFacts}">
+                    <VerticalStackLayout Spacing="10">
+                        <Grid ColumnDefinitions="108,*" ColumnSpacing="8" IsVisible="{Binding BookerLabel, Converter={StaticResource StringNotEmptyConverter}}">
+                            <Label Text="BOOKED BY" Style="{StaticResource EyebrowLabel}" />
+                            <Label Grid.Column="1" Text="{Binding BookerLabel}" TextColor="{DynamicResource BrandInk}" FontSize="14" />
+                        </Grid>
+                        <Grid ColumnDefinitions="108,*" ColumnSpacing="8" IsVisible="{Binding CompanyLabel, Converter={StaticResource StringNotEmptyConverter}}">
+                            <Label Text="COMPANY" Style="{StaticResource EyebrowLabel}" />
+                            <Label Grid.Column="1" Text="{Binding CompanyLabel}" TextColor="{DynamicResource BrandInk}" FontSize="14" />
+                        </Grid>
+                        <Grid ColumnDefinitions="108,*" ColumnSpacing="8" IsVisible="{Binding AttendeesLabel, Converter={StaticResource StringNotEmptyConverter}}">
+                            <Label Text="ATTENDEES" Style="{StaticResource EyebrowLabel}" />
+                            <Label Grid.Column="1" Text="{Binding AttendeesLabel}" TextColor="{DynamicResource BrandInk}" FontSize="14" />
+                        </Grid>
+                        <Grid ColumnDefinitions="108,*" ColumnSpacing="8" IsVisible="{Binding EquipmentLabel, Converter={StaticResource StringNotEmptyConverter}}">
+                            <Label Text="EQUIPMENT" Style="{StaticResource EyebrowLabel}" />
+                            <Label Grid.Column="1" Text="{Binding EquipmentLabel}" TextColor="{DynamicResource BrandInk}" FontSize="14" LineBreakMode="WordWrap" />
+                        </Grid>
+                        <Grid ColumnDefinitions="108,*" ColumnSpacing="8" IsVisible="{Binding CateringLabel, Converter={StaticResource StringNotEmptyConverter}}">
+                            <Label Text="CATERING" Style="{StaticResource EyebrowLabel}" />
+                            <Label Grid.Column="1" Text="{Binding CateringLabel}" TextColor="{DynamicResource BrandInk}" FontSize="14" LineBreakMode="WordWrap" />
+                        </Grid>
+                        <Grid ColumnDefinitions="108,*" ColumnSpacing="8" IsVisible="{Binding NotesLabel, Converter={StaticResource StringNotEmptyConverter}}">
+                            <Label Text="NOTES" Style="{StaticResource EyebrowLabel}" />
+                            <Label Grid.Column="1" Text="{Binding NotesLabel}" TextColor="{DynamicResource BrandInk}" FontSize="14" LineBreakMode="WordWrap" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="{Binding MissingLabel}"
+                       Style="{StaticResource MutedLabel}"
+                       HorizontalTextAlignment="Center"
+                       IsVisible="{Binding MissingLabel, Converter={StaticResource StringNotEmptyConverter}}" />
+
+                <Label Text="A confirmation is in Alerts."
                        Style="{StaticResource MutedLabel}" HorizontalTextAlignment="Center"
                        IsVisible="{Binding IsConfirmed}" />
 

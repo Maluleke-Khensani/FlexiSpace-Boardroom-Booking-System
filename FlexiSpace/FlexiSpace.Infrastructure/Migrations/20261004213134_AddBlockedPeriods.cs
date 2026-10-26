@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace FlexiSpace.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class AddBlockedPeriods : Migration
+    public partial class AddBlockedPeriods_20261004213134 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

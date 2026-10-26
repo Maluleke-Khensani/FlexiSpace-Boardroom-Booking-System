@@ -45,14 +45,10 @@
             </VerticalStackLayout>
 
             <VerticalStackLayout Grid.Row="3" Spacing="10" Margin="0,32,0,24">
-                <Button Text="Get a quote · Book a room"
+                <Button Text="Book a room"
                         Command="{Binding GetStartedCommand}"
                         Style="{StaticResource GoldButton}"
                         HorizontalOptions="Fill" />
-                <Label Text="Rent daily, weekly or monthly · No lease"
-                       TextColor="{DynamicResource BrandMuted}"
-                       FontSize="12"
-                       HorizontalTextAlignment="Center" />
                 <HorizontalStackLayout Spacing="6" HorizontalOptions="Center" Margin="0,8,0,0">
                     <Label Style="{StaticResource MaterialGlyph}" Text="&#xe32a;" FontSize="14" TextColor="{StaticResource BrandGold}" VerticalOptions="Center" />
                     <Label Text="Privacy &amp; PoPIA policy"

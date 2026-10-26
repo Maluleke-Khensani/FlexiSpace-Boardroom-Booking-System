@@ -14,4 +14,5 @@ public interface IBookingService
     Task<BlockRoomResult> BlockRoomAsync(string roomId, DateTime start, DateTime end, string reason, Guid? relatedBookingId = null);
     Task<IReadOnlyList<BlockedPeriod>> GetBlockedPeriodsAsync(string roomId);
     Task<IReadOnlyList<Booking>> GetTodaysBookingsAsync();
+    Task<IReadOnlyList<OccupiedSlot>> GetOccupiedSlotsAsync(string roomId, DateTime day);
 }

@@ -1,0 +1,159 @@
+@* After Microsoft sign-in, show unread alerts then any upcoming booking reminder. *@
+@inject IAuthService Auth
+@inject INotificationService Notifications
+@inject NavigationManager Nav
+@implements IDisposable
+
+@if (_visible)
+{
+    <aside class="fs-unread-toast @(_kind == "Reminder" ? "fs-unread-toast--reminder" : "")" role="status" aria-live="polite">
+        <div class="fs-unread-toast__icon" aria-hidden="true">
+            <NavIcon Name="@(_kind == "Reminder" ? "calendar" : "alerts")" />
+        </div>
+        <div class="fs-unread-toast__copy">
+            <p class="fs-unread-toast__title">@_title</p>
+            <p class="fs-unread-toast__text">@_text</p>
+        </div>
+        <a class="fs-unread-toast__link" href="@_href" @onclick="Dismiss">View</a>
+        <button type="button" class="fs-unread-toast__close" aria-label="Dismiss" @onclick="Dismiss">×</button>
+    </aside>
+}
+
+@code {
+    private bool _visible;
+    private bool _attempted;
+    private string _kind = "Alerts";
+    private string _title = "Alerts";
+    private string _text = string.Empty;
+    private string _href = "/notifications";
+    private AppNotification? _reminder;
+    private CancellationTokenSource? _hide;
+
+    protected override void OnInitialized() =>
+        Auth.AuthStateChanged += OnAuthChanged;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await TryShowAsync();
+    }
+
+    private async void OnAuthChanged(object? sender, EventArgs e) =>
+        await InvokeAsync(TryShowAsync);
+
+    private async Task TryShowAsync()
+    {
+        if (!Auth.IsSessionReady)
+            return;
+
+        if (!Auth.IsAuthenticated || Auth.CurrentUser is null || Auth.IsGuest)
+        {
+            _attempted = false;
+            _reminder = null;
+            Hide();
+            return;
+        }
+
+        if (_attempted || _visible)
+            return;
+
+        _attempted = true;
+        if (!ConsumeJustSignedInFlag())
+            return;
+
+        var unread = 0;
+        try
+        {
+            var items = await Notifications.GetNotificationsAsync();
+            unread = items.Count(n => !n.IsRead);
+            _reminder = items
+                .Where(n => string.Equals(n.Type, "Reminder", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(n => n.Title.Contains("1 hour", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                .ThenBy(n => n.CreatedAt)
+                .FirstOrDefault();
+        }
+        catch
+        {
+        }
+
+        await ShowToastAsync(
+            "Alerts",
+            "Alerts",
+            unread == 0
+                ? "You're all caught up — no unread notifications."
+                : unread == 1
+                    ? "You have 1 unread notification."
+                    : $"You have {unread} unread notifications.",
+            "/notifications");
+
+        if (_reminder is not null)
+        {
+            await ShowToastAsync(
+                "Reminder",
+                string.IsNullOrWhiteSpace(_reminder.Title) ? "Reminder" : _reminder.Title,
+                string.IsNullOrWhiteSpace(_reminder.Message) ? "You have an upcoming booking." : _reminder.Message,
+                _reminder.BookingId is { } id ? $"/bookings/{id}" : "/notifications");
+        }
+    }
+
+    private async Task ShowToastAsync(string kind, string title, string text, string href)
+    {
+        _kind = kind;
+        _title = title;
+        _text = text;
+        _href = href;
+        _visible = true;
+        StateHasChanged();
+
+        _hide?.Cancel();
+        _hide = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5), _hide.Token);
+        }
+        catch (TaskCanceledException)
+        {
+        }
+
+        Hide();
+        StateHasChanged();
+        await Task.Delay(280);
+    }
+
+    private bool ConsumeJustSignedInFlag()
+    {
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        var query = uri.Query.TrimStart('?');
+        if (string.IsNullOrEmpty(query))
+            return false;
+
+        var justSignedIn = query.Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(part => part.Split('=', 2)[0])
+            .Any(name => string.Equals(name, "signedIn", StringComparison.OrdinalIgnoreCase));
+        if (!justSignedIn)
+            return false;
+
+        var remaining = query.Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Where(part => !part.StartsWith("signedIn", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        var path = uri.GetLeftPart(UriPartial.Path);
+        var clean = remaining.Length == 0 ? path : path + "?" + string.Join("&", remaining);
+        Nav.NavigateTo(clean, replace: true);
+        return true;
+    }
+
+    private void Dismiss() => Hide();
+
+    private void Hide()
+    {
+        _hide?.Cancel();
+        _visible = false;
+    }
+
+    public void Dispose()
+    {
+        Auth.AuthStateChanged -= OnAuthChanged;
+        _hide?.Cancel();
+        _hide?.Dispose();
+    }
+}

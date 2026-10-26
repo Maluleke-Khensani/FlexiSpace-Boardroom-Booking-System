@@ -1,4 +1,4 @@
-@* Four-step booking wizard: location, room, date/time, and booking details. *@
+@* Five-step booking wizard: location, room, date/time, details, and in-person payment. *@
 @page "/book"
 @inject BookingViewModel Vm
 @inject IAuthService Auth
@@ -18,7 +18,7 @@ else
         <p class="fs-muted" style="margin-bottom:24px">@GetStepHint(Vm.Step)</p>
 
         <div class="fs-steps">
-            @for (var s = 1; s <= 4; s++)
+            @for (var s = 1; s <= 5; s++)
             {
                 var step = s;
                 <div class="fs-step @(Vm.Step == step ? "active" : Vm.Step > step ? "done" : "")">@GetStepLabel(step)</div>
@@ -27,12 +27,12 @@ else
 
         @if (!string.IsNullOrEmpty(Vm.ErrorMessage))
         {
-            <p class="fs-error" style="margin-bottom:16px">@Vm.ErrorMessage</p>
+            <p id="fs-error-banner" class="fs-error" style="margin-bottom:16px">@Vm.ErrorMessage</p>
         }
 
         @if (Vm.Step == 1)
         {
-            <div class="fs-choice-section">
+            <div id="book-location" class="fs-choice-section">
                 <p class="fs-choice-section__label">Choose a location</p>
                 <LocationChoiceGrid Items="Vm.Locations"
                                     SelectedId="Vm.SelectedLocation?.Id"
@@ -60,6 +60,7 @@ else
                 </div>
             </div>
 
+            <div id="book-room">
             @if (ShowMap)
             {
                 <RoomMap GroupTitle="@(Vm.SelectedLocation?.Name ?? "Rooms")"
@@ -73,6 +74,7 @@ else
                                 SelectedId="Vm.SelectedRoom?.Id"
                                 OnSelect="SelectRoomAsync" />
             }
+            </div>
 
             @if (Vm.SelectedRoom is not null)
             {
@@ -98,51 +100,95 @@ else
             <p class="fs-muted" style="margin-bottom:20px"><strong>@Vm.BookingRoomLabel</strong> at <strong>@Vm.SelectedLocation?.Name</strong></p>
             <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" style="margin-bottom:20px" @onclick="Back">Back</button>
 
-            <div class="fs-choice-section">
+            <div id="book-date" class="fs-choice-section">
                 <p class="fs-choice-section__label">Date</p>
                 <DateChoiceBar Selected="SelectedDateOnly" OnSelect="OnDateSelected" />
             </div>
 
-            <p class="fs-muted" style="margin-bottom:16px">Booked times are greyed out and cannot be selected.</p>
+            <p class="fs-muted" style="margin-bottom:16px">Booked and blocked times are greyed out and cannot be selected.</p>
 
-            <div class="fs-choice-section">
+            <div id="book-start" class="fs-choice-section">
                 <p class="fs-choice-section__label">Start time</p>
                 <TimeChoiceGrid Selected="Vm.StartTime" Unavailable="Vm.UnavailableStartSlots" Occupied="Vm.OccupiedSlots" OnSelect="OnStartSelected" />
             </div>
 
-            <div class="fs-choice-section">
-                <p class="fs-choice-section__label">End time</p>
-                <TimeChoiceGrid Selected="Vm.EndTime" Start="Vm.StartTime.Add(TimeSpan.FromMinutes(30))" Unavailable="Vm.UnavailableEndSlots" OnSelect="OnEndSelected" />
-            </div>
+            @if (Vm.StartTime is { } start)
+            {
+                <div class="fs-choice-section">
+                    <p class="fs-choice-section__label">End time</p>
+                    <TimeChoiceGrid Selected="Vm.EndTime" Start="start.Add(TimeSpan.FromMinutes(30))" Unavailable="Vm.UnavailableEndSlots" OnSelect="OnEndSelected" />
+                </div>
+            }
+
+            @if (Vm.SuggestedSlots.Count > 0)
+            {
+                <div class="fs-choice-section">
+                    <p class="fs-choice-section__label">Suggested times</p>
+                    <p class="fs-muted" style="margin-bottom:12px">This room is busy then. Pick a free alternative:</p>
+                    <div class="fs-time-grid">
+                        @foreach (var slot in Vm.SuggestedSlots)
+                        {
+                            <button type="button" class="fs-time-btn" @onclick="() => ApplySuggestion(slot)">@slot.ToString("HH:mm")</button>
+                        }
+                    </div>
+                </div>
+            }
 
             <div class="fs-step-actions">
                 <button type="button" class="fs-btn fs-btn--gold" @onclick="Continue">Continue to details</button>
             </div>
         }
-        else if (Vm.Step >= 4)
+        else if (Vm.Step == 4)
         {
             <p class="fs-muted" style="margin-bottom:20px"><strong>@Vm.BookingRoomLabel</strong> at <strong>@Vm.SelectedLocation?.Name</strong></p>
             <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" style="margin-bottom:16px" @onclick="Back">Back</button>
             <div class="fs-stack">
                 <div>
                     <label class="fs-label" for="book-company">Company</label>
-                    <input id="book-company" class="fs-field" @bind="Vm.Company" />
+                    <input id="book-company" class="fs-field @(Vm.ErrorAnchor == "book-company" ? "is-invalid" : "")" @bind="Vm.Company" />
                 </div>
                 <div>
                     <label class="fs-label" for="book-attendees">Attendees</label>
-                    <input id="book-attendees" class="fs-field" @bind="Vm.AttendeesText" inputmode="numeric" placeholder="Optional" />
+                    <input id="book-attendees" type="number" min="1" max="@Vm.BookingCapacity" aria-invalid="@Vm.AttendeesExceedCapacity" class="fs-field @(Vm.ErrorAnchor == "book-attendees" || Vm.AttendeesExceedCapacity ? "is-invalid" : "")" @bind="Vm.AttendeesText" @bind:event="oninput" inputmode="numeric" placeholder="How many people?" />
+                    <p class="fs-muted" style="margin:6px 0 0">Room capacity: @Vm.BookingCapacity seats.</p>
+                    @if (Vm.AttendeesExceedCapacity)
+                    {
+                        <p class="fs-error" role="alert" style="margin:6px 0 0">@Vm.AttendeeCapacityMessage</p>
+                    }
                 </div>
                 <div>
                     <label class="fs-label" for="book-notes">Notes</label>
                     <textarea id="book-notes" class="fs-field" @bind="Vm.Notes" rows="3"></textarea>
                 </div>
+                <div class="fs-card" style="padding:14px">
+                    <p class="fs-label" style="margin-top:0">Included with @Vm.SelectedRoom?.Name</p>
+                    <p class="fs-muted" style="margin:0 0 8px">This equipment is already in the room and does not need to be selected again.</p>
+                    @if (Vm.IncludedRoomEquipment.Count > 0)
+                    {
+                        <ul style="margin:0; padding-left:20px">
+                            @foreach (var item in Vm.IncludedRoomEquipment)
+                            {
+                                <li>@item</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="fs-muted" style="margin:0">No included equipment is listed for this room.</p>
+                    }
+                </div>
                 <div>
-                    <p class="fs-label">Equipment</p>
+                    <p class="fs-label">Additional equipment</p>
+                    <p class="fs-muted" style="margin:0 0 8px">Select optional items you need in addition to what is already included in the room.</p>
+                    @if (Vm.EquipmentOptions.Count == 0)
+                    {
+                        <p class="fs-muted">No additional equipment options are currently available.</p>
+                    }
                     @foreach (var opt in Vm.EquipmentOptions)
                     {
-                        <label style="display:flex; justify-content:space-between; padding:6px 0">
-                            <span>@opt.Label</span>
-                            <input type="checkbox" checked="@opt.IsSelected" @onchange="e => opt.IsSelected = (bool)(e.Value ?? false)" />
+                        <label style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; color:@(opt.IsActive ? "inherit" : "#8a8a8a"); opacity:@(opt.IsActive ? "1" : "0.55")">
+                            <span>@opt.Label@if (!opt.IsActive) { <small style="display:block">Currently unavailable</small> }</span>
+                            <input type="checkbox" checked="@opt.IsSelected" disabled="@(!opt.IsActive)" @onchange="e => opt.IsSelected = (bool)(e.Value ?? false)" />
                         </label>
                     }
                 </div>
@@ -150,9 +196,9 @@ else
                     <p class="fs-label">Catering</p>
                     @foreach (var opt in Vm.CateringOptions)
                     {
-                        <label style="display:flex; justify-content:space-between; padding:6px 0">
-                            <span>@opt.Label</span>
-                            <input type="checkbox" checked="@opt.IsSelected" @onchange="e => opt.IsSelected = (bool)(e.Value ?? false)" />
+                        <label style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; color:@(opt.IsActive ? "inherit" : "#8a8a8a"); opacity:@(opt.IsActive ? "1" : "0.55")">
+                            <span>@opt.Label@if (!opt.IsActive) { <small style="display:block">Currently unavailable</small> }</span>
+                            <input type="checkbox" checked="@opt.IsSelected" disabled="@(!opt.IsActive)" @onchange="e => opt.IsSelected = (bool)(e.Value ?? false)" />
                         </label>
                     }
                 </div>
@@ -160,8 +206,61 @@ else
                 {
                     <p class="fs-message">@Vm.SuggestedSlotsText</p>
                 }
-                <button type="button" class="fs-btn fs-btn--gold fs-btn--block" disabled="@Vm.IsBusy" @onclick="Submit">Confirm booking</button>
+                <button type="button" class="fs-btn fs-btn--gold fs-btn--block" @onclick="ContinueToPayment">Continue to payment</button>
             </div>
+        }
+        else if (Vm.Step == 5)
+        {
+            <p class="fs-muted" style="margin-bottom:20px"><strong>@Vm.BookingRoomLabel</strong> at <strong>@Vm.SelectedLocation?.Name</strong></p>
+            <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" style="margin-bottom:16px" @onclick="Back">Back</button>
+
+            @if (Vm.ShowGuestAccountPrompt)
+            {
+                <div class="fs-pay-card">
+                    <p class="fs-pay-card__eyebrow">Client accounts</p>
+                    <h2 class="fs-pay-card__title">Create an account to book — client sign-up is almost here</h2>
+                    <p>
+                        You can browse FlexiSpace and plan a booking as a guest. Confirming a boardroom
+                        needs a client account, and that self-service sign-up is still being finished.
+                    </p>
+                    <p>
+                        Until it launches, please sign in with a FlexiSpace Microsoft account if you already
+                        have one, or ask a centre host to reserve the room for you.
+                    </p>
+                    <ul class="fs-pay-card__points">
+                        <li>@Vm.BookingRoomLabel · @Vm.SelectedLocation?.Name</li>
+                        <li>@Vm.SelectedDate.ToString("dddd, d MMMM yyyy") · @FormatClock(Vm.StartTime)–@FormatClock(Vm.EndTime)</li>
+                        <li>Client accounts are coming soon</li>
+                    </ul>
+                    <a class="fs-btn fs-btn--gold fs-btn--block" href="/login">Sign in to continue</a>
+                    <p class="fs-muted" style="margin:12px 0 0; text-align:center">No client account is created online yet.</p>
+                </div>
+            }
+            else
+            {
+                <div id="book-payment" class="fs-pay-card">
+                    <p class="fs-pay-card__eyebrow">Payment</p>
+                    <h2 class="fs-pay-card__title">Settle in person — online payments are almost here</h2>
+                    <p>
+                        We're putting the finishing touches on secure card payments in FlexiSpace.
+                        Until that launches, your room is reserved now and payment is taken warmly in person —
+                        with your host on the day, or at reception before you begin.
+                    </p>
+                    <p>
+                        Nothing is charged online. You'll receive a confirmation of the reservation, and the
+                        centre team will look after payment when you arrive.
+                    </p>
+                    <ul class="fs-pay-card__points">
+                        <li>@Vm.BookingRoomLabel · @Vm.SelectedLocation?.Name</li>
+                        <li>@Vm.SelectedDate.ToString("dddd, d MMMM yyyy") · @FormatClock(Vm.StartTime)–@FormatClock(Vm.EndTime)</li>
+                        <li>@Vm.Company · @Vm.AttendeesText guest@(Vm.AttendeesText == "1" ? "" : "s")</li>
+                    </ul>
+                    <button type="button" class="fs-btn fs-btn--gold fs-btn--block" disabled="@Vm.IsBusy" @onclick="Submit">
+                        Confirm reservation
+                    </button>
+                    <p class="fs-muted" style="margin:12px 0 0; text-align:center">No payment will be taken online.</p>
+                </div>
+            }
         }
     </div>
 }
@@ -201,7 +300,8 @@ else
         1 => "Location",
         2 => "Room",
         3 => "Date & time",
-        _ => "Details"
+        4 => "Details",
+        _ => "Payment"
     };
 
     private static string GetStepHint(int step) => step switch
@@ -209,7 +309,8 @@ else
         1 => "Choose a location.",
         2 => "Choose a room.",
         3 => "Choose a date and time.",
-        _ => "Add company, attendees, and extras."
+        4 => "Add company, attendees, and extras.",
+        _ => "Review payment — currently settled in person."
     };
 
     private DateOnly SelectedDateOnly =>
@@ -259,10 +360,28 @@ else
     private Task OnStartSelected(TimeSpan time)
     {
         Vm.StartTime = time;
-        if (Vm.EndTime <= time)
-            Vm.EndTime = time.Add(TimeSpan.FromHours(1));
+        Vm.EndTime = SnapEndAfterStart(time);
         return Task.CompletedTask;
     }
+
+    private TimeSpan SnapEndAfterStart(TimeSpan start)
+    {
+        var preferred = start.Add(TimeSpan.FromHours(1));
+        var insideBusy = Vm.OccupiedSlots.Any(slot => start < slot.End && preferred > slot.Start);
+        if (!insideBusy)
+            return preferred;
+
+        var nextBusyStart = Vm.OccupiedSlots
+            .Where(slot => slot.Start > start)
+            .Select(slot => (TimeSpan?)slot.Start)
+            .OrderBy(slot => slot)
+            .FirstOrDefault();
+
+        return nextBusyStart is { } next && next > start ? next : preferred;
+    }
+
+    private static string FormatClock(TimeSpan? value) =>
+        value is { } t ? $"{t.Hours:D2}:{t.Minutes:D2}" : "—";
 
     private Task OnEndSelected(TimeSpan time)
     {
@@ -270,7 +389,10 @@ else
         return Task.CompletedTask;
     }
 
+    private void ApplySuggestion(DateTime start) => Vm.ApplySuggestedStart(start);
+
     private void Back() => Vm.BackCommand.Execute(null);
     private void Continue() => Vm.NextToDetailsCommand.Execute(null);
+    private void ContinueToPayment() => Vm.NextToPaymentCommand.Execute(null);
     private Task Submit() => Vm.SubmitCommand.ExecuteAsync(null);
 }

@@ -169,10 +169,9 @@ namespace FlexiSpace.Infrastructure.Services
                 {
                     var subject = $"Reminder - your booking starts in an hour ({booking.Boardroom.Name})";
 
-                    var emailBody = BookingService.BuildBookingDetailsEmailBody(
+                    var emailBody = BuildReminderEmailBody(
                         booking,
-                        booking.Boardroom,
-                        "This is a reminder that your boardroom booking starts in about an hour. Here are the details:");
+                        "This is a reminder that your boardroom booking starts in about an hour.");
 
                     try
                     {
@@ -223,7 +222,7 @@ namespace FlexiSpace.Infrastructure.Services
         {
             try
             {
-                var body = BookingService.BuildBookingDetailsEmailBody(booking, booking.Boardroom!, leadLine);
+                var body = BuildReminderEmailBody(booking, leadLine);
                 await emailService.SendEmailAsync(booking.User!.Email, subject, body);
             }
             catch (Exception ex)
@@ -234,6 +233,27 @@ namespace FlexiSpace.Infrastructure.Services
                     subject,
                     booking.Id);
             }
+        }
+
+        private static string BuildReminderEmailBody(Booking booking, string leadLine)
+        {
+            var roomName = booking.Boardroom?.Name ?? "your booked room";
+            var details = new List<string>
+            {
+                leadLine,
+                string.Empty,
+                $"Room: {roomName}",
+                $"Date: {booking.BookingDate:dddd, dd MMMM yyyy}",
+                $"Time: {booking.StartTime:HH\\:mm} - {booking.EndTime:HH\\:mm}",
+                $"Attendees: {booking.NumberOfAttendees}"
+            };
+
+            if (!string.IsNullOrWhiteSpace(booking.Company))
+                details.Add($"Company: {booking.Company}");
+            if (!string.IsNullOrWhiteSpace(booking.Notes))
+                details.Add($"Notes: {booking.Notes}");
+
+            return string.Join(Environment.NewLine, details);
         }
 
         // In-app reminder used by the 24-hour and 2-hour windows (the

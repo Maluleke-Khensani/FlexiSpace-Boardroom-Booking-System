@@ -129,6 +129,7 @@ public class NotificationIconConverter : IValueConverter
         {
             "Confirmation" => "\ue86c", // check_circle
             "Cancellation" => "\ue5cd", // close
+            "Update" => "\ue3c9",       // edit
             "Reminder" => "\ue8b5",     // schedule
             _ => "\ue88e"               // info
         };
@@ -146,6 +147,7 @@ public class NotificationAccentConverter : IValueConverter
         {
             "Confirmation" => "BrandSuccess",
             "Cancellation" => "BrandDanger",
+            "Update" => "BrandGoldDeep",
             "Reminder" => "BrandTeal",
             _ => "BrandSteel"
         };

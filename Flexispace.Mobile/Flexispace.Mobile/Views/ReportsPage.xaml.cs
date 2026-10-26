@@ -11,6 +11,7 @@ public partial class ReportsPage : ContentPage
     {
         InitializeComponent();
         BindingContext = _vm = vm;
+        vm.ApplySavedMode();
     }
 
     protected override async void OnAppearing()
@@ -22,25 +23,32 @@ public partial class ReportsPage : ContentPage
 
     private async Task PlayEntranceAsync()
     {
-        if (_entrancePlayed || HeroHud is null || ArenaContent is null)
+        if (_entrancePlayed || ArenaContent is null)
             return;
 
         _entrancePlayed = true;
+        var header = _vm.IsGamified ? HeroHud : ProHeader;
         try
         {
-            HeroHud.Opacity = 0;
-            HeroHud.TranslationY = -18;
-            HeroHud.Scale = 0.96;
             ArenaContent.Opacity = 0.35;
+            if (header is not null)
+            {
+                header.Opacity = 0;
+                header.TranslationY = -18;
+                header.Scale = 0.96;
+            }
 
             await Task.WhenAll(
-                HeroHud.FadeToAsync(1, 320, Easing.CubicOut),
-                HeroHud.TranslateToAsync(0, 0, 360, Easing.SpringOut),
-                HeroHud.ScaleToAsync(1.0, 360, Easing.SpringOut),
-                ArenaContent.FadeToAsync(1, 420, Easing.CubicOut));
+                ArenaContent.FadeToAsync(1, 420, Easing.CubicOut),
+                header?.FadeToAsync(1, 320, Easing.CubicOut) ?? Task.CompletedTask,
+                header?.TranslateToAsync(0, 0, 360, Easing.SpringOut) ?? Task.CompletedTask,
+                header?.ScaleToAsync(1.0, 360, Easing.SpringOut) ?? Task.CompletedTask);
 
-            await HeroHud.ScaleToAsync(1.02, 120, Easing.CubicOut);
-            await HeroHud.ScaleToAsync(1.0, 140, Easing.SpringOut);
+            if (header is not null && _vm.IsGamified)
+            {
+                await header.ScaleToAsync(1.02, 120, Easing.CubicOut);
+                await header.ScaleToAsync(1.0, 140, Easing.SpringOut);
+            }
         }
         catch
         {

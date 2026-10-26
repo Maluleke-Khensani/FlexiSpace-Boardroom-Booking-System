@@ -60,5 +60,18 @@ namespace FlexiSpace.Infrastructure.Services
 
             return Task.CompletedTask;
         }
+
+        public Task<bool> IsCalendarAvailableAsync(
+            string calendarEmail,
+            DateTime start,
+            DateTime end)
+        {
+            _logger.LogWarning(
+                "Calendar availability for {CalendarEmail} was not checked - MicrosoftGraph credentials are not configured.",
+                calendarEmail);
+
+            // The API performs its own local booking conflict checks.
+            return Task.FromResult(true);
+        }
     }
 }

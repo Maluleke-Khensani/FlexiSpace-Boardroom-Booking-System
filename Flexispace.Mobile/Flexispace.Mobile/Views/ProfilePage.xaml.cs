@@ -15,8 +15,15 @@ public partial class ProfilePage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        _vm.WatchUnread(true);
         await _vm.AppearingCommand.ExecuteAsync(null);
         _ = PlayHeroEntranceAsync();
+    }
+
+    protected override void OnDisappearing()
+    {
+        _vm.WatchUnread(false);
+        base.OnDisappearing();
     }
 
     private async Task PlayHeroEntranceAsync()

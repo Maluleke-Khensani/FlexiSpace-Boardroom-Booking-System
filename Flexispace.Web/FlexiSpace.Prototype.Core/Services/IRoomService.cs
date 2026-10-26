@@ -11,5 +11,8 @@ public interface IRoomService
     Task<IReadOnlyList<Boardroom>> GetAvailabilityAsync(string? locationId, DateTime date);
     Task<IReadOnlyList<string>> GetEquipmentCatalogAsync();
     Task<IReadOnlyList<string>> GetCateringCatalogAsync();
+    Task<IReadOnlyList<CatalogItem>> GetEquipmentCatalogItemsAsync();
+    Task<IReadOnlyList<CatalogItem>> GetCateringCatalogItemsAsync();
+    void InvalidateCatalog();
 }
 

@@ -13,7 +13,7 @@ namespace FlexiSpace.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
     [Migration("20261004213134_AddBlockedPeriods")]
-    partial class AddBlockedPeriods
+    partial class AddBlockedPeriods_20261004213134
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

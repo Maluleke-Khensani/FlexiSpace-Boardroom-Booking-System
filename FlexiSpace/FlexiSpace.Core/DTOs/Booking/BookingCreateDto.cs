@@ -6,6 +6,8 @@ namespace FlexiSpace.Core.DTOs.Booking
     {
         public int BoardroomId { get; set; }
 
+        public int UserId { get; set; }
+
         public DateOnly BookingDate { get; set; }
 
         public TimeOnly StartTime { get; set; }
@@ -18,8 +20,9 @@ namespace FlexiSpace.Core.DTOs.Booking
 
         public string? Notes { get; set; }
 
-        public List<BookingEquipmentDto> Equipment { get; set; } = new();
+        // Equipment and Catering may be omitted by the client (null).
+        public List<BookingEquipmentDto>? Equipment { get; set; }
 
-        public List<BookingCateringDto> Catering { get; set; } = new();
+        public List<BookingCateringDto>? Catering { get; set; }
     }
 }

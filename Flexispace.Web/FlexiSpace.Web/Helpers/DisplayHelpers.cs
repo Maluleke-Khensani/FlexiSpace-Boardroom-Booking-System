@@ -29,6 +29,7 @@ public static class DisplayHelpers
         "Confirmation" => "✓",
         "Reminder" => "!",
         "Cancellation" => "×",
+        "Blocked" => "■",
         _ => "i"
     };
 
@@ -37,11 +38,18 @@ public static class DisplayHelpers
         "Confirmation" => "#1E8E5A",
         "Reminder" => "#C4A035",
         "Cancellation" => "#C1392B",
+        "Blocked" => "#B5622E",
         _ => "#3D5A73"
     };
 
     public static string JoinList(IEnumerable<string> items) =>
         items.Any() ? string.Join(", ", items) : "—";
+
+    public static string BookingRef(Guid id)
+    {
+        var number = BitConverter.ToInt32(id.ToByteArray(), 0);
+        return number > 0 ? $"FS-{number}" : id.ToString("N")[..8].ToUpperInvariant();
+    }
 
     public static string ImageUrl(string? imageKey) =>
         string.IsNullOrEmpty(imageKey) ? "/images/placeholder.svg" : $"/images/{imageKey}";

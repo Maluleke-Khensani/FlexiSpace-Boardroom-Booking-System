@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Flexispace.Mobile.Helpers;
+using Flexispace.Mobile.Models;
 using Flexispace.Mobile.Services;
 
 namespace Flexispace.Mobile.ViewModels;
@@ -21,6 +22,8 @@ public partial class ReportsViewModel(IAuthService auth, IAdminService admin) : 
 
     [ObservableProperty] private bool hasAccess;
     [ObservableProperty] private bool isBusy;
+    [ObservableProperty] private bool isGamified = true;
+    private bool _restoringMode;
     [ObservableProperty] private string title = "Ops Arena";
     [ObservableProperty] private string subtitle = string.Empty;
     [ObservableProperty] private string generatedLabel = string.Empty;
@@ -34,8 +37,6 @@ public partial class ReportsViewModel(IAuthService auth, IAdminService admin) : 
     [ObservableProperty] private int opsLevel = 1;
     [ObservableProperty] private double levelProgress;
     [ObservableProperty] private string xpLabel = string.Empty;
-    [ObservableProperty] private string powerTier = "Warming up";
-    [ObservableProperty] private Color powerTierColor = Color.FromArgb("#C4A035");
     [ObservableProperty] private string missionBrief = string.Empty;
 
     [ObservableProperty] private int totalUsers;
@@ -59,14 +60,59 @@ public partial class ReportsViewModel(IAuthService auth, IAdminService admin) : 
     [ObservableProperty] private int roomsInScope;
     [ObservableProperty] private double occupancyPercent;
     [ObservableProperty] private double occupancyProgress;
+    [ObservableProperty] private string occupancyCaption = "0 booked today · 0 in use now · 0 rooms";
     [ObservableProperty] private double clearAlertsProgress;
-    [ObservableProperty] private double winRateProgress;
     [ObservableProperty] private string mostUsedRoom = "—";
     [ObservableProperty] private string mostUsedLocation = "—";
     [ObservableProperty] private string busiestDayLabel = "—";
-    [ObservableProperty] private double winRatePercent;
     [ObservableProperty] private int unlockedBadgeCount;
     [ObservableProperty] private string badgeProgressLabel = string.Empty;
+    [ObservableProperty] private string briefingLine = string.Empty;
+    [ObservableProperty] private string updatedLabel = string.Empty;
+    [ObservableProperty] private double confirmedShare;
+    [ObservableProperty] private string heldLabel = string.Empty;
+    [ObservableProperty] private bool hasUserDirectory;
+    [ObservableProperty] private int scoreboardPeople;
+    [ObservableProperty] private string scoreboardPeopleLabel = "Players";
+
+    public bool ShowArena => HasAccess && IsGamified;
+    public bool ShowBriefing => HasAccess && !IsGamified;
+
+    partial void OnHasAccessChanged(bool value) => NotifyMode();
+
+    partial void OnIsGamifiedChanged(bool value)
+    {
+        Title = value ? "Ops Arena" : "Reports";
+        NotifyMode();
+        if (_restoringMode || !HasAccess || auth.CurrentUser is not { } user)
+            return;
+        AppPreferences.SetReportsGamified(user.Role, value);
+    }
+
+    public void ApplySavedMode()
+    {
+        var user = auth.CurrentUser;
+        if (user is null || !RolePermissions.CanViewReports(user.Role))
+            return;
+
+        _restoringMode = true;
+        IsGamified = AppPreferences.GetReportsGamified(user.Role, user.Role != UserRole.CentreManager);
+        _restoringMode = false;
+        Title = IsGamified ? "Ops Arena" : "Reports";
+        NotifyMode();
+    }
+
+    [RelayCommand]
+    private void ShowArenaMode() => IsGamified = true;
+
+    [RelayCommand]
+    private void ShowBriefingMode() => IsGamified = false;
+
+    private void NotifyMode()
+    {
+        OnPropertyChanged(nameof(ShowArena));
+        OnPropertyChanged(nameof(ShowBriefing));
+    }
 
     public ObservableCollection<NamedCount> BookingsByLocation { get; } = [];
     public ObservableCollection<NamedCount> BookingsByStatus { get; } = [];
@@ -91,6 +137,8 @@ public partial class ReportsViewModel(IAuthService auth, IAdminService admin) : 
     {
         var user = auth.CurrentUser;
         HasAccess = user is not null && RolePermissions.CanViewReports(user.Role);
+        if (HasAccess)
+            ApplySavedMode();
         if (!HasAccess)
         {
             Title = "Ops Arena";
@@ -118,7 +166,7 @@ public partial class ReportsViewModel(IAuthService auth, IAdminService admin) : 
         AccessLevel = RolePermissions.AccessLevel(user.Role);
         RankLine = $"LVL {AccessLevel} · {RankTitle}";
 
-        Title = "Ops Arena";
+        Title = IsGamified ? "Ops Arena" : "Reports";
         ScopeLabel = report.ScopeLabel;
         Subtitle = $"{RankTitle} campaign · {report.ScopeLabel}";
         GeneratedLabel = $"Scan {report.GeneratedAt:ddd d MMM · HH:mm}";
@@ -126,7 +174,10 @@ public partial class ReportsViewModel(IAuthService auth, IAdminService admin) : 
             ? $"Today's raid: {report.TodaysBookings} live meetings. Keep the centres humming."
             : "Quiet lobby today — perfect window to stack the next booking streak.";
 
+        HasUserDirectory = report.HasUserDirectory;
         TotalUsers = report.TotalUsers;
+        ScoreboardPeople = report.HasUserDirectory ? report.TotalUsers : report.ActiveBookers;
+        ScoreboardPeopleLabel = report.HasUserDirectory ? "Players" : "Bookers";
         EmployeeUsers = report.EmployeeUsers;
         ClientUsers = report.ClientUsers;
         TotalBookings = report.TotalBookings;
@@ -150,10 +201,19 @@ public partial class ReportsViewModel(IAuthService auth, IAdminService admin) : 
         MostUsedRoom = report.MostUsedRoom;
         MostUsedLocation = report.MostUsedLocation;
         BusiestDayLabel = report.BusiestDayLabel;
+        UpdatedLabel = $"Updated {report.GeneratedAt:ddd d MMM · HH:mm}";
+        BriefingLine = TodaysBookings switch
+        {
+            0 => "No meetings booked today.",
+            1 => "1 meeting booked today.",
+            _ => $"{TodaysBookings} meetings booked today."
+        };
+        var decided = ConfirmedBookings + CancelledBookings;
+        ConfirmedShare = decided == 0 ? 0 : ConfirmedBookings / (double)decided;
+        HeldLabel = decided == 0
+            ? "No held or cancelled bookings yet."
+            : $"{ConfirmedBookings} held · {CancelledBookings} cancelled";
 
-        var decided = Math.Max(1, ConfirmedBookings + CancelledBookings);
-        WinRatePercent = Math.Round(100.0 * ConfirmedBookings / decided, 0);
-        WinRateProgress = Math.Clamp(WinRatePercent / 100.0, 0, 1);
         ClearAlertsProgress = AlertsGenerated == 0
             ? 1
             : Math.Clamp(1 - (UnreadAlerts / (double)Math.Max(1, AlertsGenerated)), 0, 1);
@@ -166,15 +226,6 @@ public partial class ReportsViewModel(IAuthService auth, IAdminService admin) : 
         OpsLevel = Math.Max(1, OpsXp / 100 + 1);
         LevelProgress = (OpsXp % 100) / 100.0;
         XpLabel = $"{OpsXp % 100} / 100 XP → LVL {OpsLevel + 1}";
-
-        (PowerTier, PowerTierColor) = OccupancyPercent switch
-        {
-            >= 85 => ("OVERDRIVE", Color.FromArgb("#C1392B")),
-            >= 65 => ("ON FIRE", Color.FromArgb("#B5622E")),
-            >= 40 => ("CHARGING", Color.FromArgb("#C4A035")),
-            >= 15 => ("WARMING UP", Color.FromArgb("#1F6F78")),
-            _ => ("IDLE MODE", Color.FromArgb("#3D5A73"))
-        };
 
         Replace(BookingsByLocation, report.BookingsByLocation);
         Replace(BookingsByStatus, report.BookingsByStatus);
@@ -252,17 +303,11 @@ public partial class ReportsViewModel(IAuthService auth, IAdminService admin) : 
     {
         Achievements.Clear();
         Achievements.Add(new AchievementBadge(
-            "\ue6e1", "Power Meter", PowerTier,
-            report.OccupancyPercent >= 40, PowerTierColor, Color.FromArgb("#26C4A035")));
-        Achievements.Add(new AchievementBadge(
             "\ue878", "Booking Streak", $"{report.ThisWeekBookings} this week",
             report.ThisWeekBookings >= 3, Color.FromArgb("#1F6F78"), Color.FromArgb("#E4F0F1")));
         Achievements.Add(new AchievementBadge(
             "\ue7fd", "Host Hero", $"{report.TotalAttendeesServed} guests",
             report.TotalAttendeesServed >= 15, Color.FromArgb("#1E8E5A"), Color.FromArgb("#E3F3EA")));
-        Achievements.Add(new AchievementBadge(
-            "\ue86c", "Win Rate", $"{WinRatePercent:0}% held",
-            WinRatePercent >= 70, Color.FromArgb("#C4A035"), Color.FromArgb("#F7F0D8")));
         Achievements.Add(new AchievementBadge(
             "\ue7f4", "Inbox Ace", report.UnreadAlerts == 0 ? "Inbox zero" : $"{report.UnreadAlerts} unread",
             report.UnreadAlerts == 0 && report.AlertsGenerated > 0, Color.FromArgb("#3D5A73"), Color.FromArgb("#E7ECF1")));

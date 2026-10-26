@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Flexispace.Core.Models;
 
 namespace Flexispace.Web.Api;
 
@@ -46,7 +47,7 @@ internal sealed class BoardroomEquipmentDto
     public int Quantity { get; set; }
 }
 
-internal sealed class EquipmentDto
+public sealed class EquipmentDto
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
@@ -54,7 +55,7 @@ internal sealed class EquipmentDto
     public bool IsActive { get; set; }
 }
 
-internal sealed class CateringDto
+public sealed class CateringDto
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
@@ -84,12 +85,15 @@ internal sealed class BookingDto
     public DateOnly BookingDate { get; set; }
     public TimeOnly StartTime { get; set; }
     public TimeOnly EndTime { get; set; }
+    public DateTime? Start { get; set; }
+    public DateTime? End { get; set; }
     [JsonConverter(typeof(ApiEnumIntConverter))]
     public int Status { get; set; }
     public string? Company { get; set; }
     public int NumberOfAttendees { get; set; }
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; }
+    public DateTime? ModifiedAt { get; set; }
     public List<BookingItemDto> Equipment { get; set; } = [];
     public List<BookingItemDto> Catering { get; set; } = [];
 }
@@ -132,6 +136,12 @@ internal sealed class BookingUpdatePayload
     public List<BookingItemDto> Catering { get; set; } = [];
 }
 
+internal sealed class BookingStatusPayload
+{
+    // Hosted API accepts integer enums (Cancelled = 1).
+    public int Status { get; set; } = 1;
+}
+
 internal sealed class NotificationDto
 {
     public int Id { get; set; }
@@ -162,6 +172,25 @@ internal sealed class BoardroomCreatePayload
     [JsonConverter(typeof(ApiEnumIntConverter))]
     public int Status { get; set; }
     public List<BoardroomEquipmentDto> Equipment { get; set; } = [];
+}
+
+internal sealed class LocationWritePayload
+{
+    public required string Name { get; set; }
+    public string Address { get; set; } = string.Empty;
+}
+
+internal sealed class AuditLogDto
+{
+    public int Id { get; set; }
+    public int ActingUserId { get; set; }
+    public string? ActingUserName { get; set; }
+    public string Action { get; set; } = string.Empty;
+    public string EntityName { get; set; } = string.Empty;
+    public string EntityId { get; set; } = string.Empty;
+    public DateTime Timestamp { get; set; }
+    public string? OldValues { get; set; }
+    public string? NewValues { get; set; }
 }
 
 internal sealed class BoardroomUpdatePayload
@@ -228,10 +257,33 @@ internal sealed class EntraUserDto
     public string DisplayName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public bool IsActive { get; set; }
+    public UserRole? Role { get; set; }
 }
 
 internal sealed class BlockedPeriodDto
 {
     public int Id { get; set; }
     public int BoardroomId { get; set; }
+    public string BoardroomName { get; set; } = string.Empty;
+    public int LocationId { get; set; }
+    public DateTime? Start { get; set; }
+    public DateTime? End { get; set; }
+    public DateOnly StartDate { get; set; }
+    public TimeOnly StartTime { get; set; }
+    public DateOnly EndDate { get; set; }
+    public TimeOnly EndTime { get; set; }
+    public string Reason { get; set; } = string.Empty;
+    public string CreatedByName { get; set; } = string.Empty;
+}
+
+internal sealed class BlockedPeriodCreatePayload
+{
+    public int BoardroomId { get; set; }
+    public DateTime Start { get; set; }
+    public DateTime End { get; set; }
+    public DateOnly StartDate { get; set; }
+    public TimeOnly StartTime { get; set; }
+    public DateOnly EndDate { get; set; }
+    public TimeOnly EndTime { get; set; }
+    public string Reason { get; set; } = string.Empty;
 }

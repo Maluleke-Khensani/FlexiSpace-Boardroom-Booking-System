@@ -2,6 +2,7 @@
 @page "/bookings/{BookingId:guid}"
 @inject BookingDetailViewModel Vm
 @inject IAuthService Auth
+@inject IJSRuntime JS
 
 <PageTitle>Booking · Flexispace</PageTitle>
 
@@ -9,32 +10,50 @@
 {
     <RedirectToLogin />
 }
+else if (Vm.IsLoading)
+{
+    <div class="fs-content-narrow">
+        <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" style="margin-bottom:16px" @onclick="Back">Back</button>
+        <p class="fs-muted">Loading booking…</p>
+    </div>
+}
 else if (Vm.Booking is null)
 {
-    <div class="fs-content-narrow"><p class="fs-muted">Loading booking…</p></div>
+    <div class="fs-content-narrow">
+        <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" style="margin-bottom:16px" @onclick="Back">Back</button>
+        <h2 class="fs-section-title">Booking not found</h2>
+        <p class="fs-muted">This booking may have been removed, or you may not have access to it.</p>
+    </div>
 }
 else
 {
     <div class="fs-content-narrow">
+        <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" style="margin-bottom:16px" @onclick="Back">Back</button>
         <h2 class="fs-section-title">@Vm.Booking.RoomName</h2>
         <p class="fs-muted" style="margin-bottom:24px">@Vm.Booking.LocationName</p>
 
         <div class="fs-card fs-stack">
-            <p style="margin:0">Starts · @Vm.Booking.Start.ToString("f")</p>
+            <p style="margin:0">Booking ID · @DisplayHelpers.BookingRef(Vm.Booking.Id)</p>
+            <p style="margin:0">Date · @Vm.Booking.Start.ToString("D")</p>
+            <p style="margin:0">Starts · @Vm.Booking.Start.ToString("t")</p>
             <p style="margin:0">Ends · @Vm.Booking.End.ToString("t")</p>
+            <p class="fs-muted" style="margin:0">Location · @Vm.Booking.LocationName</p>
+            <p class="fs-muted" style="margin:0">Boardroom · @Vm.Booking.RoomName</p>
             <p class="fs-muted" style="margin:0">Booked by · @Vm.Booking.BookerName</p>
-            <p class="fs-muted" style="margin:0">Company · @Vm.Booking.Company</p>
+            <p class="fs-muted" style="margin:0">Company · @(string.IsNullOrWhiteSpace(Vm.Booking.Company) ? "—" : Vm.Booking.Company)</p>
             <p class="fs-muted" style="margin:0">Attendees · @Vm.Booking.Attendees</p>
+            <p class="fs-muted" style="margin:0">Equipment · @DisplayHelpers.JoinList(Vm.Booking.Equipment)</p>
+            <p class="fs-muted" style="margin:0">Catering · @DisplayHelpers.JoinList(Vm.Booking.Catering)</p>
             <p style="color:var(--fs-gold-deep); font-weight:600; margin:0">Status · @Vm.Booking.Status</p>
             @if (!string.IsNullOrEmpty(Vm.Booking.Notes))
             {
-                <p class="fs-muted" style="margin:0">@Vm.Booking.Notes</p>
+                <p class="fs-muted" style="margin:0">Notes · @Vm.Booking.Notes</p>
             }
         </div>
 
         @if (!string.IsNullOrEmpty(Vm.Message))
         {
-            <p class="fs-message" style="margin:20px 0">@Vm.Message</p>
+            <p id="@(Vm.IsError ? "fs-error-banner" : null)" class="@(Vm.IsError ? "fs-error" : "fs-message")" style="margin:20px 0">@Vm.Message</p>
         }
 
         @if (Vm.CanEdit)
@@ -63,13 +82,13 @@ else
                     <label class="fs-label">Notes</label>
                     <textarea class="fs-field" @bind="Vm.Notes" rows="3"></textarea>
                 </div>
-                <button type="button" class="fs-btn fs-btn--ghost" @onclick="Save">Save changes</button>
+                <button type="button" class="fs-btn fs-btn--ghost" disabled="@Vm.IsSaving" @onclick="Save">@(Vm.IsSaving ? "Saving…" : "Save changes")</button>
             </div>
         }
 
         @if (Vm.CanCancel)
         {
-            <button type="button" class="fs-btn fs-btn--ghost" style="margin-top:20px" @onclick="Cancel">Cancel booking</button>
+            <button type="button" class="fs-btn fs-btn--ghost" style="margin-top:20px" disabled="@Vm.IsSaving" @onclick="Cancel">@(Vm.IsSaving ? "Working…" : "Cancel booking")</button>
         }
     </div>
 }
@@ -77,8 +96,14 @@ else
 @code {
     [Parameter] public Guid BookingId { get; set; }
 
-    protected override void OnParametersSet() =>
-        Vm.SetBookingId(BookingId.ToString());
+    protected override async Task OnParametersSetAsync()
+    {
+        if (string.Equals(Vm.BookingId, BookingId.ToString(), StringComparison.OrdinalIgnoreCase) &&
+            Vm.Booking is not null)
+            return;
+
+        await Vm.LoadByIdAsync(BookingId.ToString());
+    }
 
     private DateOnly EditDateOnly
     {
@@ -88,15 +113,18 @@ else
 
     private string EditStartString
     {
-        get => Vm.EditStart.ToString(@"HH\:mm");
+        get => FormatClock(Vm.EditStart);
         set { if (TimeSpan.TryParse(value, out var t)) Vm.EditStart = t; }
     }
 
     private string EditEndString
     {
-        get => Vm.EditEnd.ToString(@"HH\:mm");
+        get => FormatClock(Vm.EditEnd);
         set { if (TimeSpan.TryParse(value, out var t)) Vm.EditEnd = t; }
     }
+
+    private static string FormatClock(TimeSpan value) =>
+        $"{value.Hours:D2}:{value.Minutes:D2}";
 
     private void OnEditDateChanged(ChangeEventArgs e) { if (DateOnly.TryParse(e.Value?.ToString(), out var d)) Vm.EditDate = d.ToDateTime(TimeOnly.MinValue); }
     private void OnEditStartChanged(ChangeEventArgs e) => EditStartString = e.Value?.ToString() ?? EditStartString;
@@ -104,4 +132,15 @@ else
 
     private Task Save() => Vm.SaveEditsCommand.ExecuteAsync(null);
     private Task Cancel() => Vm.CancelCommand.ExecuteAsync(null);
+
+    private async Task Back()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("flexispaceUi.goBack", Auth.CurrentUser?.Role is UserRole.CentreManager or UserRole.Administrator ? "/manage" : "/my-bookings");
+        }
+        catch
+        {
+        }
+    }
 }

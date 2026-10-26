@@ -21,6 +21,7 @@ namespace FlexiSpace.Infrastructure.Persistence
         //=> is the same as { get; set; } but it is more concise and can be used for read-only properties.
         public DbSet<Location> Locations => Set<Location>();
         public DbSet<Boardroom> Boardrooms => Set<Boardroom>();
+        public DbSet<BoardroomComponent> BoardroomComponents => Set<BoardroomComponent>();
         public DbSet<User> Users => Set<User>();
         public DbSet<Booking> Bookings => Set<Booking>();
 
@@ -39,6 +40,7 @@ namespace FlexiSpace.Infrastructure.Persistence
         public DbSet<Notification> Notifications => Set<Notification>();
         public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
         public DbSet<BlockedPeriod> BlockedPeriods => Set<BlockedPeriod>();
+        public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
 
         //// Automatically apply all Fluent API configurations in this assembly.
         protected override void OnModelCreating(ModelBuilder modelBuilder)

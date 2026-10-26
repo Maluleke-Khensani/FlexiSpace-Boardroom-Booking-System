@@ -29,9 +29,15 @@ namespace FlexiSpace.API.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<EntraUserResponseDto>>> GetUsers()
         {
-            var users = await _entraUserService.GetUsersAsync();
-
-            return Ok(users);
+            try
+            {
+                var users = await _entraUserService.GetUsersAsync();
+                return Ok(users);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = ex.Message });
+            }
         }
 
         // Returns one Microsoft Entra user by their Entra Object ID.

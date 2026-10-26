@@ -138,29 +138,116 @@ public class MockAdminService(MockDataStore store, IAuthService auth, IRoomServi
             : "User deactivated. Open Edit to activate them again."));
     }
 
-    public async Task<bool> AddRoomAsync(Boardroom room)
+    public async Task<(bool Ok, string Message)> AddRoomAsync(Boardroom room)
     {
         if (auth.CurrentUser is null || !RolePermissions.CanManageRooms(auth.CurrentUser.Role))
-            return false;
+            return (false, "Only Administrators can add boardrooms.");
 
         if (string.IsNullOrWhiteSpace(room.Name) || string.IsNullOrWhiteSpace(room.LocationId))
-            return false;
+            return (false, "Choose a location and enter a boardroom name.");
 
         room.Id = $"{room.LocationId}-{Guid.NewGuid().ToString("N")[..6]}";
         SeedData.Rooms.Add(room);
+        rooms.InvalidateCatalog();
         await Task.CompletedTask;
-        return true;
+        return (true, $"{room.Name} was added.");
     }
 
-    public Task<bool> RemoveRoomAsync(string roomId)
+    public Task<(bool Ok, string Message)> UpdateRoomAsync(Boardroom room)
     {
         if (auth.CurrentUser is null || !RolePermissions.CanManageRooms(auth.CurrentUser.Role))
-            return Task.FromResult(false);
+            return Task.FromResult((false, "Only Administrators can update boardrooms."));
+        if (string.IsNullOrWhiteSpace(room.Name) || string.IsNullOrWhiteSpace(room.LocationId))
+            return Task.FromResult((false, "Choose a location and enter a boardroom name."));
+
+        var existing = SeedData.Rooms.FirstOrDefault(r => r.Id == room.Id);
+        if (existing is null)
+            return Task.FromResult((false, "Boardroom not found."));
+
+        existing.Name = room.Name.Trim();
+        existing.LocationId = room.LocationId;
+        existing.Capacity = Math.Max(1, room.Capacity);
+        existing.Equipment = room.Equipment.ToList();
+        rooms.InvalidateCatalog();
+        return Task.FromResult((true, $"{existing.Name} was updated."));
+    }
+
+    public Task<(bool Ok, string Message)> RemoveRoomAsync(string roomId)
+    {
+        if (auth.CurrentUser is null || !RolePermissions.CanManageRooms(auth.CurrentUser.Role))
+            return Task.FromResult((false, "Only Administrators can remove boardrooms."));
 
         var room = SeedData.Rooms.FirstOrDefault(r => r.Id == roomId);
-        if (room is null) return Task.FromResult(false);
+        if (room is null) return Task.FromResult((false, "Boardroom not found."));
         SeedData.Rooms.Remove(room);
-        return Task.FromResult(true);
+        rooms.InvalidateCatalog();
+        return Task.FromResult((true, $"{room.Name} was removed."));
+    }
+
+    public Task<(bool Ok, string Message)> CreateLocationAsync(OfficeLocation location)
+    {
+        if (auth.CurrentUser is null || !RolePermissions.CanConfigureLocations(auth.CurrentUser.Role))
+            return Task.FromResult((false, "Only Administrators can add locations."));
+        if (string.IsNullOrWhiteSpace(location.Name))
+            return Task.FromResult((false, "Enter a location name."));
+
+        location.Id = location.Name.Trim().ToLowerInvariant().Replace(' ', '-');
+        if (SeedData.Locations.Any(l => l.Id == location.Id))
+            location.Id += $"-{Guid.NewGuid().ToString("N")[..4]}";
+        SeedData.Locations.Add(location);
+        rooms.InvalidateCatalog();
+        return Task.FromResult((true, $"{location.Name} was added."));
+    }
+
+    public Task<(bool Ok, string Message)> UpdateLocationAsync(OfficeLocation location)
+    {
+        if (auth.CurrentUser is null || !RolePermissions.CanConfigureLocations(auth.CurrentUser.Role))
+            return Task.FromResult((false, "Only Administrators can update locations."));
+
+        var existing = SeedData.Locations.FirstOrDefault(l => l.Id == location.Id);
+        if (existing is null)
+            return Task.FromResult((false, "Location not found."));
+
+        existing.Name = location.Name.Trim();
+        existing.Address = location.Address.Trim();
+        rooms.InvalidateCatalog();
+        return Task.FromResult((true, $"{existing.Name} was updated."));
+    }
+
+    public Task<(bool Ok, string Message)> DeleteLocationAsync(string locationId)
+    {
+        if (auth.CurrentUser is null || !RolePermissions.CanConfigureLocations(auth.CurrentUser.Role))
+            return Task.FromResult((false, "Only Administrators can remove locations."));
+
+        var existing = SeedData.Locations.FirstOrDefault(l => l.Id == locationId);
+        if (existing is null)
+            return Task.FromResult((false, "Location not found."));
+
+        SeedData.Locations.Remove(existing);
+        SeedData.Rooms.RemoveAll(r => r.LocationId == locationId);
+        rooms.InvalidateCatalog();
+        return Task.FromResult((true, $"{existing.Name} was removed."));
+    }
+
+    public Task<IReadOnlyList<AuditLogEntry>> GetRecentAuditAsync(int count = 100)
+    {
+        if (auth.CurrentUser is null || !RolePermissions.CanManageUsers(auth.CurrentUser.Role))
+            return Task.FromResult<IReadOnlyList<AuditLogEntry>>([]);
+
+        var entries = store.Bookings
+            .OrderByDescending(b => b.ModifiedAt ?? b.CreatedAt)
+            .Take(Math.Clamp(count, 1, 500))
+            .Select(b => new AuditLogEntry
+            {
+                Action = b.Status == BookingStatus.Cancelled ? "Deleted" : "Updated",
+                EntityName = "Booking",
+                EntityId = b.Id.ToString(),
+                ActingUserName = b.BookerName,
+                Timestamp = b.ModifiedAt ?? b.CreatedAt,
+                NewValues = $"{b.RoomName} · {b.Start:g}"
+            })
+            .ToList();
+        return Task.FromResult<IReadOnlyList<AuditLogEntry>>(entries);
     }
 
     public async Task<ReportSummary> GetReportSummaryAsync()

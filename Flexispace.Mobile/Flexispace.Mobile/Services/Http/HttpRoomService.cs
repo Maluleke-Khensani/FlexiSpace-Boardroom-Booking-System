@@ -88,11 +88,9 @@ public sealed class HttpRoomService(
                     .Where(b => conflictIds.Contains(b.RoomId) && b.Status != BookingStatus.Cancelled)
                     .ToList();
 
-                if (blocked.Any(b =>
-                        conflictIds.Contains(b.RoomId) &&
-                        b.Start.Date <= day &&
-                        b.End > day))
-                    clone.Status = RoomStatus.Blocked;
+                var blockStatus = BlockReasons.StatusForRooms(blocked, conflictIds, day);
+                if (blockStatus is RoomStatus status)
+                    clone.Status = status;
                 else if (active.Any(b => b.Start <= now && b.End > now))
                     clone.Status = RoomStatus.Occupied;
                 else if (active.Any(b => b.Start > now && b.Start < now.AddHours(2)))
@@ -124,19 +122,20 @@ public sealed class HttpRoomService(
         if (_locations is not null && _rooms is not null)
             return;
 
-        var locations = await api.GetAsync<List<ApiLocationDto>>("api/Location") ?? [];
-        var rooms = await api.GetAsync<List<ApiBoardroomDto>>("api/Boardroom") ?? [];
+        var locations = (await api.GetAsync<List<ApiLocationDto>>("api/Location") ?? [])
+            .Where(l => !IsExtraHoughton(l.Name))
+            .ToList();
+        var keptLocationIds = locations.Select(l => l.Id).ToHashSet();
+        var rooms = (await api.GetAsync<List<ApiBoardroomDto>>("api/Boardroom") ?? [])
+            .Where(r => keptLocationIds.Contains(r.LocationId))
+            .ToList();
 
         foreach (var loc in locations)
             catalog.RegisterLocation(loc.Id, loc.Name);
         foreach (var room in rooms)
             catalog.RegisterRoom(room.Id, room.Name, room.LocationId);
 
-        _locations = locations
-            .Select(MapLocation)
-            .GroupBy(l => l.Id, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First())
-            .ToList();
+        _locations = locations.Select(MapLocation).ToList();
         _rooms = rooms.Select(MapRoom).ToList();
     }
 
@@ -149,6 +148,13 @@ public sealed class HttpRoomService(
         var items = await api.GetAsync<List<ApiBlockedPeriodDto>>(url) ?? [];
         return items.Select(MapBlocked).ToList();
     }
+
+    /// <summary>
+    /// Azure has an empty centre named Houghton beside Houghton Estate.
+    /// Both would become the id "houghton" and crash Live.
+    /// </summary>
+    private static bool IsExtraHoughton(string? name) =>
+        string.Equals(name?.Trim(), "Houghton", StringComparison.OrdinalIgnoreCase);
 
     private OfficeLocation MapLocation(ApiLocationDto dto)
     {

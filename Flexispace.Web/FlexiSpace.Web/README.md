@@ -8,7 +8,7 @@ This is the **Blazor Server** website. It is not a React project. Staff, centre 
 
 Flexispace Web lets users:
 
-- **Browse and book boardrooms** across Centurion, Houghton, and Eagle Canyon via a four-step wizard (location → room → date/time → details)
+- **Browse and book boardrooms** across Centurion, Houghton Estate, and Eagle Canyon via a four-step wizard (location → room → date/time → details)
 - **See already-booked meeting times greyed out** on the time grid
 - **View live room availability** with location filters and map/list layouts
 - **Manage bookings** — edit, cancel, or change status in scope (Centre Manager / Admin)

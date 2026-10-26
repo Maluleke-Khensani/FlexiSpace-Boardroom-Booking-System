@@ -15,6 +15,13 @@ public partial class MyBookingsPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        _vm.Watch(true);
         await _vm.AppearingCommand.ExecuteAsync(null);
+    }
+
+    protected override void OnDisappearing()
+    {
+        _vm.Watch(false);
+        base.OnDisappearing();
     }
 }

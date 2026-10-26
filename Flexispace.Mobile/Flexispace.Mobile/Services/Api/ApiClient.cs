@@ -54,6 +54,25 @@ public sealed class ApiClient
         }
     }
 
+    public async Task<T> GetRequiredAsync<T>(string relativeUrl, CancellationToken ct = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, relativeUrl);
+        using var response = await SendAsync(request, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = (await response.Content.ReadAsStringAsync(ct)).Trim();
+            throw new HttpRequestException(
+                $"The API could not load {relativeUrl} ({(int)response.StatusCode}): {body}",
+                inner: null,
+                statusCode: response.StatusCode);
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<T>(JsonOptions, ct);
+        if (payload is null)
+            throw new InvalidDataException($"The API returned no data for {relativeUrl}.");
+        return payload;
+    }
+
     public async Task<HttpResponseMessage> PostAsJsonAsync<T>(string relativeUrl, T body, CancellationToken ct = default)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, relativeUrl)

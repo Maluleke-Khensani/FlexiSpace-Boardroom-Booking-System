@@ -54,5 +54,49 @@ namespace FlexiSpace.Infrastructure.Services
 
             return Task.CompletedTask;
         }
+
+        public Task SendBookingModifiedAsync(
+            string recipientEmail,
+            string recipientName,
+            string boardroomName,
+            string locationName,
+            string locationAddress,
+            DateOnly bookingDate,
+            TimeOnly startTime,
+            TimeOnly endTime,
+            int numberOfAttendees,
+            string? company,
+            string? notes)
+        {
+            _logger.LogWarning(
+                "Booking modification email to {ToEmail} ({Boardroom}, {Date}) was not sent - MicrosoftGraph email credentials are not configured.",
+                recipientEmail,
+                boardroomName,
+                bookingDate);
+
+            return Task.CompletedTask;
+        }
+
+        public Task SendBookingCancellationAsync(
+            string recipientEmail,
+            string recipientName,
+            string boardroomName,
+            string locationName,
+            string locationAddress,
+            DateOnly bookingDate,
+            TimeOnly startTime,
+            TimeOnly endTime,
+            int numberOfAttendees,
+            string? company,
+            string? notes)
+        {
+            _logger.LogWarning(
+                "Booking cancellation email to {ToEmail} ({Boardroom}, {Date}) was not sent - MicrosoftGraph email credentials are not configured.",
+                recipientEmail,
+                boardroomName,
+                bookingDate);
+
+            return Task.CompletedTask;
+        }
     }
 }

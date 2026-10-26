@@ -16,10 +16,14 @@ public partial class WelcomeViewModel : ObservableObject
         await Shell.Current.GoToAsync("PrivacyPage");
 }
 
-public partial class LoginViewModel(IAuthService auth) : ObservableObject
+public partial class LoginViewModel(
+    IAuthService auth,
+    INotificationService notifications,
+    IBookingService bookings) : ObservableObject
 {
     [ObservableProperty] private string? errorMessage;
     [ObservableProperty] private bool isBusy;
+    [ObservableProperty] private bool isGuest = auth.IsGuest;
 
     [RelayCommand]
     private async Task LoginWithMicrosoftAsync()
@@ -37,8 +41,7 @@ public partial class LoginViewModel(IAuthService auth) : ObservableObject
                 return;
             }
 
-            await ActionFeedback.SuccessAsync(result.Message, "Signed in");
-            await ShellReloader.ReloadAsync();
+            await FinishSignInAsync(result.Message);
         }
         finally
         {
@@ -47,28 +50,23 @@ public partial class LoginViewModel(IAuthService auth) : ObservableObject
     }
 
     [RelayCommand]
-    private async Task UseDemoAsync(string email)
+    private async Task ContinueAsGuestAsync()
     {
         if (IsBusy) return;
-        IsBusy = true;
-        ErrorMessage = null;
-        try
-        {
-            var result = await auth.LoginAsync(email, "demo123");
-            if (!result.Success)
-            {
-                ErrorMessage = result.Message;
-                await ActionFeedback.FailAsync(result.Message, "Sign-in blocked");
-                return;
-            }
+        auth.ContinueAsGuest();
+        await ShellReloader.ReloadAsync();
+    }
 
-            await ActionFeedback.SuccessAsync(result.Message, "Signed in");
-            await ShellReloader.ReloadAsync();
-        }
-        finally
-        {
-            IsBusy = false;
-        }
+    [RelayCommand]
+    private async Task BackToBrowsingAsync() =>
+        await Shell.Current.GoToAsync("//HomePage");
+
+    private async Task FinishSignInAsync(string? welcome)
+    {
+        await ShellReloader.ReloadAsync();
+        var showedBriefing = await SignInBriefing.ShowAsync(notifications, bookings, auth);
+        if (!showedBriefing && !string.IsNullOrWhiteSpace(welcome))
+            await ActionFeedback.SuccessAsync(welcome, "Signed in");
     }
 
     [RelayCommand]

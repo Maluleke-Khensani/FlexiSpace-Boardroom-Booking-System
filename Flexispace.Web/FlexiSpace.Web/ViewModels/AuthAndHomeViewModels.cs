@@ -63,8 +63,29 @@ public partial class HomeViewModel(IAuthService auth, IBookingService bookings, 
     [ObservableProperty] private bool canViewAvailability;
     [ObservableProperty] private bool canAccessManage;
     [ObservableProperty] private bool canViewReports;
+    [ObservableProperty] private int availableCount;
+    [ObservableProperty] private int occupiedCount;
+    [ObservableProperty] private int reservedCount;
+    [ObservableProperty] private int blockedCount;
+    [ObservableProperty] private int roomsInScope;
+    [ObservableProperty] private double occupancyPercent;
+
+    public string OccupancyCaption
+    {
+        get
+        {
+            var parts = new List<string> { $"{OccupiedCount} in use now" };
+            if (ReservedCount > 0)
+                parts.Add($"{ReservedCount} reserved");
+            if (BlockedCount > 0)
+                parts.Add($"{BlockedCount} blocked");
+            parts.Add($"{RoomsInScope} rooms in scope");
+            return string.Join(" · ", parts);
+        }
+    }
 
     public ObservableCollection<Booking> TodaysBookings { get; } = [];
+    public ObservableCollection<Booking> UpcomingBookings { get; } = [];
     public ObservableCollection<OfficeLocation> Locations { get; } = [];
 
     [RelayCommand]
@@ -74,21 +95,23 @@ public partial class HomeViewModel(IAuthService auth, IBookingService bookings, 
         try
         {
             var user = auth.CurrentUser;
-            Greeting = user is null ? "Welcome" : $"Hello, {user.Name.Split(' ')[0]}";
+            Greeting = user is null ? "Welcome" : auth.IsGuest ? "Hello, guest" : $"Hello, {user.Name.Split(' ')[0]}";
             if (user is not null)
             {
                 CanBook = RolePermissions.CanBookRooms(user.Role);
-                CanViewAvailability = RolePermissions.CanViewAvailability(user.Role);
-                CanAccessManage = RolePermissions.CanAccessManageHub(user.Role);
-                CanViewReports = RolePermissions.CanViewReports(user.Role);
+                CanViewAvailability = RolePermissions.CanViewAvailability(user.Role) && !auth.IsGuest;
+                CanAccessManage = RolePermissions.CanOpenManage(user.Role) && !auth.IsGuest;
+                CanViewReports = RolePermissions.CanViewReports(user.Role) && !auth.IsGuest;
                 var locationName = user.LocationId is null
                     ? null
                     : (await rooms.GetLocationAsync(user.LocationId))?.Name;
-                Subtitle = user.Role switch
+                Subtitle = auth.IsGuest
+                    ? "Browse Flexispace centres and book a room. Client accounts are coming soon."
+                    : user.Role switch
                 {
                     UserRole.Administrator => "All Flexispace locations",
                     UserRole.CentreManager => $"Managing {locationName ?? "your centre"}",
-                    UserRole.Client => "Book a room at any Flexispace location",
+                    UserRole.Client => "Book a room and manage your bookings",
                     _ => "Book and manage your meeting rooms"
                 };
             }
@@ -97,15 +120,52 @@ public partial class HomeViewModel(IAuthService auth, IBookingService bookings, 
                 CanBook = CanViewAvailability = CanAccessManage = CanViewReports = false;
             }
 
-            UnreadCount = await notifications.GetUnreadCountAsync();
-
-            TodaysBookings.Clear();
-            foreach (var b in await bookings.GetTodaysBookingsAsync())
+            if (auth.IsGuest)
             {
-                if (b.Status != BookingStatus.Cancelled)
-                    TodaysBookings.Add(b);
+                UnreadCount = 0;
+                TodaysBookings.Clear();
+                UpcomingBookings.Clear();
+                IsEmpty = true;
             }
-            IsEmpty = TodaysBookings.Count == 0;
+            else
+            {
+                UnreadCount = await notifications.GetUnreadCountAsync();
+
+                TodaysBookings.Clear();
+                foreach (var b in await bookings.GetTodaysBookingsAsync())
+                {
+                    if (b.Status != BookingStatus.Cancelled)
+                        TodaysBookings.Add(b);
+                }
+                IsEmpty = TodaysBookings.Count == 0;
+
+                UpcomingBookings.Clear();
+                var upcoming = (await bookings.GetBookingsForCurrentUserScopeAsync())
+                    .Where(b => b.Status != BookingStatus.Cancelled && b.Start.Date > DateTime.Today)
+                    .OrderBy(b => b.Start)
+                    .Take(5);
+                foreach (var booking in upcoming)
+                    UpcomingBookings.Add(booking);
+            }
+
+            if (CanViewAvailability)
+            {
+                var locationId = user?.Role == UserRole.CentreManager ? user.LocationId : null;
+                var live = await rooms.GetAvailabilityAsync(locationId, DateTime.Today);
+                RoomsInScope = live.Count;
+                AvailableCount = live.Count(r => r.Status == RoomStatus.Available);
+                OccupiedCount = live.Count(r => r.Status == RoomStatus.Occupied);
+                ReservedCount = live.Count(r => r.Status == RoomStatus.Reserved);
+                BlockedCount = live.Count(r => r.Status is RoomStatus.Blocked or RoomStatus.Cleaning or RoomStatus.Maintenance);
+                OccupancyPercent = RoomsInScope == 0
+                    ? 0
+                    : Math.Round(100.0 * (OccupiedCount + ReservedCount + BlockedCount) / RoomsInScope, 0);
+            }
+            else
+            {
+                RoomsInScope = AvailableCount = OccupiedCount = ReservedCount = BlockedCount = 0;
+                OccupancyPercent = 0;
+            }
 
             Locations.Clear();
             foreach (var loc in await rooms.GetLocationsAsync())

@@ -10,13 +10,14 @@ namespace Flexispace.Mobile.ViewModels;
 
 /// <summary>
 /// Centre Manager / Administrator booking console — view and edit bookings in scope,
-/// and block rooms.
+/// and block rooms. Directory users live on the Users tab for Administrators.
 /// </summary>
 public partial class ManageViewModel(IAuthService auth, IBookingService bookings, IRoomService rooms) : ObservableObject
 {
     private bool _isLoading;
     private bool _syncingMeetings;
     private DateTime _calendarMonth = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private List<Booking> _scopeBookings = [];
     private List<Booking> _roomBookings = [];
     private List<BlockedPeriod> _roomBlocks = [];
 
@@ -35,12 +36,18 @@ public partial class ManageViewModel(IAuthService auth, IBookingService bookings
     [ObservableProperty] private TimeSpan blockEnd = new(12, 0, 0);
     [ObservableProperty] private int inScopeCount;
     [ObservableProperty] private bool hasLocationBookings;
+    [ObservableProperty] private bool hasLocationFilters;
+    [ObservableProperty] private string searchText = string.Empty;
+    [ObservableProperty] private string? selectedLocationId;
+    [ObservableProperty] private string emptyBookingsTitle = "No bookings in scope";
+    [ObservableProperty] private string emptyBookingsMessage = "Bookings for your centre will list here once someone books a room.";
     [ObservableProperty] private string monthTitle = DateTime.Today.ToString("MMMM yyyy");
     [ObservableProperty] private string dayMeetingsCaption = "Pick a room to see its day.";
     [ObservableProperty] private bool hasDayMeetings;
     [ObservableProperty] private bool hasDayBlocks;
 
     public ObservableCollection<Booking> LocationBookings { get; } = [];
+    public ObservableCollection<LocationFilterChip> LocationFilters { get; } = [];
     public ObservableCollection<Boardroom> Rooms { get; } = [];
     public ObservableCollection<MeetingOption> MeetingOptions { get; } = [];
     public ObservableCollection<CalendarDayItem> CalendarDays { get; } = [];
@@ -65,7 +72,7 @@ public partial class ManageViewModel(IAuthService auth, IBookingService bookings
         Title = IsAdministrator ? "Admin console" : "Centre management";
         Subtitle = IsAdministrator
             ? "View bookings, edit status and details, and block rooms across every location. New bookings are confirmed automatically."
-            : "View bookings at your centre, edit status and details, and block rooms. New bookings are confirmed automatically.";
+            : "View staff and client bookings, edit status and details at your centre, and block rooms. New bookings are confirmed automatically.";
 
         IsBusy = true;
         Message = null;
@@ -79,12 +86,10 @@ public partial class ManageViewModel(IAuthService auth, IBookingService bookings
                 Rooms.Add(room);
             SelectedRoomToBlock = Rooms.FirstOrDefault(r => r.Id == keepRoomId) ?? Rooms.FirstOrDefault();
 
-            LocationBookings.Clear();
-            foreach (var b in await bookings.GetBookingsForCurrentUserScopeAsync())
-                LocationBookings.Add(b);
-
-            InScopeCount = LocationBookings.Count;
-            HasLocationBookings = InScopeCount > 0;
+            _scopeBookings = (await bookings.GetBookingsForCurrentUserScopeAsync()).ToList();
+            InScopeCount = _scopeBookings.Count;
+            RebuildLocationFilters();
+            ApplyBookingFilter();
         }
         finally
         {
@@ -94,6 +99,96 @@ public partial class ManageViewModel(IAuthService auth, IBookingService bookings
 
         await RefreshRoomActivityAsync();
     }
+
+    partial void OnSearchTextChanged(string value)
+    {
+        if (_isLoading) return;
+        ApplyBookingFilter();
+    }
+
+    [RelayCommand]
+    private void SelectLocation(LocationFilterChip? chip)
+    {
+        if (chip is null) return;
+        SelectedLocationId = chip.LocationId;
+        foreach (var item in LocationFilters)
+            item.IsSelected = string.Equals(item.LocationId, chip.LocationId, StringComparison.OrdinalIgnoreCase)
+                              || (item.LocationId is null && chip.LocationId is null);
+        ApplyBookingFilter();
+    }
+
+    private void RebuildLocationFilters()
+    {
+        var selected = SelectedLocationId;
+        LocationFilters.Clear();
+        LocationFilters.Add(new LocationFilterChip
+        {
+            Name = "All",
+            IsSelected = string.IsNullOrEmpty(selected)
+        });
+
+        foreach (var group in _scopeBookings
+                     .GroupBy(b => b.LocationId)
+                     .OrderBy(g => g.Select(b => b.LocationName).FirstOrDefault()))
+        {
+            var name = group.Select(b => b.LocationName).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n));
+            LocationFilters.Add(new LocationFilterChip
+            {
+                LocationId = group.Key,
+                Name = string.IsNullOrWhiteSpace(name) ? group.Key : name,
+                IsSelected = string.Equals(group.Key, selected, StringComparison.OrdinalIgnoreCase)
+            });
+        }
+
+        if (!LocationFilters.Any(c => c.IsSelected))
+        {
+            SelectedLocationId = null;
+            LocationFilters[0].IsSelected = true;
+        }
+
+        HasLocationFilters = LocationFilters.Count > 1;
+    }
+
+    private void ApplyBookingFilter()
+    {
+        var query = SearchText.Trim();
+        IEnumerable<Booking> filtered = _scopeBookings;
+        if (!string.IsNullOrEmpty(SelectedLocationId))
+        {
+            filtered = filtered.Where(b =>
+                string.Equals(b.LocationId, SelectedLocationId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (query.Length > 0)
+        {
+            filtered = filtered.Where(b =>
+                Contains(b.RoomName, query) ||
+                Contains(b.LocationName, query) ||
+                Contains(b.BookerName, query) ||
+                Contains(b.Company, query) ||
+                Contains(b.Status.ToString(), query));
+        }
+
+        LocationBookings.Clear();
+        foreach (var booking in filtered.OrderBy(b => b.Start))
+            LocationBookings.Add(booking);
+
+        HasLocationBookings = LocationBookings.Count > 0;
+        if (_scopeBookings.Count == 0)
+        {
+            EmptyBookingsTitle = "No bookings in scope";
+            EmptyBookingsMessage = "Bookings for your centre will list here once someone books a room.";
+        }
+        else
+        {
+            EmptyBookingsTitle = "No matches";
+            EmptyBookingsMessage = "Nothing matches this search or centre.";
+        }
+    }
+
+    private static bool Contains(string? value, string query) =>
+        !string.IsNullOrWhiteSpace(value) &&
+        value.Contains(query, StringComparison.OrdinalIgnoreCase);
 
     partial void OnSelectedRoomToBlockChanged(Boardroom? value)
     {
@@ -150,7 +245,7 @@ public partial class ManageViewModel(IAuthService auth, IBookingService bookings
 
     private async Task RefreshRoomActivityAsync()
     {
-        _roomBookings = LocationBookings
+        _roomBookings = _scopeBookings
             .Where(b => SelectedRoomToBlock is not null &&
                         b.RoomId == SelectedRoomToBlock.Id &&
                         b.Status != BookingStatus.Cancelled)
@@ -291,6 +386,13 @@ public partial class ManageViewModel(IAuthService auth, IBookingService bookings
         else
             await ActionFeedback.FailAsync(result.Message, result.Title);
     }
+}
+
+public partial class LocationFilterChip : ObservableObject
+{
+    public string? LocationId { get; init; }
+    public string Name { get; init; } = string.Empty;
+    [ObservableProperty] private bool isSelected;
 }
 
 public sealed class MeetingOption

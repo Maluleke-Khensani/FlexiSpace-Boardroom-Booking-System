@@ -8,6 +8,9 @@ namespace FlexiSpace.Infrastructure.services;
 /// </summary>
 public sealed class NoOpEmailService : IEmailService
 {
+    public Task SendEmailAsync(string toEmail, string subject, string body) =>
+        Task.CompletedTask;
+
     public Task SendBookingConfirmationAsync(string recipientEmail, string recipientName, string boardroomName, string locationName, string locationAddress, DateOnly bookingDate, TimeOnly startTime, TimeOnly endTime, int numberOfAttendees, string? company, string? notes) =>
         Task.CompletedTask;
 
@@ -36,7 +39,8 @@ public sealed class NoOpCalendarService : ICalendarService
 public sealed class NoOpEntraUserService : IEntraUserService
 {
     public Task<IEnumerable<EntraUserResponseDto>> GetUsersAsync() =>
-        Task.FromResult(Enumerable.Empty<EntraUserResponseDto>());
+        throw new InvalidOperationException(
+            "Microsoft Graph directory access is not configured for the API. Configure MicrosoftGraph tenant, client, and secret settings to load Entra users.");
 
     public Task<EntraUserResponseDto?> GetUserByIdAsync(Guid entraObjectId) =>
         Task.FromResult<EntraUserResponseDto?>(null);

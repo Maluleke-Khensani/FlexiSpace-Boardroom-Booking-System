@@ -16,9 +16,7 @@
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                         <VerticalStackLayout Spacing="6" VerticalOptions="Center">
                             <Label Text="ALERTS" Style="{StaticResource EyebrowLabel}" TextColor="{StaticResource BrandGold}" />
-                            <Label Text="Stay ahead of the room" TextColor="{StaticResource BrandIvory}" FontSize="22" FontAttributes="Bold" />
-                            <Label Text="{Binding QuestLine}" TextColor="#C8C2B8" FontSize="13" />
-                            <ProgressBar Progress="{Binding ClearProgress}" ProgressColor="{StaticResource BrandGold}" HeightRequest="6" Margin="0,8,0,0" />
+                            <Label Text="{Binding Summary}" TextColor="{StaticResource BrandIvory}" FontSize="22" FontAttributes="Bold" />
                         </VerticalStackLayout>
                         <Border Style="{StaticResource QuickActionOrb}" WidthRequest="64" HeightRequest="64" VerticalOptions="Center">
                             <VerticalStackLayout Spacing="0" VerticalOptions="Center" HorizontalOptions="Center">
@@ -190,25 +188,25 @@
                             </SwipeView.RightItems>
 
                             <Border StrokeShape="RoundRectangle 20"
-                                    Stroke="{StaticResource BrandGold}"
-                                    StrokeThickness="1.6"
-                                    BackgroundColor="{DynamicResource BrandGoldWash}"
+                                    Stroke="{StaticResource BrandGoldDeep}"
+                                    StrokeThickness="2.5"
+                                    BackgroundColor="#F6E3A8"
                                     Padding="0"
                                     Opacity="1">
                                 <Border.Shadow>
-                                    <Shadow Brush="{DynamicResource BrandInk}" Opacity="0.1" Radius="12" Offset="0,4" />
+                                    <Shadow Brush="{DynamicResource BrandGoldDeep}" Opacity="0.35" Radius="14" Offset="0,4" />
                                 </Border.Shadow>
                                 <Border.Triggers>
                                     <DataTrigger TargetType="Border" Binding="{Binding IsRead}" Value="True">
                                         <Setter Property="BackgroundColor" Value="{DynamicResource BrandSurfaceAlt}" />
                                         <Setter Property="Stroke" Value="{DynamicResource BrandLine}" />
                                         <Setter Property="StrokeThickness" Value="1" />
-                                        <Setter Property="Opacity" Value="0.58" />
+                                        <Setter Property="Opacity" Value="0.72" />
                                     </DataTrigger>
                                     <DataTrigger TargetType="Border" Binding="{Binding IsRead}" Value="False">
-                                        <Setter Property="BackgroundColor" Value="#FBF6EA" />
-                                        <Setter Property="Stroke" Value="{StaticResource BrandGold}" />
-                                        <Setter Property="StrokeThickness" Value="1.6" />
+                                        <Setter Property="BackgroundColor" Value="#F6E3A8" />
+                                        <Setter Property="Stroke" Value="{StaticResource BrandGoldDeep}" />
+                                        <Setter Property="StrokeThickness" Value="2.5" />
                                         <Setter Property="Opacity" Value="1" />
                                     </DataTrigger>
                                 </Border.Triggers>
@@ -219,7 +217,8 @@
                                 </Border.GestureRecognizers>
 
                                 <Grid ColumnDefinitions="4,14,*,Auto" ColumnSpacing="0">
-                                    <BoxView Color="{StaticResource BrandGold}"
+                                    <BoxView Color="{Binding Type, Converter={StaticResource NotificationAccentConverter}}"
+                                             WidthRequest="6"
                                              IsVisible="{Binding IsRead, Converter={StaticResource InvertedBoolConverter}}" />
                                     <BoxView Grid.Column="1" />
                                     <Grid Grid.Column="2" ColumnDefinitions="44,*" ColumnSpacing="12" Padding="0,12,12,12">
@@ -245,7 +244,12 @@
                                                     </DataTrigger>
                                                 </Label.Triggers>
                                             </Label>
-                                            <Label Text="{Binding Message}" TextColor="{DynamicResource BrandMuted}" FontSize="13" LineBreakMode="TailTruncation" />
+                                            <Label Text="{Binding Message}" TextColor="{DynamicResource BrandInk}" FontSize="13" LineBreakMode="WordWrap" MaxLines="4" />
+                                            <Label Text="Tap to open this booking"
+                                                   IsVisible="{Binding OpensBooking}"
+                                                   TextColor="{DynamicResource BrandGoldDeep}"
+                                                   FontSize="12"
+                                                   FontAttributes="Bold" />
                                             <HorizontalStackLayout Spacing="6">
                                                 <Label Style="{StaticResource MaterialGlyph}" Text="&#xe192;" FontSize="12" TextColor="{DynamicResource BrandGoldDeep}" HorizontalOptions="Start" />
                                                 <Label Text="{Binding CreatedAt, Converter={StaticResource TimeAgoConverter}}" TextColor="{DynamicResource BrandGoldDeep}" FontSize="11" VerticalOptions="Center" />

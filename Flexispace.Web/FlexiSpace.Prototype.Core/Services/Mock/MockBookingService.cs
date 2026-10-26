@@ -53,6 +53,19 @@ public class MockBookingService(
                 b.Start.Date == day.Date)
             .Select(b => new OccupiedSlot { Start = b.Start.TimeOfDay, End = b.End.TimeOfDay })
             .ToList();
+
+        var dayStart = day.Date;
+        var dayEnd = dayStart.AddDays(1);
+        foreach (var block in store.BlockedPeriods.Where(b => linked.Contains(b.RoomId)))
+        {
+            if (block.Start >= dayEnd || block.End <= dayStart)
+                continue;
+            var occStart = block.Start <= dayStart ? TimeSpan.Zero : block.Start.TimeOfDay;
+            var occEnd = block.End >= dayEnd ? TimeSpan.FromHours(24) : block.End.TimeOfDay;
+            if (occEnd > occStart)
+                slots.Add(new OccupiedSlot { Start = occStart, End = occEnd });
+        }
+
         return Task.FromResult<IReadOnlyList<OccupiedSlot>>(slots);
     }
 
@@ -149,18 +162,20 @@ public class MockBookingService(
         };
     }
 
-    public async Task<bool> CancelBookingAsync(Guid bookingId)
+    public async Task<BookingResult> CancelBookingAsync(Guid bookingId)
     {
         var user = auth.CurrentUser;
         var booking = store.Bookings.FirstOrDefault(b => b.Id == bookingId);
-        if (user is null || booking is null) return false;
+        if (user is null || booking is null)
+            return new BookingResult { Success = false, Message = "Booking not found." };
 
         var isOwner = booking.BookerId == user.Id;
         var canCancel =
             (isOwner && RolePermissions.CanCancelOwnBookings(user.Role)) ||
             (RolePermissions.CanCancelAnyBooking(user.Role) && IsInScope(user, booking));
 
-        if (!canCancel) return false;
+        if (!canCancel)
+            return new BookingResult { Success = false, Message = "You don't have permission to cancel this booking." };
 
         booking.Status = BookingStatus.Cancelled;
         await notifications.AddAsync(new AppNotification
@@ -170,7 +185,7 @@ public class MockBookingService(
             Type = "Cancellation",
             BookingId = booking.Id
         });
-        return true;
+        return new BookingResult { Success = true, Message = "Booking cancelled.", Booking = booking };
     }
 
     public async Task<bool> ApproveBookingAsync(Guid bookingId)
@@ -211,50 +226,105 @@ public class MockBookingService(
         return true;
     }
 
-    public Task<bool> UpdateBookingAsync(Guid bookingId, DateTime start, DateTime end, int attendees, string notes)
+    public Task<BookingResult> UpdateBookingAsync(Guid bookingId, DateTime start, DateTime end, int attendees, string notes)
     {
         var user = auth.CurrentUser;
         var booking = store.Bookings.FirstOrDefault(b => b.Id == bookingId);
-        if (user is null || booking is null) return Task.FromResult(false);
-        if (!RolePermissions.CanEditBookings(user.Role) || !IsInScope(user, booking)) return Task.FromResult(false);
-        if (end <= start) return Task.FromResult(false);
+        if (user is null || booking is null)
+            return Task.FromResult(new BookingResult { Success = false, Message = "Booking not found." });
+
+        var isOwner = booking.BookerId == user.Id;
+        if (!isOwner && (!RolePermissions.CanEditBookings(user.Role) || !IsInScope(user, booking)))
+            return Task.FromResult(new BookingResult { Success = false, Message = "You don't have permission to edit this booking." });
+        if (end <= start)
+            return Task.FromResult(new BookingResult { Success = false, Message = "End time must be after start time." });
 
         var conflict = HasBookingConflict(booking.RoomId, start, end, bookingId);
-        if (conflict) return Task.FromResult(false);
+        if (conflict)
+            return Task.FromResult(new BookingResult { Success = false, Message = "That time overlaps another booking." });
 
         booking.Start = start;
         booking.End = end;
         booking.Attendees = Math.Max(1, attendees);
         booking.Notes = notes;
-        return Task.FromResult(true);
+        return Task.FromResult(new BookingResult { Success = true, Message = "Booking updated.", Booking = booking });
     }
 
-    public async Task<bool> BlockRoomAsync(string roomId, DateTime start, DateTime end, string reason)
+    public async Task<BookingResult> BlockRoomAsync(string roomId, DateTime start, DateTime end, string reason)
     {
         var user = auth.CurrentUser;
-        if (user is null || !RolePermissions.CanBlockRooms(user.Role)) return false;
+        if (user is null || !RolePermissions.CanBlockRooms(user.Role))
+            return new BookingResult { Success = false, Message = "You don't have permission to block rooms." };
 
         var room = await rooms.GetRoomAsync(roomId);
-        if (room is null) return false;
-        if (user.Role == UserRole.CentreManager && user.LocationId != room.LocationId) return false;
-        if (end <= start) return false;
+        if (room is null)
+            return new BookingResult { Success = false, Message = "Room not found." };
+        if (user.Role == UserRole.CentreManager && user.LocationId != room.LocationId)
+            return new BookingResult { Success = false, Message = "You can only block rooms at your centre." };
+        if (end <= start)
+            return new BookingResult { Success = false, Message = "The block must end after it starts." };
 
         store.BlockedPeriods.Add(new BlockedPeriod
         {
             RoomId = roomId,
+            RoomName = room.Name,
+            LocationId = room.LocationId,
             Start = start,
             End = end,
             Reason = string.IsNullOrWhiteSpace(reason) ? "Blocked by Centre Manager" : reason,
             CreatedBy = user.Name
         });
 
-        await notifications.AddAsync(new AppNotification
+        var affected = store.Bookings
+            .Where(b =>
+                b.RoomId == roomId &&
+                b.Status != BookingStatus.Cancelled &&
+                start < b.End &&
+                end > b.Start)
+            .Select(b => b.BookerId)
+            .Distinct()
+            .ToList();
+
+        if (affected.Contains(user.Id) || RolePermissions.CanBlockRooms(user.Role))
         {
-            Title = "Room blocked",
-            Message = $"{room.Name} · {start:g}–{end:t} · {reason}",
-            Type = "Info"
-        });
-        return true;
+            await notifications.AddAsync(new AppNotification
+            {
+                Title = "Room blocked",
+                Message = $"{room.Name} is unavailable {start:g}–{end:t}. {reason}",
+                Type = "Blocked"
+            });
+        }
+
+        return new BookingResult { Success = true, Message = "The room is now blocked for that period." };
+    }
+
+    public Task<IReadOnlyList<BlockedPeriod>> GetBlockedPeriodsAsync(string? roomId = null)
+    {
+        var user = auth.CurrentUser;
+        IEnumerable<BlockedPeriod> query = store.BlockedPeriods;
+        if (!string.IsNullOrEmpty(roomId))
+            query = query.Where(b => b.RoomId == roomId);
+        if (user?.Role == UserRole.CentreManager && !string.IsNullOrEmpty(user.LocationId))
+            query = query.Where(b => b.LocationId == user.LocationId);
+
+        return Task.FromResult<IReadOnlyList<BlockedPeriod>>(
+            query.OrderByDescending(b => b.Start).ToList());
+    }
+
+    public Task<bool> RemoveBlockedPeriodAsync(Guid blockId)
+    {
+        var user = auth.CurrentUser;
+        if (user is null || !RolePermissions.CanBlockRooms(user.Role))
+            return Task.FromResult(false);
+
+        var block = store.BlockedPeriods.FirstOrDefault(b => b.Id == blockId);
+        if (block is null)
+            return Task.FromResult(false);
+        if (user.Role == UserRole.CentreManager && user.LocationId != block.LocationId)
+            return Task.FromResult(false);
+
+        store.BlockedPeriods.Remove(block);
+        return Task.FromResult(true);
     }
 
     private static bool IsInScope(User user, Booking booking) =>

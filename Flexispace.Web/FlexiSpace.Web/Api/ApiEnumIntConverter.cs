@@ -36,6 +36,12 @@ internal sealed class ApiEnumIntConverter : JsonConverter<int>
                 "available" => 0,
                 "maintenance" => 1,
                 "unavailable" => 2,
+                "cleaning" => 3,
+                "bookingcreated" => 0,
+                "bookingcancelled" => 1,
+                "bookingreminder" => 2,
+                "bookingmodified" => 3,
+                "roomblocked" => 4,
                 _ => 0
             };
         }

@@ -6,6 +6,7 @@ public class MockAuthService : IAuthService
 {
     public User? CurrentUser { get; private set; }
     public bool IsAuthenticated => CurrentUser is not null;
+    public bool IsGuest { get; private set; }
     public bool IsSessionReady { get; private set; } = true;
     public string? SessionError { get; private set; }
     public event EventHandler? AuthStateChanged;
@@ -25,9 +26,18 @@ public class MockAuthService : IAuthService
 
     public Task MicrosoftSignInAsync() => Task.CompletedTask;
 
+    public Task ContinueAsGuestAsync()
+    {
+        IsGuest = true;
+        CurrentUser = new User { Name = "Guest", FirstName = "Guest", Role = UserRole.Client };
+        AuthStateChanged?.Invoke(this, EventArgs.Empty);
+        return Task.CompletedTask;
+    }
+
     public Task LogoutAsync()
     {
         CurrentUser = null;
+        IsGuest = false;
         AuthStateChanged?.Invoke(this, EventArgs.Empty);
         return Task.CompletedTask;
     }

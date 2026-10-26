@@ -99,8 +99,12 @@ builder.Services.AddScoped<IAuthService, ApiAuthService>();
 builder.Services.AddScoped<ApiRoomService>();
 builder.Services.AddScoped<IRoomService>(sp => sp.GetRequiredService<ApiRoomService>());
 builder.Services.AddScoped<IBookingService, ApiBookingService>();
+builder.Services.AddScoped<NotificationReadOverride>();
+builder.Services.AddScoped<LocalAlertFeed>();
+builder.Services.AddScoped<BookingAlertComposer>();
 builder.Services.AddScoped<INotificationService, ApiNotificationService>();
 builder.Services.AddScoped<IAdminService, ApiAdminService>();
+builder.Services.AddScoped<ICatalogManagementService, ApiCatalogManagementService>();
 builder.Services.AddScoped<BookingSessionCache>();
 builder.Services.AddScoped<INavigationService, NavigationService>();
 builder.Services.AddScoped<PrivacyConsentService>();
@@ -118,7 +122,10 @@ builder.Services.AddTransient<ProfileViewModel>();
 builder.Services.AddTransient<LocationDetailViewModel>();
 builder.Services.AddTransient<LocationsViewModel>();
 builder.Services.AddTransient<ManageViewModel>();
+builder.Services.AddTransient<CalendarViewModel>();
 builder.Services.AddTransient<UsersViewModel>();
+builder.Services.AddTransient<CentresViewModel>();
+builder.Services.AddTransient<AuditViewModel>();
 builder.Services.AddTransient<ReportsViewModel>();
 
 var app = builder.Build();
@@ -193,7 +200,7 @@ app.MapGet("/auth/complete", async (
         }
     }
 
-    return Results.Redirect("/home");
+    return Results.Redirect("/home?signedIn=1");
 }).AllowAnonymous().DisableAntiforgery();
 
 app.MapGet("/signout-microsoft", () => Results.SignOut(

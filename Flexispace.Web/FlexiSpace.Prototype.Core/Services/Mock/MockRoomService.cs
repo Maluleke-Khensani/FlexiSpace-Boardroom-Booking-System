@@ -40,13 +40,12 @@ public class MockRoomService(MockDataStore store) : IRoomService
                                 b.Start.Date == day)
                     .ToList();
 
-                if (store.BlockedPeriods.Any(b =>
-                        conflictIds.Contains(b.RoomId) &&
-                        b.Start.Date <= day &&
-                        b.End > day))
-                {
-                    clone.Status = RoomStatus.Blocked;
-                }
+                var liveBlock = store.BlockedPeriods.FirstOrDefault(b =>
+                    conflictIds.Contains(b.RoomId) && b.Start <= now && b.End > now);
+                if (liveBlock is not null)
+                    clone.Status = RoomStatusFromBlockReason(liveBlock.Reason);
+                else if (clone.Status is RoomStatus.Maintenance or RoomStatus.Blocked)
+                    return clone;
                 else if (active.Any(b => b.Start <= now && b.End > now))
                     clone.Status = RoomStatus.Occupied;
                 else if (active.Any(b => b.Start > now && b.Start < now.AddHours(2)))
@@ -69,6 +68,25 @@ public class MockRoomService(MockDataStore store) : IRoomService
     public Task<IReadOnlyList<string>> GetCateringCatalogAsync() =>
         Task.FromResult<IReadOnlyList<string>>(SeedData.CateringOptions);
 
+    public Task<IReadOnlyList<CatalogItem>> GetEquipmentCatalogItemsAsync() =>
+        Task.FromResult<IReadOnlyList<CatalogItem>>(SeedData.EquipmentCatalog);
+
+    public Task<IReadOnlyList<CatalogItem>> GetCateringCatalogItemsAsync() =>
+        Task.FromResult<IReadOnlyList<CatalogItem>>(SeedData.CateringCatalog);
+
+    public void InvalidateCatalog()
+    {
+    }
+
+    private static RoomStatus RoomStatusFromBlockReason(string reason)
+    {
+        if (reason.Contains("clean", StringComparison.OrdinalIgnoreCase))
+            return RoomStatus.Cleaning;
+        if (reason.Contains("maintenance", StringComparison.OrdinalIgnoreCase))
+            return RoomStatus.Maintenance;
+        return RoomStatus.Blocked;
+    }
+
     private static Boardroom Clone(Boardroom r) => new()
     {
         Id = r.Id,
@@ -77,6 +95,7 @@ public class MockRoomService(MockDataStore store) : IRoomService
         Capacity = r.Capacity,
         Equipment = [.. r.Equipment],
         ImageKey = r.ImageKey,
-        CombinedRoomIds = [.. r.CombinedRoomIds]
+        CombinedRoomIds = [.. r.CombinedRoomIds],
+        Status = r.Status
     };
 }

@@ -9,6 +9,7 @@ public class User
     public string LastName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public UserRole Role { get; set; } = UserRole.Staff;
+    public bool HasAssignedFlexiSpaceRole { get; set; } = true;
     public string? LocationId { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; }

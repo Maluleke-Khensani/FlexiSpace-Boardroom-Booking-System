@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Flexispace.Mobile.Helpers;
 using Flexispace.Mobile.Services;
 
 namespace Flexispace.Mobile.ViewModels;
@@ -58,7 +59,6 @@ public partial class PrivacyViewModel : ObservableObject
 
     private static async Task ShowOpenFailedAsync(string target)
     {
-        if (Shell.Current is not null)
-            await Shell.Current.DisplayAlertAsync("Could not open", target, "OK");
+        await ActionFeedback.FailAsync(target, "Could not open");
     }
 }

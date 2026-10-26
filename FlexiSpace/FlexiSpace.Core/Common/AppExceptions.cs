@@ -13,6 +13,14 @@ namespace FlexiSpace.Core.Common
         }
     }
 
+    // Thrown when the caller is authenticated but lacks permission for an action.
+    public class ForbiddenException : Exception
+    {
+        public ForbiddenException(string message) : base(message)
+        {
+        }
+    }
+
     // Thrown when a request is well-formed but violates a business rule
     // (e.g. booking a room in the past, attendees over capacity, invalid
     // status transition). Controllers should catch this and return HTTP 400

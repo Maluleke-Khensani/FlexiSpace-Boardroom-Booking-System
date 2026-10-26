@@ -69,16 +69,7 @@ public sealed class MsalAuthService(ApiSettings settings, ITokenStorage tokens) 
                 return new AuthResult
                 {
                     Success = false,
-                    Message = FormatMsalError(lastError?.Message ?? "Microsoft did not return an access token.")
-                };
-            }
-
-            if (!TokenIsForApi(result.AccessToken, settings.ApiClientId))
-            {
-                return new AuthResult
-                {
-                    Success = false,
-                    Message = "Microsoft signed you in, but the token is for the wrong app. In Entra, on FlexiSpace-MAUI-Mobile, add API permission api://77163347-59be-48f4-8675-535af30a3a53/access_as_user and grant admin consent."
+                    Message = lastError?.Message ?? "Microsoft did not return an access token."
                 };
             }
 
@@ -128,14 +119,11 @@ public sealed class MsalAuthService(ApiSettings settings, ITokenStorage tokens) 
                 list.Add(s);
         }
 
-        // Only request tokens for the FlexiSpace API. Falling back to the mobile
-        // app id / Graph produces a "successful" sign-in whose token Azure rejects.
         Add(settings.ApiScope);
         if (!string.IsNullOrWhiteSpace(settings.ApiClientId))
-        {
             Add($"api://{settings.ApiClientId}/access_as_user");
-            Add($"api://{settings.ApiClientId}/.default");
-        }
+        Add($"api://{settings.MobileClientId}/access_as_user");
+        Add($"api://{settings.MobileClientId}/.default");
         return list;
     }
 
@@ -147,57 +135,6 @@ public sealed class MsalAuthService(ApiSettings settings, ITokenStorage tokens) 
             return "Redirect URI mismatch. On FlexiSpace-MAUI-Mobile in Entra, under Mobile and desktop, add http://localhost (allows any port).";
         if (message.Contains("Only loopback redirect uri is supported", StringComparison.OrdinalIgnoreCase))
             return "Windows requires http://localhost for Microsoft sign-in. Rebuild so the app uses that redirect.";
-        if (message.Contains("AADSTS65001", StringComparison.OrdinalIgnoreCase) ||
-            message.Contains("AADSTS650057", StringComparison.OrdinalIgnoreCase) ||
-            message.Contains("AADSTS70011", StringComparison.OrdinalIgnoreCase))
-            return "The mobile app is not allowed to call the FlexiSpace API yet. In Entra, add delegated permission access_as_user on API 77163347-59be-48f4-8675-535af30a3a53 to FlexiSpace-MAUI-Mobile, then grant admin consent.";
         return $"Microsoft sign-in failed: {message}";
-    }
-
-    private static bool TokenIsForApi(string accessToken, string? apiClientId)
-    {
-        if (string.IsNullOrWhiteSpace(apiClientId))
-            return true;
-
-        try
-        {
-            var parts = accessToken.Split('.');
-            if (parts.Length < 2)
-                return false;
-
-            var payload = parts[1].Replace('-', '+').Replace('_', '/');
-            switch (payload.Length % 4)
-            {
-                case 2: payload += "=="; break;
-                case 3: payload += "="; break;
-            }
-
-            var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(payload));
-            using var doc = System.Text.Json.JsonDocument.Parse(json);
-            if (!doc.RootElement.TryGetProperty("aud", out var aud))
-                return false;
-
-            bool Matches(string value) =>
-                value.Contains(apiClientId, StringComparison.OrdinalIgnoreCase);
-
-            if (aud.ValueKind == System.Text.Json.JsonValueKind.String)
-                return Matches(aud.GetString() ?? "");
-
-            if (aud.ValueKind == System.Text.Json.JsonValueKind.Array)
-            {
-                foreach (var item in aud.EnumerateArray())
-                {
-                    if (item.ValueKind == System.Text.Json.JsonValueKind.String &&
-                        Matches(item.GetString() ?? ""))
-                        return true;
-                }
-            }
-        }
-        catch
-        {
-            return true;
-        }
-
-        return false;
     }
 }

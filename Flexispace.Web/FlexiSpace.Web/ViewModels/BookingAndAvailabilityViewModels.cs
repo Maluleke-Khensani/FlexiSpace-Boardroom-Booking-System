@@ -8,8 +8,8 @@ using Flexispace.Web.Services;
 
 namespace Flexispace.Web.ViewModels;
 
-//Four-step booking wizard: location, room, date/time, then company and catering details.
-public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBookingService bookings, INavigationService nav) : ObservableObject
+//Five-step booking wizard: location, room, date/time, details, then in-person payment.
+public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBookingService bookings, INavigationService nav, INotificationService notifications) : ObservableObject
 {
     [ObservableProperty] private int step = 1;
     [ObservableProperty] private string? prefillRoomId;
@@ -17,12 +17,13 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     [ObservableProperty] private OfficeLocation? selectedLocation;
     [ObservableProperty] private Boardroom? selectedRoom;
     [ObservableProperty] private DateTime selectedDate = DateTime.Today;
-    [ObservableProperty] private TimeSpan startTime = new(9, 0, 0);
-    [ObservableProperty] private TimeSpan endTime = new(10, 0, 0);
+    [ObservableProperty] private TimeSpan? startTime;
+    [ObservableProperty] private TimeSpan? endTime;
     [ObservableProperty] private string company = string.Empty;
     [ObservableProperty] private string attendeesText = string.Empty;
     [ObservableProperty] private string notes = string.Empty;
     [ObservableProperty] private string? errorMessage;
+    [ObservableProperty] private string? errorAnchor;
     [ObservableProperty] private string? successMessage;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string suggestedSlotsText = string.Empty;
@@ -31,6 +32,7 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     [ObservableProperty] private bool canConjoin;
     [ObservableProperty] private string? conjoinPartnerName;
     [ObservableProperty] private int conjoinCapacity;
+    [ObservableProperty] private bool showGuestAccountPrompt;
 
     public List<OccupiedSlot> OccupiedSlots { get; } = [];
 
@@ -44,10 +46,15 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     {
         get
         {
+            if (StartTime is not { } start)
+                return [];
+
             var taken = new List<TimeSpan>();
-            for (var t = StartTime.Add(TimeSpan.FromMinutes(30)); t <= new TimeSpan(19, 0, 0); t = t.Add(TimeSpan.FromMinutes(30)))
+            for (var t = start.Add(TimeSpan.FromMinutes(30)); t <= new TimeSpan(19, 0, 0); t = t.Add(TimeSpan.FromMinutes(30)))
             {
-                if (OccupiedSlots.Any(slot => StartTime < slot.End && t > slot.Start))
+                // Grey every end that would overlap a booking or block from the chosen start.
+                // Ending exactly when a busy period starts is still allowed (exclusive end).
+                if (OccupiedSlots.Any(slot => start < slot.End && t > slot.Start))
                     taken.Add(t);
             }
 
@@ -60,10 +67,51 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
             ? $"{SelectedRoom.Name} + {ConjoinPartnerName}"
             : SelectedRoom?.Name ?? string.Empty;
 
+    public int BookingCapacity =>
+        ConjoinEnabled && CanConjoin ? ConjoinCapacity : SelectedRoom?.Capacity ?? 0;
+
+    public IReadOnlyList<string> IncludedRoomEquipment
+    {
+        get
+        {
+            if (SelectedRoom is null)
+                return [];
+
+            var roomIds = ConjoinEnabled && CanConjoin
+                ? RoomCombinations.GetCombinationFor(SelectedRoom.Id)?.CombinedRoomIds ?? [SelectedRoom.Id]
+                : [SelectedRoom.Id];
+
+            return Rooms
+                .Where(room => roomIds.Contains(room.Id))
+                .SelectMany(room => room.Equipment)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+    }
+
+    public bool AttendeesExceedCapacity =>
+        BookingCapacity > 0 && int.TryParse(AttendeesText, out var attendees) && attendees > BookingCapacity;
+
+    public string? AttendeeCapacityMessage => AttendeesExceedCapacity
+        ? $"This room seats {BookingCapacity}. Reduce the attendee count to continue."
+        : null;
+
+    partial void OnAttendeesTextChanged(string value) => NotifyRoomBookingDetailsChanged();
+
+    private void NotifyRoomBookingDetailsChanged()
+    {
+        OnPropertyChanged(nameof(BookingCapacity));
+        OnPropertyChanged(nameof(IncludedRoomEquipment));
+        OnPropertyChanged(nameof(AttendeesExceedCapacity));
+        OnPropertyChanged(nameof(AttendeeCapacityMessage));
+    }
+
     public ObservableCollection<OfficeLocation> Locations { get; } = [];
     public ObservableCollection<Boardroom> Rooms { get; } = [];
     public ObservableCollection<SelectableOption> EquipmentOptions { get; } = [];
     public ObservableCollection<SelectableOption> CateringOptions { get; } = [];
+    public ObservableCollection<DateTime> SuggestedSlots { get; } = [];
 
     public void SetPrefill(string? locationId, string? roomId)
     {
@@ -78,7 +126,7 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
         CanBook = user is not null && RolePermissions.CanBookRooms(user.Role);
         if (!CanBook)
         {
-            ErrorMessage = "Your role cannot create bookings.";
+            SetError("Your role cannot create bookings.", "fs-error-banner");
             return;
         }
 
@@ -93,13 +141,13 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
             Locations.Add(loc);
         }
 
-        if (EquipmentOptions.Count == 0)
-        {
-            foreach (var e in await rooms.GetEquipmentCatalogAsync())
-                EquipmentOptions.Add(new SelectableOption { Label = e });
-            foreach (var c in await rooms.GetCateringCatalogAsync())
-                CateringOptions.Add(new SelectableOption { Label = c });
-        }
+        EquipmentOptions.Clear();
+        foreach (var e in await rooms.GetEquipmentCatalogItemsAsync())
+            EquipmentOptions.Add(new SelectableOption { Label = e.Name, Description = e.Description, IsActive = e.IsActive });
+
+        CateringOptions.Clear();
+        foreach (var c in await rooms.GetCateringCatalogItemsAsync())
+            CateringOptions.Add(new SelectableOption { Label = c.Name, Description = c.Description, IsActive = c.IsActive });
 
         await InitPrefillAsync();
     }
@@ -145,6 +193,7 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
         SelectedLocation = location;
         SelectedRoom = null;
         ConjoinEnabled = false;
+        ClearError();
         await LoadRoomsAsync();
         Step = 2;
     }
@@ -168,6 +217,7 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     {
         ConjoinEnabled = CanConjoin && enabled;
         OnPropertyChanged(nameof(BookingRoomLabel));
+        NotifyRoomBookingDetailsChanged();
     }
 
     private void RefreshConjoinState()
@@ -180,6 +230,7 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
             ConjoinPartnerName = null;
             ConjoinCapacity = 0;
             OnPropertyChanged(nameof(BookingRoomLabel));
+        NotifyRoomBookingDetailsChanged();
             return;
         }
 
@@ -188,6 +239,7 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
                              ?? SeedData.Rooms.FirstOrDefault(r => r.Id == partnerId)?.Name;
         ConjoinCapacity = combo.Capacity;
         OnPropertyChanged(nameof(BookingRoomLabel));
+        NotifyRoomBookingDetailsChanged();
     }
 
     [RelayCommand]
@@ -216,29 +268,11 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
         foreach (var slot in await bookings.GetOccupiedSlotsAsync(roomId, SelectedDate))
             OccupiedSlots.Add(slot);
 
-        if (UnavailableStartSlots.Contains(StartTime))
-        {
-            var next = FirstAvailableStart();
-            if (next.HasValue)
-                StartTime = next.Value;
-        }
-
-        if (EndTime <= StartTime || UnavailableEndSlots.Contains(EndTime))
-            EndTime = StartTime.Add(TimeSpan.FromHours(1));
-
+        OnPropertyChanged(nameof(OccupiedSlots));
         NotifyUnavailableSlots();
     }
 
-    private TimeSpan? FirstAvailableStart()
-    {
-        for (var t = new TimeSpan(7, 0, 0); t <= new TimeSpan(18, 0, 0); t = t.Add(TimeSpan.FromMinutes(30)))
-        {
-            if (!UnavailableStartSlots.Contains(t))
-                return t;
-        }
-
-        return null;
-    }
+    partial void OnStartTimeChanged(TimeSpan? value) => NotifyUnavailableSlots();
 
     private static IEnumerable<TimeSpan> EnumerateHalfHours(TimeSpan start, TimeSpan end)
     {
@@ -257,19 +291,66 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     [RelayCommand]
     private void NextToDetails()
     {
-        if (OccupiedSlots.Any(slot => StartTime < slot.End && EndTime > slot.Start))
+        if (StartTime is not { } start || EndTime is not { } end)
         {
-            ErrorMessage = "That time overlaps an existing booking. Choose a free slot.";
+            SetError("Choose a start time and an end time.", "book-start");
             return;
         }
 
-        ErrorMessage = null;
+        if (OccupiedSlots.Any(slot => start < slot.End && end > slot.Start))
+        {
+            SetError("That time overlaps an existing booking or a blocked period. Try one of the suggested times.", "book-start");
+            FillSuggestions(end - start);
+            return;
+        }
+
+        ClearError();
+        SuggestedSlots.Clear();
+        SuggestedSlotsText = string.Empty;
         Step = 4;
+    }
+
+    [RelayCommand]
+    private void NextToPayment()
+    {
+        if (string.IsNullOrWhiteSpace(Company))
+        {
+            SetError("Please enter the company this meeting is for.", "book-company");
+            return;
+        }
+
+        if (!int.TryParse(AttendeesText, out var attendees) || attendees < 1)
+        {
+            SetError("Enter how many people will attend.", "book-attendees");
+            return;
+        }
+
+        var capacity = ConjoinEnabled && CanConjoin ? ConjoinCapacity : SelectedRoom?.Capacity ?? 0;
+        if (capacity > 0 && attendees > capacity)
+        {
+            SetError($"{BookingRoomLabel} seats {capacity}. Reduce the attendee count or choose a larger room.", "book-attendees");
+            return;
+        }
+
+        ClearError();
+        Step = 5;
+    }
+
+    partial void OnStepChanged(int value)
+    {
+        if (value != 5)
+            ShowGuestAccountPrompt = false;
     }
 
     [RelayCommand]
     private void Back()
     {
+        if (ShowGuestAccountPrompt)
+        {
+            ShowGuestAccountPrompt = false;
+            return;
+        }
+
         if (Step > 1) Step--;
     }
 
@@ -278,18 +359,32 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
     {
         if (SelectedRoom is null)
         {
-            ErrorMessage = "Select a boardroom first.";
+            SetError("Select a boardroom first.", "book-room");
+            Step = 2;
+            return;
+        }
+
+        if (StartTime is not { } startTime || EndTime is not { } endTime)
+        {
+            SetError("Choose a start time and an end time.", "book-start");
+            Step = 3;
+            return;
+        }
+
+        if (auth.IsGuest)
+        {
+            ShowGuestAccountPrompt = true;
             return;
         }
 
         IsBusy = true;
-        ErrorMessage = null;
+        ClearError();
         SuccessMessage = null;
         SuggestedSlotsText = string.Empty;
         try
         {
-            var start = SelectedDate.Date + StartTime;
-            var end = SelectedDate.Date + EndTime;
+            var start = SelectedDate.Date + startTime;
+            var end = SelectedDate.Date + endTime;
             var roomId = ConjoinEnabled && CanConjoin
                 ? RoomCombinations.GetCombinationFor(SelectedRoom.Id)?.Id ?? SelectedRoom.Id
                 : SelectedRoom.Id;
@@ -308,24 +403,91 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
 
             if (!result.Success)
             {
-                ErrorMessage = result.Message;
+                var anchor = result.Message.Contains("time", StringComparison.OrdinalIgnoreCase) ||
+                             result.Message.Contains("booked", StringComparison.OrdinalIgnoreCase) ||
+                             result.Message.Contains("blocked", StringComparison.OrdinalIgnoreCase)
+                    ? "book-start"
+                    : "fs-error-banner";
+                if (anchor == "book-start")
+                    Step = 3;
+                SetError(result.Message, anchor);
                 if (result.SuggestedSlots.Count > 0)
-                {
-                    SuggestedSlotsText = "Suggested: " + string.Join(", ",
-                        result.SuggestedSlots.Select(s => s.ToString("HH:mm")));
-                }
+                    ApplySuggestedStarts(result.SuggestedSlots);
+                else
+                    FillSuggestions(end - start);
                 return;
             }
 
             SuccessMessage = result.Message;
-            Step = 5;
             if (result.Booking is not null)
+            {
+                await notifications.AddAsync(new AppNotification
+                {
+                    Title = "Booking confirmed",
+                    Message = $"Your booking for {result.Booking.RoomName} on {result.Booking.Start:g} is confirmed.",
+                    Type = "Confirmation",
+                    BookingId = result.Booking.Id
+                });
                 nav.NavigateTo($"/bookings/{result.Booking.Id}/confirmation");
+            }
         }
         finally
         {
             IsBusy = false;
         }
+    }
+
+    private void SetError(string message, string anchor)
+    {
+        ErrorMessage = message;
+        ErrorAnchor = anchor;
+    }
+
+    private void ClearError()
+    {
+        ErrorMessage = null;
+        ErrorAnchor = null;
+    }
+
+    public void ApplySuggestedStart(DateTime start)
+    {
+        var duration = StartTime is { } s && EndTime is { } e && e > s
+            ? e - s
+            : TimeSpan.FromHours(1);
+        StartTime = start.TimeOfDay;
+        EndTime = start.TimeOfDay.Add(duration);
+        SuggestedSlots.Clear();
+        SuggestedSlotsText = string.Empty;
+        ClearError();
+    }
+
+    private void FillSuggestions(TimeSpan duration)
+    {
+        if (duration <= TimeSpan.Zero)
+            duration = TimeSpan.FromHours(1);
+
+        var found = new List<DateTime>();
+        for (var t = new TimeSpan(8, 0, 0);
+             t.Add(duration) <= new TimeSpan(19, 0, 0) && found.Count < 3;
+             t = t.Add(TimeSpan.FromMinutes(30)))
+        {
+            var end = t.Add(duration);
+            if (OccupiedSlots.Any(slot => t < slot.End && end > slot.Start))
+                continue;
+            found.Add(SelectedDate.Date + t);
+        }
+
+        ApplySuggestedStarts(found);
+    }
+
+    private void ApplySuggestedStarts(IEnumerable<DateTime> starts)
+    {
+        SuggestedSlots.Clear();
+        foreach (var start in starts.Take(3))
+            SuggestedSlots.Add(start);
+        SuggestedSlotsText = SuggestedSlots.Count == 0
+            ? string.Empty
+            : "Suggested: " + string.Join(", ", SuggestedSlots.Select(s => s.ToString("HH:mm")));
     }
 }
 
@@ -333,6 +495,8 @@ public partial class BookingViewModel(IAuthService auth, IRoomService rooms, IBo
 public partial class SelectableOption : ObservableObject
 {
     public string Label { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public bool IsActive { get; set; } = true;
     [ObservableProperty] private bool isSelected;
 }
 
@@ -356,6 +520,12 @@ public partial class AvailabilityViewModel(IAuthService auth, IRoomService rooms
     [ObservableProperty] private bool canViewAvailability;
     [ObservableProperty] private bool lockLocationFilter;
     [ObservableProperty] private string? accessMessage;
+    [ObservableProperty] private int availableCount;
+    [ObservableProperty] private int reservedCount;
+    [ObservableProperty] private int occupiedCount;
+    [ObservableProperty] private int cleaningCount;
+    [ObservableProperty] private int maintenanceCount;
+    [ObservableProperty] private int blockedCount;
 
     public ObservableCollection<AvailabilityItem> Items { get; } = [];
     public ObservableCollection<OfficeLocation> Locations { get; } = [];
@@ -365,7 +535,7 @@ public partial class AvailabilityViewModel(IAuthService auth, IRoomService rooms
     {
         var user = auth.CurrentUser;
         CanBook = user is not null && RolePermissions.CanBookRooms(user.Role);
-        CanViewAvailability = user is not null && RolePermissions.CanViewAvailability(user.Role);
+        CanViewAvailability = user is not null && !auth.IsGuest && RolePermissions.CanViewAvailability(user.Role);
         LockLocationFilter = user?.Role == UserRole.CentreManager && !string.IsNullOrEmpty(user.LocationId);
 
         if (!CanViewAvailability)
@@ -373,6 +543,7 @@ public partial class AvailabilityViewModel(IAuthService auth, IRoomService rooms
             AccessMessage = "Live availability is for Staff, Centre Managers, and Administrators.";
             Items.Clear();
             IsEmpty = true;
+            AvailableCount = ReservedCount = OccupiedCount = CleaningCount = MaintenanceCount = BlockedCount = 0;
             return;
         }
 
@@ -426,6 +597,12 @@ public partial class AvailabilityViewModel(IAuthService auth, IRoomService rooms
                 });
             }
             IsEmpty = Items.Count == 0;
+            AvailableCount = Items.Count(i => i.Room.Status == RoomStatus.Available);
+            ReservedCount = Items.Count(i => i.Room.Status == RoomStatus.Reserved);
+            OccupiedCount = Items.Count(i => i.Room.Status == RoomStatus.Occupied);
+            CleaningCount = Items.Count(i => i.Room.Status == RoomStatus.Cleaning);
+            MaintenanceCount = Items.Count(i => i.Room.Status == RoomStatus.Maintenance);
+            BlockedCount = Items.Count(i => i.Room.Status == RoomStatus.Blocked);
         }
         finally
         {

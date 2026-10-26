@@ -81,20 +81,36 @@
                     </Border>
                 </Grid>
 
-                <HorizontalStackLayout Spacing="12">
-                    <HorizontalStackLayout Spacing="6">
-                        <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#2E7D4F" VerticalOptions="Center" />
-                        <Label Text="Free" Style="{StaticResource MutedLabel}" FontSize="11" />
+                <VerticalStackLayout Spacing="6">
+                    <HorizontalStackLayout Spacing="12">
+                        <HorizontalStackLayout Spacing="6">
+                            <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#2E7D4F" VerticalOptions="Center" />
+                            <Label Text="Free" Style="{StaticResource MutedLabel}" FontSize="11" />
+                        </HorizontalStackLayout>
+                        <HorizontalStackLayout Spacing="6">
+                            <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#C9A227" VerticalOptions="Center" />
+                            <Label Text="Held" Style="{StaticResource MutedLabel}" FontSize="11" />
+                        </HorizontalStackLayout>
+                        <HorizontalStackLayout Spacing="6">
+                            <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#B33A3A" VerticalOptions="Center" />
+                            <Label Text="In use" Style="{StaticResource MutedLabel}" FontSize="11" />
+                        </HorizontalStackLayout>
                     </HorizontalStackLayout>
-                    <HorizontalStackLayout Spacing="6">
-                        <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#C9A227" VerticalOptions="Center" />
-                        <Label Text="Held" Style="{StaticResource MutedLabel}" FontSize="11" />
+                    <HorizontalStackLayout Spacing="12">
+                        <HorizontalStackLayout Spacing="6">
+                            <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#4A6FA5" VerticalOptions="Center" />
+                            <Label Text="Cleaning" Style="{StaticResource MutedLabel}" FontSize="11" />
+                        </HorizontalStackLayout>
+                        <HorizontalStackLayout Spacing="6">
+                            <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#8A6A3A" VerticalOptions="Center" />
+                            <Label Text="Maintenance" Style="{StaticResource MutedLabel}" FontSize="11" />
+                        </HorizontalStackLayout>
+                        <HorizontalStackLayout Spacing="6">
+                            <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#6E6E6E" VerticalOptions="Center" />
+                            <Label Text="Blocked" Style="{StaticResource MutedLabel}" FontSize="11" />
+                        </HorizontalStackLayout>
                     </HorizontalStackLayout>
-                    <HorizontalStackLayout Spacing="6">
-                        <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#B33A3A" VerticalOptions="Center" />
-                        <Label Text="In use" Style="{StaticResource MutedLabel}" FontSize="11" />
-                    </HorizontalStackLayout>
-                </HorizontalStackLayout>
+                </VerticalStackLayout>
 
                 <Grid ColumnDefinitions="*,Auto">
                     <Label Text="Tap a room photo or name — map layout until floor plans ship."
@@ -112,44 +128,7 @@
                 <VerticalStackLayout>
                     <VerticalStackLayout x:Name="MapHost" Padding="0,12,0,0" IsVisible="True" />
 
-                    <VerticalStackLayout x:Name="ListHost" Spacing="10" Padding="0,12,0,0" IsVisible="False"
-                                         BindableLayout.ItemsSource="{Binding Items}">
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="vm:AvailabilityItem">
-                                <Border Style="{StaticResource ElevatedCard}" Padding="0">
-                                    <Border.GestureRecognizers>
-                                        <TapGestureRecognizer Command="{Binding Source={x:Reference Root}, Path=BindingContext.OpenRoomCommand}"
-                                                              CommandParameter="{Binding .}" />
-                                    </Border.GestureRecognizers>
-                                    <Grid ColumnDefinitions="88,*">
-                                        <Image Source="{Binding Room.ImageKey}" Aspect="AspectFill" HeightRequest="96" />
-                                        <Grid Grid.Column="1" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" Padding="12,10" RowSpacing="4">
-                                            <Label Text="{Binding Room.Name}" TextColor="{DynamicResource BrandInk}" FontAttributes="Bold" FontSize="16" />
-                                            <Border Grid.Column="1" Style="{StaticResource StatusPillBorder}" BackgroundColor="{Binding StatusColor}">
-                                                <Label Text="{Binding StatusText}" Style="{StaticResource StatusPillText}" />
-                                            </Border>
-                                            <Label Grid.Row="1" Text="{Binding LocationName}" TextColor="{DynamicResource BrandMuted}" FontSize="13" />
-                                            <Label Grid.Row="2"
-                                                   Text="{Binding Room.Capacity, StringFormat='Seats {0}'}"
-                                                   TextColor="{DynamicResource BrandGoldDeep}"
-                                                   FontSize="12"
-                                                   VerticalOptions="Center" />
-                                            <Button Grid.Row="2" Grid.Column="1"
-                                                    Text="Book"
-                                                    IsVisible="{Binding Source={x:Reference Root}, Path=BindingContext.CanBook}"
-                                                    Command="{Binding Source={x:Reference Root}, Path=BindingContext.BookRoomCommand}"
-                                                    CommandParameter="{Binding .}"
-                                                    Style="{StaticResource GoldButton}"
-                                                    Padding="12,6"
-                                                    FontSize="12"
-                                                    MinimumHeightRequest="36"
-                                                    VerticalOptions="End" />
-                                        </Grid>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
-                    </VerticalStackLayout>
+                    <VerticalStackLayout x:Name="ListHost" Spacing="16" Padding="0,12,0,24" IsVisible="False" />
                 </VerticalStackLayout>
             </ScrollView>
         </RefreshView>

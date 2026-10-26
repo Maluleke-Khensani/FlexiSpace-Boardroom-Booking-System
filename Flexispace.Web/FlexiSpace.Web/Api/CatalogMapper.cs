@@ -42,6 +42,7 @@ internal static class CatalogMapper
             {
                 1 => RoomStatus.Maintenance,
                 2 => RoomStatus.Blocked,
+                3 => RoomStatus.Cleaning,
                 _ => RoomStatus.Available
             },
             ImageKey = seed?.ImageKey ?? "room_meeting"
@@ -132,8 +133,12 @@ internal static class CatalogMapper
         IReadOnlyDictionary<int, string> equipmentNames,
         IReadOnlyDictionary<int, string> cateringNames)
     {
-        var start = dto.BookingDate.ToDateTime(dto.StartTime);
-        var end = dto.BookingDate.ToDateTime(dto.EndTime);
+        var start = dto.Start ?? (dto.BookingDate == default
+            ? default
+            : dto.BookingDate.ToDateTime(dto.StartTime));
+        var end = dto.End ?? (dto.BookingDate == default
+            ? default
+            : dto.BookingDate.ToDateTime(dto.EndTime));
         return new Booking
         {
             Id = IdMap.ToGuid(dto.Id),
@@ -158,7 +163,9 @@ internal static class CatalogMapper
                 .Cast<string>()
                 .ToList(),
             Notes = dto.Notes ?? string.Empty,
-            Status = ToWebStatus(dto.Status)
+            Status = ToWebStatus(dto.Status),
+            CreatedAt = dto.CreatedAt,
+            ModifiedAt = dto.ModifiedAt
         };
     }
 
@@ -174,6 +181,7 @@ internal static class CatalogMapper
             1 => "Cancellation",
             2 => "Reminder",
             3 => "Info",
+            4 => "Blocked",
             _ => "Confirmation"
         }
     };

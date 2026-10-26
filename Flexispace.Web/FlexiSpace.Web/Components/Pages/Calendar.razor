@@ -1,0 +1,222 @@
+@* Booking calendar with day, week, month, and timeline views. *@
+@page "/calendar"
+@inject CalendarViewModel Vm
+@inject IAuthService Auth
+@using Flexispace.Core.Helpers
+
+<PageTitle>Calendar · Flexispace</PageTitle>
+
+@if (!Auth.IsAuthenticated)
+{
+    <RedirectToLogin />
+}
+else if (!Vm.HasAccess)
+{
+    <div class="fs-content-wide">
+        <p class="fs-muted">Sign in to view the booking calendar.</p>
+    </div>
+}
+else
+{
+    <div class="fs-content-wide">
+        <div class="fs-toolbar" style="margin-bottom:16px">
+            <div>
+                <p class="fs-eyebrow">Calendar</p>
+                <h2 class="fs-section-title" style="margin:0">@Vm.RangeLabel</h2>
+            </div>
+            <div class="fs-flex">
+                <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="Previous">Prev</button>
+                <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="Today">Today</button>
+                <button type="button" class="fs-btn fs-btn--ghost fs-btn--sm" @onclick="Next">Next</button>
+            </div>
+        </div>
+
+        <div class="fs-view-toggle" style="margin-bottom:16px">
+            <button type="button" class="@(Vm.View == CalendarViewKind.Day ? "active" : "")" @onclick="() => SetView(CalendarViewKind.Day)">Day</button>
+            <button type="button" class="@(Vm.View == CalendarViewKind.Week ? "active" : "")" @onclick="() => SetView(CalendarViewKind.Week)">Week</button>
+            <button type="button" class="@(Vm.View == CalendarViewKind.Month ? "active" : "")" @onclick="() => SetView(CalendarViewKind.Month)">Month</button>
+            <button type="button" class="@(Vm.View == CalendarViewKind.Timeline ? "active" : "")" @onclick="() => SetView(CalendarViewKind.Timeline)">Timeline</button>
+        </div>
+
+        <p class="fs-muted" style="margin:0 0 10px; font-size:12px">Filter by location</p>
+        <div class="fs-location-chips">
+            @foreach (var loc in Vm.Locations)
+            {
+                <button type="button"
+                        class="fs-location-chip @(loc.Id == Vm.LocationFilterId ? "is-active" : "")"
+                        disabled="@Vm.LockLocationFilter"
+                        @onclick="() => Vm.LocationFilterId = loc.Id">
+                    @loc.Name
+                </button>
+            }
+        </div>
+
+        <div class="fs-user-form-grid" style="margin-bottom:20px">
+            <div>
+                <label class="fs-label" for="cal-room">Boardroom</label>
+                <select id="cal-room" class="fs-field" @bind="Vm.RoomFilterId">
+                    @foreach (var room in Vm.FilterRooms)
+                    {
+                        <option value="@room.Id">@room.Name</option>
+                    }
+                </select>
+            </div>
+            <div>
+                <label class="fs-label" for="cal-capacity">Capacity</label>
+                <select id="cal-capacity" class="fs-field" value="@Vm.MinCapacity" @onchange="OnCapacity">
+                    <option value="0">Any capacity</option>
+                    <option value="4">4+</option>
+                    <option value="8">8+</option>
+                    <option value="12">12+</option>
+                    <option value="16">16+</option>
+                </select>
+            </div>
+            <div>
+                <label class="fs-label" for="cal-equipment">Equipment</label>
+                <select id="cal-equipment" class="fs-field" @bind="Vm.EquipmentFilter">
+                    @foreach (var item in Vm.EquipmentOptions)
+                    {
+                        <option value="@(item == "Any equipment" ? "" : item)">@item</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        @if (Vm.IsBusy)
+        {
+            <p class="fs-muted">Loading calendar…</p>
+        }
+        else if (Vm.View == CalendarViewKind.Day)
+        {
+            <div class="fs-cal-day">
+                <div class="fs-cal-hours">
+                    @foreach (var hour in Vm.Hours)
+                    {
+                        <div class="fs-cal-hour-label">@hour:00</div>
+                    }
+                </div>
+                <div class="fs-cal-track">
+                    @foreach (var ev in Vm.EventsOn(Vm.AnchorDate))
+                    {
+                        <button type="button"
+                                class="fs-cal-event"
+                                style="top:@Percent(CalendarViewModel.TopPercent(ev.Start));height:@Percent(CalendarViewModel.HeightPercent(ev.Start, ev.End));background:@ev.Color"
+                                @onclick="() => Open(ev)">
+                            <strong>@ev.Title</strong>
+                            <span>@ev.Subtitle</span>
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+        else if (Vm.View == CalendarViewKind.Week)
+        {
+            <div class="fs-cal-week">
+                <div class="fs-cal-week__hours">
+                    <div class="fs-cal-week__corner"></div>
+                    @foreach (var hour in Vm.Hours)
+                    {
+                        <div class="fs-cal-hour-label">@hour:00</div>
+                    }
+                </div>
+                @foreach (var day in Vm.WeekDays)
+                {
+                    <div class="fs-cal-week__col">
+                        <div class="fs-cal-week__head @(day.Date == DateTime.Today ? "is-today" : "")">
+                            <span>@day.ToString("ddd")</span>
+                            <strong>@day.Day</strong>
+                        </div>
+                        <div class="fs-cal-track fs-cal-track--week">
+                            @foreach (var ev in Vm.EventsOn(day))
+                            {
+                                <button type="button"
+                                        class="fs-cal-event fs-cal-event--compact"
+                                        style="top:@Percent(CalendarViewModel.TopPercent(ev.Start));height:@Percent(CalendarViewModel.HeightPercent(ev.Start, ev.End));background:@ev.Color"
+                                        @onclick="() => Open(ev)">
+                                    <strong>@ev.Title</strong>
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else if (Vm.View == CalendarViewKind.Month)
+        {
+            <div class="fs-cal-month">
+                @foreach (var name in new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" })
+                {
+                    <div class="fs-cal-month__dow">@name</div>
+                }
+                @foreach (var day in Vm.MonthCells)
+                {
+                    var events = Vm.EventsOn(day).Take(3).ToList();
+                    var extra = Vm.EventsOn(day).Count - events.Count;
+                    <div class="fs-cal-month__cell @(Vm.IsInMonth(day) ? "" : "is-muted") @(day.Date == DateTime.Today ? "is-today" : "")">
+                        <span class="fs-cal-month__num">@day.Day</span>
+                        @foreach (var ev in events)
+                        {
+                            <button type="button" class="fs-cal-month__event" style="background:@ev.Color" @onclick="() => Open(ev)">@ev.Title</button>
+                        }
+                        @if (extra > 0)
+                        {
+                            <span class="fs-muted" style="font-size:11px">+@extra more</span>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="fs-cal-timeline">
+                <div class="fs-cal-timeline__head">
+                    <div class="fs-cal-timeline__room-h">Boardroom</div>
+                    <div class="fs-cal-timeline__hours">
+                        @foreach (var hour in Vm.Hours)
+                        {
+                            <span>@hour:00</span>
+                        }
+                    </div>
+                </div>
+                @foreach (var room in Vm.FilterRooms.Where(r => !string.IsNullOrEmpty(r.Id)))
+                {
+                    <div class="fs-cal-timeline__row">
+                        <div class="fs-cal-timeline__room">
+                            <strong>@room.Name</strong>
+                            <span class="fs-muted" style="font-size:11px">Seats @room.Capacity</span>
+                        </div>
+                        <div class="fs-cal-track fs-cal-track--timeline">
+                            @foreach (var ev in Vm.EventsForRoom(room.Id))
+                            {
+                                <button type="button"
+                                        class="fs-cal-event fs-cal-event--compact"
+                                        style="top:8px;height:calc(100% - 16px);left:@Percent(CalendarViewModel.TopPercent(ev.Start));width:@Percent(CalendarViewModel.HeightPercent(ev.Start, ev.End));background:@ev.Color"
+                                        @onclick="() => Open(ev)">
+                                    <strong>@ev.Title</strong>
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    protected override async Task OnInitializedAsync() =>
+        await Vm.AppearingCommand.ExecuteAsync(null);
+
+    private void SetView(CalendarViewKind kind) => Vm.SetViewCommand.Execute(kind);
+    private void Previous() => Vm.PreviousCommand.Execute(null);
+    private void Next() => Vm.NextCommand.Execute(null);
+    private void Today() => Vm.TodayCommand.Execute(null);
+    private void Open(CalendarEvent ev) => Vm.OpenEventCommand.Execute(ev);
+    private void OnCapacity(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var n))
+            Vm.MinCapacity = n;
+    }
+
+    private static string Percent(double value) => $"{value:0.##}%";
+}

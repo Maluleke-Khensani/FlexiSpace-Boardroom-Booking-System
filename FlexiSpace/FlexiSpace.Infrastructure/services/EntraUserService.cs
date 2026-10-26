@@ -62,23 +62,27 @@ namespace FlexiSpace.Infrastructure.services
                     "accountEnabled eq true";
             });
 
-            if (response?.Value == null)
-            {
-                return Enumerable.Empty<EntraUserResponseDto>();
-            }
-
             var users = new List<EntraUserResponseDto>();
-
-            foreach (var user in response.Value)
+            var page = response;
+            while (page?.Value is not null)
             {
-                var dto = MapToDto(user);
+                foreach (var user in page.Value)
+                {
+                    var dto = MapToDto(user);
 
-                // Retrieve the FlexiSpace app role assigned to
-                // this Entra user.
-                dto.Role = await GetFlexiSpaceRoleAsync(
-                    dto.EntraObjectId);
+                    // Retrieve the FlexiSpace app role assigned to
+                    // this Entra user.
+                    dto.Role = await GetFlexiSpaceRoleAsync(
+                        dto.EntraObjectId);
 
-                users.Add(dto);
+                    users.Add(dto);
+                }
+
+                // Microsoft Graph paginates directory results. Follow every
+                // page so accounts after the first page can also be provisioned.
+                page = string.IsNullOrWhiteSpace(page.OdataNextLink)
+                    ? null
+                    : await _graphClient.Users.WithUrl(page.OdataNextLink).GetAsync();
             }
 
             // Sort locally instead of using Graph $orderby.
